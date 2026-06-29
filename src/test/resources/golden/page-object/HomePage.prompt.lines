@@ -1,0 +1,9 @@
+# Goal
+Generate exactly one Page Object spec for the scoped Selenium page capability confirmed by mapper evidence: HomePage.
+pageContract=page with UNKNOWN capability
+Schema version: ai-page-object-spec.v1.
+"schemaVersion": "ai-page-object-spec.v1"
+"pageName": "HomePage"
+"route": "/"
+"openMethodName": "openHome"
+Page Objects operate only within the configured application base URL.

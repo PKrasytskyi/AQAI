@@ -1,0 +1,145 @@
+package ua.demo.agentlab.ui.discovery.mapping;
+
+import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
+import ua.demo.agentlab.ui.discovery.pagemodel.model.PageElementModel;
+import ua.demo.agentlab.ui.discovery.pagemodel.model.PageLocatorModel;
+
+import java.util.List;
+import java.util.Locale;
+
+public class LocatorQualityEvaluator {
+
+    private final LocatorOriginResolver originResolver;
+    private final LocatorStabilityTracker stabilityTracker;
+    private final LocatorRiskClassifier riskClassifier;
+
+    public LocatorQualityEvaluator() {
+        this(new LocatorOriginResolver(), new LocatorStabilityTracker(), new LocatorRiskClassifier());
+    }
+
+    public LocatorQualityEvaluator(
+            LocatorOriginResolver originResolver,
+            LocatorStabilityTracker stabilityTracker,
+            LocatorRiskClassifier riskClassifier
+    ) {
+        this.originResolver = originResolver == null ? new LocatorOriginResolver() : originResolver;
+        this.stabilityTracker = stabilityTracker == null ? new LocatorStabilityTracker() : stabilityTracker;
+        this.riskClassifier = riskClassifier == null ? new LocatorRiskClassifier() : riskClassifier;
+    }
+
+    public LocatorCandidate evaluate(String pageUrl, PageElementModel element, PageLocatorModel locator) {
+        LocatorStrategy strategy = LocatorStrategy.from(locator == null ? "" : locator.strategy());
+        LocatorOriginResolver.LocatorOrigin origin = originResolver.resolve(pageUrl, element, locator);
+        boolean uniqueOnPage = stabilityTracker.uniqueOnPage(locator, element);
+        boolean stableAcrossRuns = stabilityTracker.stableAcrossRuns(locator, element);
+        List<String> risks = riskClassifier.classify(locator, element, origin, uniqueOnPage, stableAcrossRuns);
+        double score = score(strategy, locator, element, origin, uniqueOnPage, stableAcrossRuns, risks);
+        return new LocatorCandidate(
+                strategy,
+                locator == null ? "" : locator.value(),
+                score,
+                locator == null ? "" : locator.reason(),
+                firstNonBlank(element == null ? "" : element.role(), element == null ? "" : element.technicalType()),
+                firstNonBlank(element == null ? "" : element.ariaLabel(), element == null ? "" : element.text(), element == null ? "" : element.name()),
+                element == null ? "" : element.text(),
+                origin.href(),
+                origin.originHost(),
+                origin.sameOrigin(),
+                uniqueOnPage,
+                stableAcrossRuns,
+                risks
+        );
+    }
+
+    public boolean allowed(LocatorCandidate candidate) {
+        if (candidate == null || candidate.value().isBlank() || candidate.strategy().isBlank()) {
+            return false;
+        }
+        return !riskClassifier.forbidden(candidate.risks()) && candidate.stabilityScore() >= 0.10d;
+    }
+
+    private double score(
+            LocatorStrategy strategy,
+            PageLocatorModel locator,
+            PageElementModel element,
+            LocatorOriginResolver.LocatorOrigin origin,
+            boolean uniqueOnPage,
+            boolean stableAcrossRuns,
+            List<String> risks
+    ) {
+        String value = locator == null ? "" : locator.value();
+        String normalized = value.toLowerCase(Locale.ROOT);
+        double base;
+        if (containsAny(normalized, "data-testid", "data-test", "data-qa")) {
+            base = 0.95d;
+        } else if (strategy == LocatorStrategy.ID) {
+            base = 0.90d;
+        } else if (strategy == LocatorStrategy.NAME && isFormField(element)) {
+            base = 0.80d;
+        } else if (containsAny(normalized, "aria-label") || !safe(element == null ? "" : element.ariaLabel()).isBlank()
+                || !safe(element == null ? "" : element.role()).isBlank()) {
+            base = 0.75d;
+        } else if (strategy == LocatorStrategy.CSS && shortStableCss(normalized)) {
+            base = 0.60d;
+        } else if (strategy == LocatorStrategy.XPATH && risks.contains("external-link-text-xpath")) {
+            base = 0.05d;
+        } else if (strategy == LocatorStrategy.XPATH && risks.contains("long-absolute-xpath")) {
+            base = 0.10d;
+        } else if (strategy == LocatorStrategy.XPATH) {
+            base = 0.35d;
+        } else {
+            base = locator == null ? 0.20d : Math.min(locator.score(), 0.60d);
+        }
+
+        if (!origin.sameOrigin()) {
+            base = Math.min(base, strategy == LocatorStrategy.XPATH ? 0.05d : 0.15d);
+        }
+        if (!uniqueOnPage) {
+            base -= 0.05d;
+        }
+        if (!stableAcrossRuns) {
+            base -= 0.15d;
+        }
+        return Math.max(0.0d, Math.min(1.0d, base));
+    }
+
+    private boolean shortStableCss(String value) {
+        if (value.length() > 80 || value.contains(" > ") || value.chars().filter(ch -> ch == ' ').count() > 2) {
+            return false;
+        }
+        return value.contains("#")
+                || value.contains(".")
+                || value.contains("[href=")
+                || value.contains("[placeholder=")
+                || value.contains("[type=");
+    }
+
+    private boolean isFormField(PageElementModel element) {
+        String text = safe(element == null ? "" : element.technicalType()) + " "
+                + safe(element == null ? "" : element.tag()) + " "
+                + safe(element == null ? "" : element.inputType());
+        return containsAny(text.toLowerCase(Locale.ROOT), "input", "field", "password", "email", "textarea", "select");
+    }
+
+    private boolean containsAny(String text, String... fragments) {
+        for (String fragment : fragments) {
+            if (text.contains(fragment)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+}

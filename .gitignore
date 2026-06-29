@@ -1,0 +1,82 @@
+# Java / Maven
+target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+# Local Maven repositories and dependency caches
+.m2repo/
+.m2repo-validation/
+.m2repo_legacy/
+m2repo/
+
+# IDE metadata
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.factorypath
+.apt_generated/
+.sts4-cache/
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+.vscode/
+
+# Build output folders sometimes created by IDEs
+out/
+bin/
+!**/src/main/**/out/
+!**/src/test/**/out/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# AI/discovery runtime artifacts
+target/ai-run/
+target/ai-run-history/
+target/discovery/
+target/rag/
+target/repository-intelligence-check/
+*.prompt.txt
+*.trace.json
+
+# Generated UI code produced by local runs
+src/main/java/ua/demo/agentlab/ui/generated/
+src/test/java/ua/demo/agentlab/ui/generated/
+
+# Local secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+*.local.properties
+*-local.properties
+application-local.properties
+framework-local.properties
+test-data-local.properties
+openai.properties
+secrets.properties
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker/local database volumes if created in the workspace
+neo4j_data/
+neo4j_logs/
+qdrant_storage/
+data/

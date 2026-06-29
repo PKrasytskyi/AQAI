@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-ui-test-spec.v1",
+  "type": "object",
+  "required": ["schemaVersion", "tests"],
+  "properties": {
+    "schemaVersion": { "const": "ai-ui-test-spec.v1" },
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "scenarioId",
+          "className",
+          "sourcePageClassName",
+          "sourcePageVariableName",
+          "pageClassName",
+          "pageVariableName",
+          "testMethodName",
+          "testDescription",
+          "actionBody",
+          "assertionBody",
+          "additionalImports"
+        ],
+        "properties": {
+          "scenarioId": { "type": "string", "minLength": 1 },
+          "className": { "type": "string", "minLength": 1 },
+          "sourcePageClassName": { "type": "string" },
+          "sourcePageVariableName": { "type": "string" },
+          "pageClassName": { "type": "string", "minLength": 1 },
+          "pageVariableName": { "type": "string" },
+          "testMethodName": { "type": "string", "minLength": 1 },
+          "testDescription": { "type": "string" },
+          "actionBody": { "type": "string", "minLength": 1 },
+          "assertionBody": { "type": "string", "minLength": 1 },
+          "additionalImports": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

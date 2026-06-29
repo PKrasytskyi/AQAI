@@ -1,0 +1,9 @@
+# Goal
+Generate exactly one Page Object spec for the scoped Selenium page capability confirmed by mapper evidence: SecureAreaPage.
+pageContract=page with UNKNOWN capability
+Schema version: ai-page-object-spec.v1.
+"schemaVersion": "ai-page-object-spec.v1"
+"pageName": "SecureAreaPage"
+"route": "/secure"
+"openMethodName": "openSecureArea"
+Boolean state methods use meaningful page-specific evidence

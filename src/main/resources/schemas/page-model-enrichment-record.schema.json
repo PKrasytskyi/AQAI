@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "page-model-enrichment-record.v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "pageId",
+    "pageName",
+    "route",
+    "businessIntent",
+    "pageSummary",
+    "supportedActions",
+    "stableLocators",
+    "preconditions",
+    "postconditions",
+    "risks",
+    "coverageGaps",
+    "requirementTraceability",
+    "confidenceScore"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "page-model-enrichment-record.v1" },
+    "pageId": { "type": "string", "minLength": 1 },
+    "pageName": { "type": "string", "minLength": 1 },
+    "route": { "type": "string" },
+    "businessIntent": { "type": "string" },
+    "pageSummary": { "type": "string" },
+    "supportedActions": { "type": "array", "items": { "type": "string" } },
+    "stableLocators": { "type": "array", "items": { "type": "string" } },
+    "preconditions": { "type": "array", "items": { "type": "string" } },
+    "postconditions": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "coverageGaps": { "type": "array", "items": { "type": "string" } },
+    "requirementTraceability": { "type": "array", "items": { "type": "string" } },
+    "confidenceScore": { "type": "number", "minimum": 0, "maximum": 1 }
+  },
+  "additionalProperties": false
+}
