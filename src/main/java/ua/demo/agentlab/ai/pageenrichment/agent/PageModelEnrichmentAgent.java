@@ -13,7 +13,6 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.testcase.model.CanonicalTestCase;
 import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedElement;
@@ -37,8 +36,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class PageModelEnrichmentAgent implements WorkflowAgent,
-        PipelineAgent<PageModelEnrichmentInputBundle, PageModelEnrichmentOutput>,
-        WorkflowStatePipelineAdapter<PageModelEnrichmentOutput> {
+        PipelineAgent<PageModelEnrichmentInputBundle, PageModelEnrichmentOutput> {
 
     private final PageModelEnrichmentClient enrichmentClient;
     private final PageModelEnrichedKnowledgeAssembler knowledgeAssembler;
@@ -60,11 +58,6 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "page-model-enrichment-agent";
-    }
-
-    @Override
-    public int order() {
-        return 31;
     }
 
     @Override
@@ -95,18 +88,6 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.PAGE_MODEL_ENRICHMENT_OUTPUT;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getUiTestPlan() != null
-                && state.getFlowScopedKnowledgePackage() != null
-                && state.getPageModelEnrichments().isEmpty();
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

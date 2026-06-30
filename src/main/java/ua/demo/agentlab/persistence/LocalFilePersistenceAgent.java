@@ -1,10 +1,18 @@
 package ua.demo.agentlab.persistence;
 
 import ua.demo.agentlab.orchestration.WorkflowAgent;
+import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
+import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
+import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
-public class LocalFilePersistenceAgent implements WorkflowAgent {
+import java.util.List;
+import java.util.Set;
+
+public class LocalFilePersistenceAgent implements WorkflowAgent,
+        PipelineAgent<GeneratedUiSources, List<String>> {
 
     private final GeneratedFileWriter generatedFileWriter;
 
@@ -18,29 +26,66 @@ public class LocalFilePersistenceAgent implements WorkflowAgent {
     }
 
     @Override
-    public int order() {
-        return 60;
+    public Set<WorkflowArtifact> requires() {
+        return Set.of(WorkflowArtifact.PAGE_OBJECT_FILES);
     }
 
     @Override
-    public boolean supports(WorkflowState state) {
-        return !state.getPageObjectFiles().isEmpty() || !state.getUiTestFiles().isEmpty();
+    public Set<WorkflowArtifact> produces() {
+        return Set.of(WorkflowArtifact.WRITTEN_FILES);
     }
 
     @Override
-    public void execute(WorkflowState state) {
+    public WorkflowArtifact input() {
+        return WorkflowArtifact.PAGE_OBJECT_FILES;
+    }
 
-        for (GeneratedSourceFile file : state.getPageObjectFiles()) {
-            generatedFileWriter.write(file);
-            state.addWrittenFile(file.relativePath());
+    @Override
+    public WorkflowArtifact output() {
+        return WorkflowArtifact.WRITTEN_FILES;
+    }
+
+    @Override
+    public GeneratedUiSources inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        return new GeneratedUiSources(
+                store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.PAGE_OBJECT_FILES)
+                        .map(value -> (java.util.List<GeneratedSourceFile>) value)
+                        .orElse(List.of()),
+                store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.UI_TEST_FILES)
+                        .map(value -> (java.util.List<GeneratedSourceFile>) value)
+                        .orElse(List.of())
+        );
+    }
+
+    @Override
+    public boolean supports(PipelineArtifactStore store, WorkflowState state) {
+        if (store == null || state == null) {
+            return false;
         }
-
-        for (GeneratedSourceFile file : state.getUiTestFiles()) {
-            generatedFileWriter.write(file);
-            state.addWrittenFile(file.relativePath());
+        if ("true".equalsIgnoreCase(state.getArtifacts().get("generated.file.persisted"))) {
+            return false;
         }
+        return !inputFrom(store, state).isEmpty();
+    }
 
-        state.addArtifact("generated.file.written", String.valueOf(state.getWrittenFiles().size()));
-        state.addFinding("Generated file persisted: " + state.getWrittenFiles().size());
+    @Override
+    public List<String> execute(GeneratedUiSources input, WorkflowRunEnvelope run) {
+        List<String> written = new java.util.ArrayList<>();
+        for (GeneratedSourceFile file : input.allFiles()) {
+            generatedFileWriter.write(file);
+            written.add(file.relativePath());
+        }
+        return written;
+    }
+
+    @Override
+    public void applyOutput(List<String> paths, WorkflowState state) {
+        for (String path : paths == null ? List.<String>of() : paths) {
+            state.addWrittenFile(path);
+        }
+        int writtenCount = paths == null ? 0 : paths.size();
+        state.addArtifact("generated.file.persisted", "true");
+        state.addArtifact("generated.file.written", String.valueOf(writtenCount));
+        state.addFinding("Generated file persisted: " + writtenCount);
     }
 }

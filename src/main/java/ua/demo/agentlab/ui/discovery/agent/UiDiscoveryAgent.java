@@ -7,7 +7,6 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.ui.discovery.UiDiscoveryService;
 import ua.demo.agentlab.ui.discovery.model.UiDiscoveryResult;
 import ua.demo.agentlab.ui.flow.CanonicalPageFlowMapper;
@@ -16,8 +15,7 @@ import ua.demo.agentlab.ui.flow.model.CanonicalPageFlowModel;
 import java.util.Set;
 
 public class UiDiscoveryAgent implements WorkflowAgent,
-        PipelineAgent<UiDiscoveryInput, UiDiscoveryOutput>,
-        WorkflowStatePipelineAdapter<UiDiscoveryOutput> {
+        PipelineAgent<UiDiscoveryInput, UiDiscoveryOutput> {
 
     private final UiDiscoveryService discoveryService;
     private final CanonicalPageFlowMapper canonicalMapper;
@@ -37,11 +35,6 @@ public class UiDiscoveryAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "ui-discovery-agent";
-    }
-
-    @Override
-    public int order() {
-        return 25;
     }
 
     @Override
@@ -66,18 +59,6 @@ public class UiDiscoveryAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.UI_DISCOVERY_SNAPSHOT;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getProjectProfile() != null
-                && state.getNormalizedRequirementBundle() != null
-                && state.getUiDiscoverySnapshot() == null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

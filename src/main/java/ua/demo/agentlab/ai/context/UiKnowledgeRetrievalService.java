@@ -7,7 +7,6 @@ import ua.demo.agentlab.ai.rag.model.RetrievedChunk;
 import ua.demo.agentlab.ai.rag.openai.OpenAiEmbeddingClient;
 import ua.demo.agentlab.ai.rag.qdrant.QdrantVectorStore;
 import ua.demo.agentlab.ai.rag.store.VectorStore;
-import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.testcase.model.CanonicalTestCase;
 import ua.demo.agentlab.ui.UiTestScenario;
 import ua.demo.agentlab.ui.discovery.identity.PageReferenceMatcher;
@@ -72,35 +71,6 @@ public class UiKnowledgeRetrievalService {
         this.embeddingService = embeddingService;
         this.vectorStore = vectorStore;
         this.graphQueryService = graphQueryService;
-    }
-
-    public UiKnowledgeRetrievalContext retrieve(WorkflowState state, CanonicalUiInteractionModel canonicalModel) {
-        return retrieve(state, canonicalModel, List.of(), List.of(), "");
-    }
-
-    public UiKnowledgeRetrievalContext retrieve(
-            WorkflowState state,
-            CanonicalUiInteractionModel canonicalModel,
-            List<String> preferredPageIds,
-            List<String> preferredTerms,
-            String querySeed
-    ) {
-        if (state == null) {
-            return UiKnowledgeRetrievalContext.empty("Mapped UI knowledge is not available for retrieval");
-        }
-        return retrieve(new UiKnowledgeRetrievalRequest(
-                state.getProjectProfile(),
-                state.getNormalizedRequirementBundle(),
-                state.getTestPlan(),
-                state.getUiTestPlan(),
-                state.getCanonicalTestCaseBundle(),
-                state.getMappedUiKnowledge(),
-                state.getKnowledgeRunMetadata(),
-                canonicalModel,
-                preferredPageIds,
-                preferredTerms,
-                querySeed
-        ));
     }
 
     public UiKnowledgeRetrievalContext retrieve(UiKnowledgeRetrievalRequest request) {

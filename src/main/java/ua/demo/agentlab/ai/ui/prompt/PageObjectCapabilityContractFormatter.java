@@ -38,9 +38,33 @@ public class PageObjectCapabilityContractFormatter {
                 addTestCaseOwnership(contract, testCase, pageName);
             }
         }
+        addPromptEvidence(contract, context);
         addBaselineMethods(contract, baselineSpec);
         addForbiddenMethods(contract);
         return contract.render();
+    }
+
+    private void addPromptEvidence(Contract contract, AiContextPackage context) {
+        if (context == null || context.promptUiEvidence() == null) {
+            return;
+        }
+        context.promptUiEvidence().requirementIds().forEach(contract.coveredTestCases::add);
+        context.promptUiEvidence().requiredActions().forEach(action -> {
+            if (!action.name().isBlank()) {
+                contract.ownedActions.add(action.name());
+            }
+        });
+        context.promptUiEvidence().requiredAssertions().forEach(assertion -> {
+            if (!assertion.type().isBlank()) {
+                contract.ownedAssertions.add(assertion.type() + "(" + assertion.expectedValue() + ")");
+            }
+        });
+        context.promptUiEvidence().requiredLocators().forEach(locator -> {
+            if (!locator.fieldHint().isBlank()) {
+                contract.requiredLocators.add(locator.fieldHint()
+                        + "[" + locator.strategy() + "=" + locator.value() + "]");
+            }
+        });
     }
 
     private void addTestCaseOwnership(Contract contract, CanonicalTestCase testCase, String requestedPageName) {
@@ -192,6 +216,11 @@ public class PageObjectCapabilityContractFormatter {
     }
 
     private String resolveRoute(AiContextPackage context, String pageName) {
+        if (context != null
+                && context.promptUiEvidence() != null
+                && !context.promptUiEvidence().targetRoute().isBlank()) {
+            return context.promptUiEvidence().targetRoute();
+        }
         if (context != null && context.mappedUiKnowledge() != null) {
             return context.mappedUiKnowledge().pages().stream()
                     .filter(page -> PageReferenceMatcher.matches(page, pageName))

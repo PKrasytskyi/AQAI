@@ -58,9 +58,12 @@ public class PromptQualityLinter {
         require(issues, containsAny(safePrompt, "expectedValue=", "expectedValues:", "expected: [")
                         && !safePrompt.contains("expectedValue=null"),
                 "EXPECTED_VALUES_PRESENT", "Prompt must include concrete expected values", "expectedValue/expectedValues");
-        require(issues, containsAny(safePrompt, "requiredLocators=", "stableLocators=", "\"locators\":"),
+        require(issues, containsAny(safePrompt, "requiredLocators=", "stableLocators=", "Allowed locators:", "\"locators\":"),
                 "ALLOWED_LOCATORS_PRESENT", "Prompt must include allowed locator evidence or required locators",
                 "requiredLocators/stableLocators");
+        require(issues, containsAny(safePrompt, "Allowed locators:"),
+                "PROMPT_UI_EVIDENCE_PRESENT", "Prompt must include PromptUiEvidence allowed locator section",
+                "Prompt UI evidence");
         require(issues, safePrompt.contains("forbiddenMethods="),
                 "FORBIDDEN_METHODS_PRESENT", "Prompt must include forbidden methods", "forbiddenMethods");
         require(issues, containsAny(safePrompt, "Baseline page object spec:", "Available inherited public BasePage methods"),
@@ -78,6 +81,7 @@ public class PromptQualityLinter {
                 "NO_WEAK_URL_NONBLANK_ASSERTIONS", "Prompt must not include weak URL nonblank assertions");
 
         issues.addAll(validateContext(targetPage, targetRoute, scopedContext));
+        issues.addAll(validatePromptEvidence(scopedContext));
 
         return new PromptQualityReport(
                 "page-object-spec",
@@ -86,6 +90,32 @@ public class PromptQualityLinter {
                 requirementIds,
                 issues
         );
+    }
+
+    private List<PromptQualityIssue> validatePromptEvidence(AiContextPackage scopedContext) {
+        if (scopedContext == null || scopedContext.promptUiEvidence() == null) {
+            return List.of();
+        }
+        List<PromptQualityIssue> issues = new ArrayList<>();
+        scopedContext.promptUiEvidence().requiredLocators().forEach(locator -> {
+            if (!locator.sameOrigin()) {
+                issues.add(new PromptQualityIssue(
+                        PromptQualitySeverity.BLOCKER,
+                        "NO_EXTERNAL_ORIGIN_PROMPT_LOCATORS",
+                        "PromptUiEvidence allowed locators must be same-origin",
+                        locator.elementName() + " " + locator.strategy() + "=" + locator.value()
+                ));
+            }
+            if (locator.stabilityScore() < 0.75d) {
+                issues.add(new PromptQualityIssue(
+                        PromptQualitySeverity.BLOCKER,
+                        "NO_LOW_CONFIDENCE_PROMPT_LOCATORS",
+                        "PromptUiEvidence allowed locators must be promoted/stable",
+                        locator.elementName() + " score=" + locator.stabilityScore()
+                ));
+            }
+        });
+        return issues;
     }
 
     private List<PromptQualityIssue> validateContext(String targetPage, String targetRoute, AiContextPackage scopedContext) {
@@ -123,6 +153,11 @@ public class PromptQualityLinter {
     ) {
         if (baselineSpec != null && baselineSpec.route() != null && !baselineSpec.route().isBlank()) {
             return baselineSpec.route();
+        }
+        if (scopedContext != null
+                && scopedContext.promptUiEvidence() != null
+                && !scopedContext.promptUiEvidence().targetRoute().isBlank()) {
+            return scopedContext.promptUiEvidence().targetRoute();
         }
         if (scopedContext != null && scopedContext.mappedUiKnowledge() != null) {
             var route = scopedContext.mappedUiKnowledge().pages().stream()
@@ -197,6 +232,7 @@ public class PromptQualityLinter {
             }
             if (trimmed.startsWith("- requiredLocators=")
                     || trimmed.startsWith("- stableLocators=")
+                    || trimmed.startsWith("- ") && trimmed.contains(" | strategy=") && trimmed.contains(" | value=")
                     || trimmed.contains("\"locators\"")
                     || trimmed.contains("\"value\": \"<stable locator value")) {
                 builder.append(trimmed).append(System.lineSeparator());

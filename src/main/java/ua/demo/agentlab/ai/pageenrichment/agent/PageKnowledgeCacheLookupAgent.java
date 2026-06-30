@@ -10,7 +10,6 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.ui.UiTestScenario;
 import ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
@@ -24,8 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 public class PageKnowledgeCacheLookupAgent implements WorkflowAgent,
-        PipelineAgent<PageKnowledgeCacheLookupInput, PageKnowledgeCacheLookupOutput>,
-        WorkflowStatePipelineAdapter<PageKnowledgeCacheLookupOutput> {
+        PipelineAgent<PageKnowledgeCacheLookupInput, PageKnowledgeCacheLookupOutput> {
 
     private static final double MIN_CACHE_CONFIDENCE = 0.80d;
 
@@ -43,11 +41,6 @@ public class PageKnowledgeCacheLookupAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "page-knowledge-cache-lookup-agent";
-    }
-
-    @Override
-    public int order() {
-        return 30;
     }
 
     @Override
@@ -72,17 +65,6 @@ public class PageKnowledgeCacheLookupAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.PAGE_KNOWLEDGE_CACHE_LOOKUP;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getMappedUiKnowledge() != null
-                && state.getPageKnowledgeCacheLookupResult() == null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

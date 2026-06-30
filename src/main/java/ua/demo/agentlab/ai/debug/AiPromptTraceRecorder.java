@@ -4,6 +4,7 @@ import ua.demo.agentlab.orchestration.WorkflowState;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class AiPromptTraceRecorder {
@@ -31,6 +32,30 @@ public class AiPromptTraceRecorder {
             String prompt,
             Map<String, Object> metadata
     ) {
+        AiPromptTraceArtifact artifact = recordPromptArtifact(
+                stage,
+                fileStem,
+                promptType,
+                scopeId,
+                subject,
+                prompt,
+                metadata
+        );
+        if (state != null) {
+            artifact.artifactFiles().forEach(state::addAiArtifactFile);
+        }
+        return artifact.snapshot();
+    }
+
+    public AiPromptTraceArtifact recordPromptArtifact(
+            String stage,
+            String fileStem,
+            String promptType,
+            String scopeId,
+            String subject,
+            String prompt,
+            Map<String, Object> metadata
+    ) {
         Path promptPath = artifactWriter.writeText(stage, fileStem + "-prompt.txt", prompt);
 
         Map<String, Object> traceMetadata = new LinkedHashMap<>();
@@ -49,11 +74,7 @@ public class AiPromptTraceRecorder {
         );
 
         Path tracePath = artifactWriter.writeJson(stage, fileStem + "-prompt-trace.json", snapshot);
-        if (state != null) {
-            state.addAiArtifactFile(promptPath.toString());
-            state.addAiArtifactFile(tracePath.toString());
-        }
 
-        return snapshot;
+        return new AiPromptTraceArtifact(snapshot, List.of(promptPath.toString(), tracePath.toString()));
     }
 }

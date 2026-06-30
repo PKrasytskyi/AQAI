@@ -9,6 +9,10 @@ public record MappedUiKnowledge(
         List<PageKnowledgeGraphEdge> graphEdges,
         List<PageKnowledgeVectorDocument> vectorDocuments
 ) {
+    public static MappedUiKnowledge empty() {
+        return new MappedUiKnowledge(List.of(), List.of(), List.of(), List.of(), List.of());
+    }
+
     public MappedUiKnowledge {
         pages = pages == null ? List.of() : List.copyOf(pages);
         transitions = transitions == null ? List.of() : List.copyOf(transitions);

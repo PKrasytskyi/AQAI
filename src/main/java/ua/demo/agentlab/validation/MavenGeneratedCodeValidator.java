@@ -18,7 +18,8 @@ public class MavenGeneratedCodeValidator implements GeneratedCodeValidator {
     }
 
     @Override
-    public GeneratedCodeValidationResult validate(WorkflowState state) {
+    public GeneratedCodeValidationResult validate(List<String> writtenFiles) {
+        List<String> paths = writtenFiles == null ? List.of() : List.copyOf(writtenFiles);
         ProcessBuilder processBuilder = new ProcessBuilder(buildCommand());
         processBuilder.directory(new java.io.File(workingDirectory));
         processBuilder.redirectErrorStream(true);
@@ -35,7 +36,7 @@ public class MavenGeneratedCodeValidator implements GeneratedCodeValidator {
             int exitCode = process.waitFor();
             ValidationStatus status = determineStatus(exitCode, output);
 
-            List<GeneratedFileValidation> fileResults = state.getWrittenFiles().stream()
+            List<GeneratedFileValidation> fileResults = paths.stream()
                     .map(path -> new GeneratedFileValidation(
                             path,
                             status,
@@ -68,7 +69,7 @@ public class MavenGeneratedCodeValidator implements GeneratedCodeValidator {
                     ValidationStatus.FAILED,
                     "Generated code validation could not be completed",
                     exception.getMessage(),
-                    state.getWrittenFiles().stream()
+                    paths.stream()
                             .map(path -> new GeneratedFileValidation(
                                     path,
                                     ValidationStatus.FAILED,

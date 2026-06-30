@@ -13,15 +13,13 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowPipelineSnapshot;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
 public class AiPageObjectSpecAgent implements WorkflowAgent,
-        PipelineAgent<AiPageObjectSpecInput, AiPageObjectGenerationResult>,
-        WorkflowStatePipelineAdapter<AiPageObjectGenerationResult> {
+        PipelineAgent<AiPageObjectSpecInput, AiPageObjectGenerationResult> {
 
     private final AiPageObjectSpecGenerator generator;
     private final Function<WorkflowState, List<AiPageObjectSpec>> baselineProvider;
@@ -51,11 +49,6 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
     }
 
     @Override
-    public int order() {
-        return 35;
-    }
-
-    @Override
     public Set<WorkflowArtifact> requires() {
         return Set.of(WorkflowArtifact.UI_TEST_PLAN, WorkflowArtifact.AI_CONTEXT_PACKAGE);
     }
@@ -73,16 +66,6 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.AI_PAGE_OBJECT_SPECS;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getUiTestPlan() != null && state.getAiPageObjectSpecs().isEmpty();
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

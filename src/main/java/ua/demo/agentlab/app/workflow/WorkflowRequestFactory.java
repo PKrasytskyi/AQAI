@@ -1,0 +1,73 @@
+package ua.demo.agentlab.app.workflow;
+
+import ua.demo.agentlab.config.ProjectProfile;
+import ua.demo.agentlab.config.ProjectProfileLoader;
+import ua.demo.agentlab.config.PropertiesProjectProfileLoader;
+import ua.demo.agentlab.requirements.model.SourceType;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+
+public class WorkflowRequestFactory {
+
+    private static final String DEFAULT_REQUIREMENT_LOCATION = "requirements/valid-author.md";
+
+    private final ProjectProfileLoader projectProfileLoader;
+    private final WorkflowModeResolver modeResolver;
+
+    public WorkflowRequestFactory() {
+        this(new PropertiesProjectProfileLoader(), new WorkflowModeResolver());
+    }
+
+    WorkflowRequestFactory(ProjectProfileLoader projectProfileLoader, WorkflowModeResolver modeResolver) {
+        if (projectProfileLoader == null || modeResolver == null) {
+            throw new IllegalArgumentException("workflow request collaborators cannot be null");
+        }
+        this.projectProfileLoader = projectProfileLoader;
+        this.modeResolver = modeResolver;
+    }
+
+    public WorkflowRequest create(String[] args) {
+        String requirementLocation = resolveRequirementLocation(args);
+        SourceType sourceType = detectSourceType(requirementLocation);
+        ProjectProfile projectProfile = projectProfileLoader.loadDefaultProfile();
+        return new WorkflowRequest(
+                requirementLocation,
+                sourceType,
+                modeResolver.resolve(args),
+                projectProfile
+        );
+    }
+
+    private String resolveRequirementLocation(String[] args) {
+        String requestedLocation = Arrays.stream(args == null ? new String[0] : args)
+                .filter(arg -> !arg.startsWith("--"))
+                .findFirst()
+                .orElse(DEFAULT_REQUIREMENT_LOCATION);
+
+        if (isMissingFileLocation(requestedLocation) && Files.exists(Path.of(DEFAULT_REQUIREMENT_LOCATION))) {
+            System.err.println("Requirement file not found: " + requestedLocation
+                    + ". Falling back to " + DEFAULT_REQUIREMENT_LOCATION + ".");
+            return DEFAULT_REQUIREMENT_LOCATION;
+        }
+
+        return requestedLocation;
+    }
+
+    private boolean isMissingFileLocation(String location) {
+        if (location == null || location.isBlank()) {
+            return false;
+        }
+        if (location.startsWith("http://") || location.startsWith("https://")) {
+            return false;
+        }
+        return !Files.exists(Path.of(location));
+    }
+
+    private SourceType detectSourceType(String location) {
+        return location.startsWith("http://") || location.startsWith("https://")
+                ? SourceType.URL
+                : SourceType.FILE;
+    }
+}

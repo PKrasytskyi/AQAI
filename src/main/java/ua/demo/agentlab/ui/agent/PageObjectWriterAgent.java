@@ -1,13 +1,19 @@
 package ua.demo.agentlab.ui.agent;
 
 import ua.demo.agentlab.orchestration.WorkflowAgent;
+import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
+import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
+import ua.demo.agentlab.ui.UiTestPlan;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 import ua.demo.agentlab.ui.writer.PageObjectWriter;
 
 import java.util.List;
+import java.util.Set;
 
-public class PageObjectWriterAgent implements WorkflowAgent {
+public class PageObjectWriterAgent implements WorkflowAgent,
+        PipelineAgent<UiTestPlan, List<GeneratedSourceFile>> {
 
     private final PageObjectWriter writer;
 
@@ -21,18 +27,32 @@ public class PageObjectWriterAgent implements WorkflowAgent {
     }
 
     @Override
-    public int order() {
-        return 40;
+    public Set<WorkflowArtifact> requires() {
+        return Set.of(WorkflowArtifact.UI_TEST_PLAN);
     }
 
     @Override
-    public boolean supports(WorkflowState state) {
-        return state.getUiTestPlan() != null && state.getPageObjectFiles().isEmpty();
+    public Set<WorkflowArtifact> produces() {
+        return Set.of(WorkflowArtifact.PAGE_OBJECT_FILES);
     }
 
     @Override
-    public void execute(WorkflowState state) {
-        List<GeneratedSourceFile> files = writer.write(state.getUiTestPlan());
+    public WorkflowArtifact input() {
+        return WorkflowArtifact.UI_TEST_PLAN;
+    }
+
+    @Override
+    public WorkflowArtifact output() {
+        return WorkflowArtifact.PAGE_OBJECT_FILES;
+    }
+
+    @Override
+    public List<GeneratedSourceFile> execute(UiTestPlan input, WorkflowRunEnvelope run) {
+        return writer.write(input);
+    }
+
+    @Override
+    public void applyOutput(List<GeneratedSourceFile> files, WorkflowState state) {
         state.setPageObjectFiles(files);
         state.addArtifact("ui.page.objects.count", String.valueOf(files.size()));
         state.addFinding("Page objects generated: " + files.size());

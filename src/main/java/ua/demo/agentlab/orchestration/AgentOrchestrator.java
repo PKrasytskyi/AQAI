@@ -3,7 +3,6 @@ package ua.demo.agentlab.orchestration;
 import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,7 +54,7 @@ public class AgentOrchestrator {
         if (agent instanceof PipelineAgent pipelineAgent) {
             return pipelineAgent.supports(artifactStore, state);
         }
-        return agent.supports(state);
+        throw new IllegalStateException("Workflow agent is not a PipelineAgent: " + agent.name());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -64,14 +63,10 @@ public class AgentOrchestrator {
             Object input = pipelineAgent.inputFrom(artifactStore, state);
             Object output = pipelineAgent.execute(input, WorkflowRunEnvelope.from(state));
             artifactStore.put(pipelineAgent.output(), output);
-            if (agent instanceof WorkflowStatePipelineAdapter adapter) {
-                adapter.applyOutput(output, state);
-                artifactStore.refreshFromState();
-            }
+            pipelineAgent.applyOutput(output, state);
             return;
         }
-        agent.execute(state);
-        artifactStore.refreshFromState();
+        throw new IllegalStateException("Workflow agent is not a PipelineAgent: " + agent.name());
     }
 
     private List<WorkflowAgent> resolveExecutionPlan(List<WorkflowAgent> inputAgents) {
@@ -143,8 +138,7 @@ public class AgentOrchestrator {
 
     private Comparator<WorkflowAgent> agentComparator(Map<WorkflowAgent, Integer> inputOrder) {
         return Comparator
-                .comparingInt(WorkflowAgent::order)
-                .thenComparingInt(agent -> inputOrder.getOrDefault(agent, Integer.MAX_VALUE))
+                .comparingInt((WorkflowAgent agent) -> inputOrder.getOrDefault(agent, Integer.MAX_VALUE))
                 .thenComparing(WorkflowAgent::name);
     }
 }

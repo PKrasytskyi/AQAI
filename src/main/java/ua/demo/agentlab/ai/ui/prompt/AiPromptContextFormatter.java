@@ -24,6 +24,7 @@ import ua.demo.agentlab.ui.discovery.pagemodel.model.PageFormModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageLocatorModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModel;
 import ua.demo.agentlab.ai.context.CanonicalUiInteraction;
+import ua.demo.agentlab.ai.context.PromptUiEvidence;
 import ua.demo.agentlab.ai.context.UiKnowledgeGraphMatch;
 
 import java.util.List;
@@ -163,6 +164,73 @@ public class AiPromptContextFormatter {
                     .append(System.lineSeparator()));
         }
         return builder.toString().stripTrailing();
+    }
+
+    public String summarizePromptUiEvidence(AiContextPackage context) {
+        if (context == null || context.promptUiEvidence() == null) {
+            return "- none";
+        }
+        PromptUiEvidence evidence = context.promptUiEvidence();
+        StringBuilder builder = new StringBuilder();
+        builder.append("- targetPage=").append(evidence.targetPage())
+                .append(" | targetRoute=").append(evidence.targetRoute())
+                .append(" | confidence=").append(String.format(Locale.ROOT, "%.2f", evidence.confidence()))
+                .append(System.lineSeparator());
+        builder.append("- requirementIds=").append(evidence.requirementIds()).append(System.lineSeparator());
+        builder.append("Required actions:").append(System.lineSeparator());
+        if (evidence.requiredActions().isEmpty()) {
+            builder.append("- none").append(System.lineSeparator());
+        } else {
+            evidence.requiredActions().stream().limit(10).forEach(action -> builder
+                    .append("- ").append(action.name())
+                    .append(" | type=").append(action.type())
+                    .append(" | owner=").append(action.ownerPage())
+                    .append(" | source=").append(action.sourceTrace())
+                    .append(System.lineSeparator()));
+        }
+        builder.append("Required assertions:").append(System.lineSeparator());
+        if (evidence.requiredAssertions().isEmpty()) {
+            builder.append("- none").append(System.lineSeparator());
+        } else {
+            evidence.requiredAssertions().stream().limit(10).forEach(assertion -> builder
+                    .append("- ").append(assertion.type())
+                    .append(" | expectedValue=").append(assertion.expectedValue())
+                    .append(" | owner=").append(assertion.ownerPage())
+                    .append(" | confidence=").append(String.format(Locale.ROOT, "%.2f", assertion.confidence()))
+                    .append(System.lineSeparator()));
+        }
+        builder.append("Allowed locators:").append(System.lineSeparator());
+        if (evidence.requiredLocators().isEmpty()) {
+            builder.append("- none").append(System.lineSeparator());
+        } else {
+            evidence.requiredLocators().stream().limit(12).forEach(locator -> builder
+                    .append("- ").append(locator.fieldHint())
+                    .append(" | element=").append(locator.elementName())
+                    .append(" | strategy=").append(locator.strategy())
+                    .append(" | value=").append(locator.value())
+                    .append(" | sameOrigin=").append(locator.sameOrigin())
+                    .append(" | score=").append(String.format(Locale.ROOT, "%.2f", locator.stabilityScore()))
+                    .append(System.lineSeparator()));
+        }
+        builder.append("Excluded evidence:").append(System.lineSeparator());
+        if (evidence.excludedEvidence().isEmpty()) {
+            builder.append("- none").append(System.lineSeparator());
+        } else {
+            evidence.excludedEvidence().stream().limit(8).forEach(excluded -> builder
+                    .append("- type=").append(excluded.evidenceType())
+                    .append(" | reason=").append(promptSafeExcludedReason(excluded.reason()))
+                    .append(" | value=<redacted>")
+                    .append(System.lineSeparator()));
+        }
+        return builder.toString().stripTrailing();
+    }
+
+    private String promptSafeExcludedReason(String reason) {
+        String safe = reason == null ? "" : reason;
+        return safe
+                .replaceAll("(?i)external-origin", "origin-policy")
+                .replaceAll("https?://\\S+", "<redacted-url>")
+                .replaceAll("(?i)external-link-text-xpath", "origin-policy-locator");
     }
 
     public String summarizeRetrievalContext(AiContextPackage context) {

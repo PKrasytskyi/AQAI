@@ -3,7 +3,6 @@ package ua.demo.agentlab.testcase.generator;
 import ua.demo.agentlab.ai.flow.BusinessFlowContext;
 import ua.demo.agentlab.ai.flow.FlowScopedKnowledgePackage;
 import ua.demo.agentlab.config.ProjectProfile;
-import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
 import ua.demo.agentlab.requirements.normalization.model.SourceReference;
 import ua.demo.agentlab.testcase.model.CanonicalTestCase;
@@ -37,16 +36,6 @@ import java.util.regex.Pattern;
 public class RuleBasedRequirementToTestCaseGenerator implements RequirementToTestCaseGenerator {
 
     private static final Pattern ROUTE_PATTERN = Pattern.compile("/[a-zA-Z0-9/_\\-]+");
-
-    @Override
-    public CanonicalTestCaseBundle generate(WorkflowState state) {
-        return generate(state == null ? null : new RequirementToTestCaseInput(
-                state.getProjectProfile(),
-                state.getNormalizedRequirementBundle(),
-                state.getMappedUiKnowledge(),
-                state.getFlowScopedKnowledgePackage()
-        ));
-    }
 
     @Override
     public CanonicalTestCaseBundle generate(RequirementToTestCaseInput input) {

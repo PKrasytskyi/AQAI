@@ -7,13 +7,11 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 
 import java.util.Set;
 
 public class FlowScopedKnowledgeAgent implements WorkflowAgent,
-        PipelineAgent<FlowScopedKnowledgeInput, FlowScopedKnowledgePackage>,
-        WorkflowStatePipelineAdapter<FlowScopedKnowledgePackage> {
+        PipelineAgent<FlowScopedKnowledgeInput, FlowScopedKnowledgePackage> {
 
     private final FlowScopedKnowledgeService service;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
@@ -28,11 +26,6 @@ public class FlowScopedKnowledgeAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "flow-scoped-knowledge-agent";
-    }
-
-    @Override
-    public int order() {
-        return 28;
     }
 
     @Override
@@ -57,18 +50,6 @@ public class FlowScopedKnowledgeAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.FLOW_SCOPED_KNOWLEDGE_PACKAGE;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getMappedUiKnowledge() != null
-                && state.getNormalizedRequirementBundle() != null
-                && state.getFlowScopedKnowledgePackage() == null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

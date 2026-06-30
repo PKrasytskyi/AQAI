@@ -187,56 +187,55 @@ Responsibilities:
 - translate canonical test cases into executable UI scenario contracts;
 - preserve source page, target page, route, actions, assertions, operation intents, and locator hints.
 
-## 5. Shared Page Object Contract Layer
+## 5. Page Evidence and Prompt Contract Layer
 
-This is the most important architectural change in the current iteration.
+The current architecture no longer relies on product-specific page roles such as catalog/details/cart. Page object prompts are built from confirmed capability and route evidence.
 
-Packages:
+Important contracts:
 
-- `ua.demo.agentlab.ui.pageobject`
-
-Important classes:
-
-- `SharedPageObjectContractAggregator`
-- `SharedPageObjectSpec`
+- `MappedUiKnowledgeRaw`
+- `MappedUiKnowledgeCurated`
+- `PromptUiEvidence`
+- `ConfirmedPageRegistry`
+- `AssertionContract`
 
 ### 5.1 Why it exists
 
-Without this layer, generators tend to drift toward:
+Without a prompt-ready evidence layer, raw discovery facts can leak into LLM prompts and produce:
 
-- page objects shaped by single scenarios;
-- duplicate page methods;
-- mismatches between page APIs and generated tests.
+- stale locators;
+- cross-route page evidence;
+- unsupported page methods;
+- page names inherited from another application.
 
-The shared contract layer fixes that by merging all scenario needs per page.
+The prompt contract layer fixes this by narrowing each prompt to the target page, target route, requirement ids, required actions, assertion contracts, allowed locators, forbidden evidence, and trace metadata.
 
 ### 5.2 What it does
 
-For each page, it aggregates:
+For each confirmed page scope, the platform:
 
-- contributing scenario ids;
-- all scenarios touching that page;
-- deduplicated locator hints;
-- page route.
-
-Then the Selenium writer derives one reusable public page API for that page.
+- resolves route/capability/page ownership;
+- filters actions and assertions by requirement scope;
+- keeps only promoted locator evidence;
+- excludes external-origin and low-confidence locator candidates;
+- provides deterministic expected values when requirements contain assertion requirements;
+- writes prompt traces and quality reports.
 
 ### 5.3 Result
 
-If requirements mention:
+If a project contains:
 
-- open collections;
-- open item details;
-- add item to cart;
-- remove item from cart;
+- `/login` with authentication capability;
+- `/secure` with authenticated-area capability;
+- `/pim/viewEmployeeList` with record-list capability;
 
-the platform should produce shared classes such as:
+the platform should derive names such as:
 
-- `ListingPage`
-- `DetailsPage`
-- `CartPage`
+- `LoginPage`
+- `SecureAreaPage`
+- `EmployeeListPage`
 
-and not separate page objects per test.
+These names are consequences of evidence, not hardcoded product fallbacks.
 
 ## 6. Selenium Generation Layer
 

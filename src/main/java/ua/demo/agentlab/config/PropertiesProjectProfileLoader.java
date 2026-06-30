@@ -51,24 +51,62 @@ public class PropertiesProjectProfileLoader implements ProjectProfileLoader {
     private String readText(String key, String fallback) {
         String systemValue = System.getProperty(key);
         if (systemValue != null && !systemValue.isBlank()) {
-            return systemValue.trim();
+            return resolvePlaceholders(systemValue.trim());
         }
 
         String envKey = key.toUpperCase().replace('.', '_').replace('-', '_');
         String envValue = System.getenv(envKey);
         if (envValue != null && !envValue.isBlank()) {
-            return envValue.trim();
+            return resolvePlaceholders(envValue.trim());
         }
 
         String propertyValue = properties.getProperty(key);
         if (propertyValue != null && !propertyValue.isBlank()) {
-            return propertyValue.trim();
+            return resolvePlaceholders(propertyValue.trim());
         }
 
-        return fallback;
+        return resolvePlaceholders(fallback);
     }
 
     private String readOptionalText(String key) {
         return readText(key, "");
+    }
+
+    private String resolvePlaceholders(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        String resolved = value;
+        for (int index = 0; index < 8; index++) {
+            int start = resolved.indexOf("${");
+            if (start < 0) {
+                return resolved;
+            }
+            int end = resolved.indexOf('}', start);
+            if (end < 0) {
+                return resolved;
+            }
+            String key = resolved.substring(start + 2, end).trim();
+            String replacement = readRawValue(key);
+            if (replacement == null) {
+                replacement = "";
+            }
+            resolved = resolved.substring(0, start) + replacement + resolved.substring(end + 1);
+        }
+        return resolved;
+    }
+
+    private String readRawValue(String key) {
+        String systemValue = System.getProperty(key);
+        if (systemValue != null && !systemValue.isBlank()) {
+            return systemValue.trim();
+        }
+        String envKey = key.toUpperCase().replace('.', '_').replace('-', '_');
+        String envValue = System.getenv(envKey);
+        if (envValue != null && !envValue.isBlank()) {
+            return envValue.trim();
+        }
+        String propertyValue = properties.getProperty(key);
+        return propertyValue == null || propertyValue.isBlank() ? null : propertyValue.trim();
     }
 }

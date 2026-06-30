@@ -15,6 +15,7 @@ import ua.demo.agentlab.ui.catalog.ConfirmedPageSourceResolver;
 import ua.demo.agentlab.ui.catalog.ConfirmedRouteGuard;
 import ua.demo.agentlab.ui.catalog.PageCapability;
 import ua.demo.agentlab.ui.catalog.PageSource;
+import ua.demo.agentlab.ui.discovery.knowledge.model.MappedUiKnowledgeCurated;
 import ua.demo.agentlab.ui.discovery.identity.PageReferenceMatcher;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedTransition;
@@ -36,6 +37,7 @@ import java.util.Set;
 public class TargetAwareContextSlicer {
 
     private final ConfirmedPageSourceResolver confirmedPageSourceResolver = new ConfirmedPageSourceResolver();
+    private final PromptUiEvidenceBuilder promptUiEvidenceBuilder = new PromptUiEvidenceBuilder();
 
     public AiContextPackage slice(AiContextPackage context, AiContextScope scope) {
         if (context == null) {
@@ -57,7 +59,8 @@ public class TargetAwareContextSlicer {
         List<AssertionContract> assertionContracts = sliceAssertionContracts(context, scope, canonicalTestCaseBundle);
         UiTestPlan uiTestPlan = sliceUiTestPlan(context, scope);
 
-        return new AiContextPackage(
+        MappedUiKnowledgeCurated curatedScope = sliceCuratedKnowledge(context, mappedUiKnowledge);
+        AiContextPackage scopedPackage = new AiContextPackage(
                 context.objective(),
                 requirements,
                 context.generationPolicy(),
@@ -67,12 +70,53 @@ public class TargetAwareContextSlicer {
                 uiTestPlan,
                 flows,
                 mappedUiKnowledge,
+                curatedScope,
                 pageModelBundle,
                 canonicalInteractions,
                 retrievalContext,
                 assertionContracts,
                 pageModelEnrichments,
-                context.templateCapabilities()
+                context.templateCapabilities(),
+                PromptUiEvidence.empty("prompt-evidence:slicer-bootstrap")
+        );
+        return new AiContextPackage(
+                scopedPackage.objective(),
+                scopedPackage.normalizedRequirementBundle(),
+                scopedPackage.generationPolicy(),
+                scopedPackage.projectProfile(),
+                scopedPackage.testPlan(),
+                scopedPackage.canonicalTestCaseBundle(),
+                scopedPackage.uiTestPlan(),
+                scopedPackage.canonicalPageFlowModel(),
+                scopedPackage.mappedUiKnowledge(),
+                scopedPackage.mappedUiKnowledgeCurated(),
+                scopedPackage.pageModelBundle(),
+                scopedPackage.canonicalInteractionModel(),
+                scopedPackage.retrievalContext(),
+                scopedPackage.assertionContracts(),
+                scopedPackage.pageModelEnrichments(),
+                scopedPackage.templateCapabilities(),
+                promptUiEvidenceBuilder.build(scopedPackage)
+        );
+    }
+
+    private MappedUiKnowledgeCurated sliceCuratedKnowledge(AiContextPackage context, MappedUiKnowledge mappedUiKnowledge) {
+        if (context.mappedUiKnowledgeCurated() == null) {
+            return new MappedUiKnowledgeCurated(mappedUiKnowledge, List.of(), List.of("curated-scope:no-parent-curated"), 0.0d);
+        }
+        Set<String> pageIds = mappedUiKnowledge == null
+                ? Set.of()
+                : mappedUiKnowledge.pages().stream()
+                .map(MappedPage::pageId)
+                .map(this::normalize)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        return new MappedUiKnowledgeCurated(
+                mappedUiKnowledge,
+                context.mappedUiKnowledgeCurated().excludedEvidence().stream()
+                        .filter(evidence -> pageIds.isEmpty() || pageIds.contains(normalize(evidence.pageId())))
+                        .toList(),
+                context.mappedUiKnowledgeCurated().sourceTrace(),
+                context.mappedUiKnowledgeCurated().confidence()
         );
     }
 

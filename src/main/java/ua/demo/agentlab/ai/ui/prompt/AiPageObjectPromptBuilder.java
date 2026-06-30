@@ -48,6 +48,9 @@ public class AiPageObjectPromptBuilder {
                 Page capability contract:
                 %s
 
+                Prompt UI evidence:
+                %s
+
                 PageModel enrichment facts:
                 %s
 
@@ -104,6 +107,7 @@ public class AiPageObjectPromptBuilder {
                 examplePageName,
                 formatter.summarize(context, pageName),
                 capabilityContractFormatter.format(context, pageName, baselineSpec),
+                formatter.summarizePromptUiEvidence(context),
                 formatter.summarizePageModelEnrichments(context, pageName),
                 formatter.summarizeStructuredRetrievalContext(context),
                 baselineSpec == null ? "none" : baselineSpec.toString(),

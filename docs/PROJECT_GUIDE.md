@@ -1,378 +1,105 @@
 # AgentLab Project Guide
 
-## 1. Project purpose
+## 1. Project Purpose
 
-This project is a Java-based orchestrator for automated test generation.
+AgentLab is a Java platform for requirement-driven automation generation. It combines deterministic parsing, UI/API discovery, typed contracts, optional AI enrichment, executable quality gates, and controlled artifact writing.
 
-Its target flow is:
+The current focus is not free-form code generation. The platform aims to build enough structured evidence that prompts and generated code become reviewable, traceable, and constrained.
 
-1. receive requirements from external sources;
-2. normalize requirements into a stable internal model;
-3. apply policy and template rules;
-4. build a functional test plan;
-5. derive UI and later API automation plans;
-6. generate automation code from reusable templates;
-7. validate generated code before it is accepted.
+## 2. Current Status
 
-At the current stage, the strongest part of the system is the UI generation pipeline around Selenium-style template-driven output.
+Implemented today:
 
----
-
-## 2. Current status
-
-The project already has:
-
-- workflow orchestration through `WorkflowAgent`, `AgentOrchestrator`, and `WorkflowState`;
-- requirement reading from file and URL;
-- requirement normalization layer;
+- dependency-based agent orchestration through typed artifacts;
+- requirement reading and normalization;
 - generation policy loading;
-- rule-based test plan generation;
-- rule-based UI test plan generation;
-- Selenium-oriented template registry and project context scanner;
-- template-driven page object and test generation;
-- file persistence for generated artifacts;
-- compile and review stages in the workflow;
-- local Maven repository configuration via `.mvn/maven.config`.
+- Selenium UI discovery and PageModel mapping;
+- locator quality scoring and origin metadata;
+- raw/curated/prompt-ready UI knowledge separation;
+- Neo4j/Qdrant namespace-aware knowledge persistence/retrieval;
+- expected-result and assertion contract modeling;
+- AI enrichment for PageModel/expected-result metadata;
+- deterministic POM prompt generation with prompt quality linter;
+- run quality summary and artifact diff;
+- API endpoint evidence ingestion from OpenAPI, network scan, and configured endpoint seeds;
+- API client/DTO/test specs with RestAssured/TestNG writer;
+- API quality gate for endpoint evidence, assertions, source roots, path params, and mutation safety;
+- unit tests under `src/test/ua.demo.agentlab/unity`.
 
-The project does not yet have a completed API automation branch.
+Current AI mode intentionally stops after deterministic POM prompt generation. Direct LLM-backed Java writing remains disabled until schema, compile, review, and persistence gates are fully stabilized.
 
-The OpenAI integration is currently intentionally reduced to a placeholder so the UI layer can evolve without being blocked by SDK or environment issues.
+## 3. Main Workflows
 
----
-
-## 3. Main workflow
-
-The current `DemoRunner` pipeline is:
-
-1. `RequirementReaderAgent`
-2. `RequirementNormalizationAgent`
-3. `PolicyLoadingAgent`
-4. `TestPlanAgent`
-5. `UiTestPlanAgent`
-6. `PageObjectWriterAgent`
-7. `LayeredUiTestWriterAgent`
-8. `LocalFilePersistenceAgent`
-9. `GeneratedCodeCompileAgent`
-10. `GeneratedCodeReviewAgent`
-
-High-level flow:
+### AI UI Prompt Workflow
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["Requirement source"] --> B["RequirementReaderAgent"]
     B --> C["RequirementNormalizationAgent"]
-    C --> D["PolicyLoadingAgent"]
-    D --> E["TestPlanAgent"]
-    E --> F["UiTestPlanAgent"]
-    F --> G["PageObjectWriterAgent"]
-    F --> H["LayeredUiTestWriterAgent"]
-    G --> I["LocalFilePersistenceAgent"]
-    H --> I
-    I --> J["GeneratedCodeCompileAgent"]
-    J --> K["GeneratedCodeReviewAgent"]
+    C --> D["UiDiscoveryAgent"]
+    D --> E["UiPageModelAgent"]
+    E --> F["UiPageMappingAgent"]
+    F --> G["FlowScopedKnowledgeAgent"]
+    G --> H["RequirementToTestCaseAgent"]
+    H --> I["AssertionContractAgent"]
+    H --> J["TestCaseExpectationEnrichmentAgent"]
+    F --> K["PageModelEnrichmentAgent"]
+    K --> L["UiPageKnowledgePersistenceAgent"]
+    L --> M["FlowScopedKnowledgeRefreshAgent"]
+    I --> N["AiContextAssemblyAgent"]
+    M --> N
+    N --> O["AiPageObjectSpecAgent"]
+    O --> P["POM prompts / traces / quality reports"]
 ```
 
----
-
-## 4. Important packages
-
-### `ua.demo.agentlab.app`
-
-Application entrypoint and workflow wiring.
-
-Key class:
-
-- `DemoRunner`
-
-### `ua.demo.agentlab.orchestration`
-
-Workflow core.
-
-Key classes:
-
-- `WorkflowAgent`
-- `WorkflowState`
-- `AgentOrchestrator`
-
-### `ua.demo.agentlab.requirements`
-
-Requirement input and reading layer.
-
-Key parts:
-
-- `RequirementInput`
-- `RequirementDocument`
-- `FileRequirementSource`
-- `UrlRequirementSource`
-- `RequirementReaderAgent`
-
-### `ua.demo.agentlab.requirements.normalization`
-
-Canonical normalization layer.
-
-Key parts:
-
-- `NormalizedRequirement`
-- `NormalizedRequirementBundle`
-- `RuleBasedRequirementNormalizer`
-- `RequirementNormalizationAgent`
-
-### `ua.demo.agentlab.policy`
-
-Generation policy layer.
-
-Key parts:
-
-- `GenerationPolicy`
-- `FrameworkPolicy`
-- `SelectorPolicy`
-- `NamingPolicy`
-- `PolicyLoadingAgent`
-
-### `ua.demo.agentlab.templates`
-
-Template resolution and project scanning layer.
-
-Key parts:
-
-- `TemplateRegistry`
-- `DefaultTemplateRegistry`
-- `TemplateDescriptor`
-- `ProjectContext`
-- `ProjectContextScanner`
-- `DefaultProjectContextScanner`
-
-### `ua.demo.agentlab.ui`
-
-UI planning and generation model.
-
-Key parts:
-
-- `UiTestPlan`
-- `UiTestScenario`
-- `canonicalFlowType`
-- `LocatorHint`
-
-### `ua.demo.agentlab.ui.generator`
-
-Transforms functional scenarios into UI scenarios.
-
-Key class:
-
-- `CanonicalTestCaseUiPlanGenerator`
-
-### `ua.demo.agentlab.ui.selenium.writer`
-
-Main Selenium-oriented generation layer.
-
-Key parts:
-
-- `TemplateDrivenSeleniumWriter`
-- `SeleniumScenarioTemplateLibrary`
-- `UiActionTemplateLibrary`
-- `AssertionTemplateLibrary`
-- `SeleniumTemplatePageObjectWriter`
-- `SeleniumTemplateUiTestWriter`
-
-### `ua.demo.agentlab.templates.ui`
-
-Concrete template implementations.
-
-Key parts:
-
-- `SeleniumPageObjectTemplate`
-- `SeleniumTestNgTemplate`
-- `SeleniumTemplateBundle`
-
-### `ua.demo.agentlab.persistence`
-
-Generated artifact persistence.
-
-Key parts:
-
-- `GeneratedFileWriter`
-- `LocalGeneratedFileWriter`
-- `LocalFilePersistenceAgent`
-
-### `ua.demo.agentlab.validation`
-
-Compilation and validation layer.
-
-Key parts:
-
-- `MavenGeneratedCodeValidator`
-- `GeneratedCodeCompileAgent`
-
-### `ua.demo.agentlab.review`
-
-Generated code review layer.
-
-Key parts:
-
-- `RuleBasedGeneratedCodeReviewer`
-- `GeneratedCodeReviewAgent`
-
----
-
-## 5. Selenium template layer
-
-The current UI generation direction is template-driven rather than full free-form generation.
-
-This is important because it gives:
-
-- better consistency across projects;
-- lower token usage later when OpenAI is re-enabled;
-- stronger control over POM, naming, and assertions;
-- easier migration between projects if templates remain stable.
-
-The current Selenium template layer is built around:
-
-- `TemplateRegistry` for selecting the correct template set;
-- `ProjectContextScanner` for scanning the local project structure;
-- `UiActionTemplateLibrary` for reusable scenario action blocks;
-- `AssertionTemplateLibrary` for reusable scenario assertion blocks;
-- `SeleniumPageObjectTemplate` for page object generation;
-- `SeleniumTestNgTemplate` for test generation.
-
----
-
-## 6. Test data layer
-
-The core support layer already contains a dedicated test data abstraction.
-
-Key classes:
-
-- `TestDataProvider`
-- `PropertiesTestDataProvider`
-- `UserCredentials`
-- `ScenarioData`
-- `UiRuntimeConfig`
-- `PropertiesUiRuntimeConfig`
-- `BaseTest`
-
-Current design:
-
-- credentials and scenario datasets are loaded from configuration;
-- test classes access helper methods from `BaseTest`;
-- generated page objects consume generic `ScenarioData` instead of product-specific DTOs.
-
-This is the correct base for moving later to:
-
-- environment variables;
-- secret stores;
-- project-specific data files;
-- synthetic data generators.
-
----
-
-## 7. Build and run
-
-The project now uses a local Maven repository configured in:
-
-- `.mvn/maven.config`
-
-Current value:
-
-```text
--Dmaven.repo.local=m2repo
+### API MVP Workflow
+
+```mermaid
+flowchart TD
+    A["requirements + endpoint evidence"] --> B["ApiEndpointBundle"]
+    B --> C["Canonical API test cases"]
+    C --> D["Typed assertion contracts"]
+    D --> E["ApiClientSpec / ApiDtoSpec / ApiTestSpec"]
+    E --> F["ApiQualityGate"]
+    F --> G["RestAssured/TestNG source preview or controlled persistence"]
 ```
 
-This was added because the default local repository path and the sandboxed compiler flow were causing `AccessDeniedException` on Windows during jar access.
+## 4. Important Packages
 
-Main commands:
+- `ua.demo.agentlab.app.workflow` - composition root split into workflow/module factories.
+- `ua.demo.agentlab.orchestration` - graph orchestration and typed artifact contracts.
+- `ua.demo.agentlab.requirements` - requirement sources and normalization.
+- `ua.demo.agentlab.policy` - generation policy.
+- `ua.demo.agentlab.ui.discovery` - Selenium discovery, PageModel building, mapping, locator quality.
+- `ua.demo.agentlab.ui.catalog` - confirmed page candidates, capabilities, and page registry.
+- `ua.demo.agentlab.ai.context` - context slicing, retrieval, and `PromptUiEvidence`.
+- `ua.demo.agentlab.ai.pageenrichment` - PageModel enrichment over mapper output.
+- `ua.demo.agentlab.ai.expectationenrichment` - expected-result resolution.
+- `ua.demo.agentlab.ai.ui` - deterministic POM/test prompt/spec generation.
+- `ua.demo.agentlab.api` - API discovery, canonical cases, specs, quality gate, and writer.
+- `ua.demo.agentlab.core.ui` - Selenium support classes for generated UI code.
+- `ua.demo.agentlab.core.api` - RestAssured support for generated API clients.
+- `ua.demo.agentlab.core.config` - environment/JVM placeholder-aware runtime config.
 
-Compile:
+## 5. Compatibility Notes
+
+New platform-owned code should use the `ua.demo.agentlab...` namespace.
+
+The root packages `core` and `config` contain deprecated facades only:
+
+- `core.ApiManager` delegates to `ua.demo.agentlab.core.api.ApiManager`;
+- `config.ConfigReader` delegates to `ua.demo.agentlab.core.config.ConfigReader`.
+
+They exist so older generated examples continue to compile.
+
+## 6. Repository Hygiene
+
+Runtime artifacts belong under `target/` and are ignored by Git.
+
+Local secrets should be supplied by environment variables or JVM properties. `framework.properties` uses placeholders such as `${API_AUTH_TOKEN}` and `${TEST_VALID_USERNAME}` rather than real credentials.
+
+Before publishing a snapshot, run:
 
 ```powershell
-mvn --batch-mode compile
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" test
 ```
-
-Compile tests:
-
-```powershell
-mvn --batch-mode test-compile
-```
-
-Run demo workflow:
-
-```powershell
-mvn --batch-mode exec:java
-```
-
-Run demo workflow with explicit requirements file:
-
-```powershell
-mvn --batch-mode exec:java "-Dexec.args=requirements/parabank-requirements.md"
-```
-
----
-
-## 8. OpenAI status
-
-OpenAI is not fully active right now.
-
-Current situation:
-
-- `OpenAiTestPlanGenerator` exists only as a guarded placeholder;
-- the direct SDK dependency was removed from the active build;
-- this was done to avoid blocking UI-layer development because of repository and SDK issues.
-
-The intended future role of OpenAI is:
-
-- requirement interpretation support;
-- test plan enrichment where safe;
-- controlled template-aware generation support;
-- failure analysis and healing proposal support.
-
-OpenAI should remain behind interfaces and must not own the orchestration layer directly.
-
----
-
-## 9. Current limitations
-
-Known limitations at the current stage:
-
-- API automation branch is not implemented yet;
-- UI planning is still largely rule-based;
-- locator derivation is still heuristic;
-- generated Selenium output still needs final stabilization;
-- some old generated test files may still need regeneration after template evolution;
-- OpenAI is temporarily disabled in active build mode;
-- the top-level `README.md` currently has encoding issues and should be replaced later with a clean UTF-8 version.
-
----
-
-## 10. Recommended reading order
-
-For quick onboarding:
-
-1. `docs/CURRENT_PROJECT_STATE.md`
-2. `docs/PROJECT_GUIDE.md`
-3. `ROADMAP.md`
-4. `ARCHITECTURE.md`
-5. `docs/TEMPLATE_LAYER_CHANGES.md`
-6. `src/main/java/ua/demo/agentlab/app/DemoRunner.java`
-
-For implementation work on UI generation:
-
-1. `CanonicalTestCaseUiPlanGenerator`
-2. `TemplateRegistry` and `ProjectContextScanner`
-3. `UiActionTemplateLibrary`
-4. `AssertionTemplateLibrary`
-5. `SeleniumPageObjectTemplate`
-6. `SeleniumTestNgTemplate`
-7. `BaseTest` and `TestDataProvider`
-
----
-
-## 11. Short conclusion
-
-This project is evolving toward a configurable orchestration platform for generated test automation.
-
-The core strategic idea is:
-
-- normalize first;
-- apply policy next;
-- generate from templates instead of from scratch;
-- validate generated output;
-- connect AI only where it improves the system without making the architecture fragile.

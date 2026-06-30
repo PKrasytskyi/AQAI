@@ -1,6 +1,6 @@
 package ua.demo.agentlab.review;
 
-import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.persistence.GeneratedUiSources;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
 import java.util.ArrayList;
@@ -9,12 +9,14 @@ import java.util.List;
 public class RuleBasedGeneratedCodeReviewer implements GeneratedCodeReviewer {
 
     @Override
-    public GeneratedCodeReviewReport review(WorkflowState state) {
+    public GeneratedCodeReviewReport review(GeneratedUiSources sources) {
         List<GeneratedCodeReviewFinding> findings = new ArrayList<>();
 
         List<GeneratedSourceFile> files = new ArrayList<>();
-        files.addAll(state.getPageObjectFiles());
-        files.addAll(state.getUiTestFiles());
+        if (sources != null) {
+            files.addAll(sources.pageObjectFiles());
+            files.addAll(sources.uiTestFiles());
+        }
 
         for (GeneratedSourceFile file : files) {
             findings.addAll(reviewFile(file));

@@ -7,7 +7,6 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.ui.discovery.pagemodel.PageModelArtifactWriter;
 import ua.demo.agentlab.ui.discovery.pagemodel.PageModelBuilder;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
@@ -15,8 +14,7 @@ import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
 import java.util.Set;
 
 public class UiPageModelAgent implements WorkflowAgent,
-        PipelineAgent<UiPageModelInput, PageModelBundle>,
-        WorkflowStatePipelineAdapter<PageModelBundle> {
+        PipelineAgent<UiPageModelInput, PageModelBundle> {
 
     private final PageModelBuilder pageModelBuilder;
     private final PageModelArtifactWriter artifactWriter;
@@ -39,11 +37,6 @@ public class UiPageModelAgent implements WorkflowAgent,
     }
 
     @Override
-    public int order() {
-        return 25;
-    }
-
-    @Override
     public Set<WorkflowArtifact> requires() {
         return Set.of(WorkflowArtifact.UI_DISCOVERY_SNAPSHOT);
     }
@@ -61,17 +54,6 @@ public class UiPageModelAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.PAGE_MODEL_BUNDLE;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getUiDiscoverySnapshot() != null
-                && state.getPageModelBundle() == null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

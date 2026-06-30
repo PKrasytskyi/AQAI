@@ -7,7 +7,6 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.testcase.generator.RequirementToTestCaseInput;
 import ua.demo.agentlab.testcase.generator.RequirementToTestCaseGenerator;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
@@ -15,8 +14,7 @@ import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 import java.util.Set;
 
 public class RequirementToTestCaseAgent implements WorkflowAgent,
-        PipelineAgent<RequirementToTestCaseInput, CanonicalTestCaseBundle>,
-        WorkflowStatePipelineAdapter<CanonicalTestCaseBundle> {
+        PipelineAgent<RequirementToTestCaseInput, CanonicalTestCaseBundle> {
 
     private final RequirementToTestCaseGenerator generator;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
@@ -28,11 +26,6 @@ public class RequirementToTestCaseAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "requirement-to-test-case-agent";
-    }
-
-    @Override
-    public int order() {
-        return 28;
     }
 
     @Override
@@ -56,16 +49,6 @@ public class RequirementToTestCaseAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getNormalizedRequirementBundle() != null && state.getCanonicalTestCaseBundle() == null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

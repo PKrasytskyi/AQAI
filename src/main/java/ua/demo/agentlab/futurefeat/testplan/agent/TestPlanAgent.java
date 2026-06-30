@@ -3,11 +3,21 @@ package ua.demo.agentlab.futurefeat.testplan.agent;
 import ua.demo.agentlab.futurefeat.testplan.generator.TestPlanGenerator;
 import ua.demo.agentlab.futurefeat.testplan.model.TestPlan;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
+import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
+import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
+import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
+import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
+import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
 
-public class TestPlanAgent implements WorkflowAgent {
+import java.util.Set;
+
+public class TestPlanAgent implements WorkflowAgent,
+        PipelineAgent<TestPlanGenerationInput, TestPlan> {
 
     private final TestPlanGenerator testPlanGenerator;
+    private final StageOutputPublisher publisher = new StageOutputPublisher();
 
     public TestPlanAgent(TestPlanGenerator testPlanGenerator) {
         this.testPlanGenerator = testPlanGenerator;
@@ -19,30 +29,48 @@ public class TestPlanAgent implements WorkflowAgent {
     }
 
     @Override
-    public int order() {
-        return 20;
+    public Set<WorkflowArtifact> requires() {
+        return Set.of(WorkflowArtifact.NORMALIZED_REQUIREMENT_BUNDLE);
     }
 
     @Override
-    public boolean supports(WorkflowState state) {
-        return state.getNormalizedRequirementBundle() != null && state.getTestPlan() == null;
+    public Set<WorkflowArtifact> produces() {
+        return Set.of(WorkflowArtifact.TEST_PLAN);
     }
 
     @Override
-    public void execute(WorkflowState state) {
-        TestPlan testPlan = testPlanGenerator.generate(state.getNormalizedRequirementBundle(), state);
+    public WorkflowArtifact input() {
+        return WorkflowArtifact.NORMALIZED_REQUIREMENT_BUNDLE;
+    }
 
-        state.setTestPlan(testPlan);
-        state.addArtifact("test.plan.source", testPlan.source());
-        state.addArtifact(
-                "test.plan.summary",
-                "areas=%d, scenarios=%d, assumptions=%d, risks=%d".formatted(
-                        testPlan.functionalAreas().size(),
-                        testPlan.scenarios().size(),
-                        testPlan.assumptions().size(),
-                        testPlan.risks().size()
-                )
-        );
-        state.addFinding("Test plan created with " + testPlan.scenarios().size() + " scenarios");
+    @Override
+    public WorkflowArtifact output() {
+        return WorkflowArtifact.TEST_PLAN;
+    }
+
+    @Override
+    public TestPlanGenerationInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        NormalizedRequirementBundle bundle = store.require(WorkflowArtifact.NORMALIZED_REQUIREMENT_BUNDLE);
+        WorkflowRunEnvelope run = WorkflowRunEnvelope.from(state);
+        return new TestPlanGenerationInput(bundle, run.objective(), run.requirementInput());
+    }
+
+    @Override
+    public boolean supports(PipelineArtifactStore store, WorkflowState state) {
+        return store != null
+                && store.get(WorkflowArtifact.NORMALIZED_REQUIREMENT_BUNDLE).isPresent()
+                && store.get(WorkflowArtifact.TEST_PLAN).isEmpty();
+    }
+
+    @Override
+    public TestPlan execute(TestPlanGenerationInput input, WorkflowRunEnvelope run) {
+        WorkflowState generatorContext = new WorkflowState(input.objective(), input.requirementInput());
+        generatorContext.setNormalizedRequirementBundle(input.bundle());
+        return testPlanGenerator.generate(input.bundle(), generatorContext);
+    }
+
+    @Override
+    public void applyOutput(TestPlan testPlan, WorkflowState state) {
+        publisher.publishTestPlan(testPlan, state);
     }
 }

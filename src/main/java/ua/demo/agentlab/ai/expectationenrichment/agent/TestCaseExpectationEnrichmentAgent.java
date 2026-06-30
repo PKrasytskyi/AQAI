@@ -11,7 +11,6 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
 import ua.demo.agentlab.testcase.model.CanonicalTestCase;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
@@ -24,8 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class TestCaseExpectationEnrichmentAgent implements WorkflowAgent,
-        PipelineAgent<TestCaseExpectationEnrichmentInput, TestCaseExpectationEnrichmentOutput>,
-        WorkflowStatePipelineAdapter<TestCaseExpectationEnrichmentOutput> {
+        PipelineAgent<TestCaseExpectationEnrichmentInput, TestCaseExpectationEnrichmentOutput> {
 
     private final TestCaseExpectationEnrichmentClient enrichmentClient;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
@@ -40,11 +38,6 @@ public class TestCaseExpectationEnrichmentAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "test-case-expectation-enrichment-agent";
-    }
-
-    @Override
-    public int order() {
-        return 29;
     }
 
     @Override
@@ -71,17 +64,6 @@ public class TestCaseExpectationEnrichmentAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.TEST_CASE_EXPECTATION_ENRICHMENT;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getCanonicalTestCaseBundle() != null
-                && state.getNormalizedRequirementBundle() != null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

@@ -1,6 +1,6 @@
 package ua.demo.agentlab.validation;
 
-import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.persistence.GeneratedUiSources;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
 import java.util.ArrayList;
@@ -49,19 +49,19 @@ public class SimpleGeneratedUiContractValidator implements GeneratedUiContractVa
             Pattern.compile("elements\\.(?:click|isVisible|clearAndType|sendKeys|text|attribute|findAll)\\s*\\(\\s*By\\.");
 
     @Override
-    public GeneratedUiContractValidationResult validate(WorkflowState state) {
-        if (state == null) {
+    public GeneratedUiContractValidationResult validate(GeneratedUiSources sources) {
+        if (sources == null) {
             return new GeneratedUiContractValidationResult(
                     ValidationStatus.UNAVAILABLE,
-                    "Workflow state is not available for UI contract validation",
+                    "Generated UI sources are not available for UI contract validation",
                     List.of()
             );
         }
 
         Set<String> violations = new LinkedHashSet<>();
-        Map<String, Set<String>> pageMethodsByClass = parsePageContracts(state.getPageObjectFiles(), violations);
+        Map<String, Set<String>> pageMethodsByClass = parsePageContracts(sources.pageObjectFiles(), violations);
 
-        for (GeneratedSourceFile testFile : state.getUiTestFiles()) {
+        for (GeneratedSourceFile testFile : sources.uiTestFiles()) {
             validateTestFile(testFile, pageMethodsByClass, violations);
         }
 

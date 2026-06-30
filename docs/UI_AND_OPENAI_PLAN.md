@@ -13,13 +13,13 @@ Finish the UI layer first, make the generated Selenium/TestNG output stable, and
 Goal:
 
 - make sure generated test code imports only stable support classes;
-- avoid mixed ownership between `src/main/java` and `src/test/java` for core Selenium support.
+- avoid mixed ownership between runtime support in `src/main/java` and dedicated unit tests under `src/test/ua.demo.agentlab/unity`.
 
 Actions:
 
 - decide which support classes belong to runtime support and which belong only to test support;
 - keep `BasePage`, Selenium actions, and driver support in one stable place;
-- keep `BaseTest` and test data provider classes in the test layer.
+- keep compile fixtures or integration-only helpers out of runtime support unless generated code needs them directly.
 
 Done criteria:
 

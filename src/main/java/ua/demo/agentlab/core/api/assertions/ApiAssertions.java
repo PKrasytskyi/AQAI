@@ -22,4 +22,11 @@ public final class ApiAssertions {
                 "Unexpected API field value for: " + fieldName
         );
     }
+
+    public static void assertFieldExists(Object actualValue, String fieldName) {
+        Assert.assertNotNull(
+                actualValue,
+                "Expected API field to exist: " + fieldName
+        );
+    }
 }

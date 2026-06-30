@@ -10,6 +10,7 @@ public class AiContextAssembler {
 
     private final CanonicalInteractionLayer canonicalInteractionLayer;
     private final UiKnowledgeRetrievalService retrievalService;
+    private final PromptUiEvidenceBuilder promptUiEvidenceBuilder = new PromptUiEvidenceBuilder();
 
     public AiContextAssembler() {
         this(null, null);
@@ -27,8 +28,9 @@ public class AiContextAssembler {
         if (state == null) {
             throw new IllegalArgumentException("state cannot be null");
         }
+        AiContextAssemblyInput input = AiContextAssemblyInput.from(state);
 
-        FlowScopedKnowledgePackage flowScopedKnowledgePackage = state.getFlowScopedKnowledgePackage();
+        FlowScopedKnowledgePackage flowScopedKnowledgePackage = input.flowScopedKnowledgePackage();
         CanonicalUiInteractionModel canonicalInteractionModel;
         UiKnowledgeRetrievalContext retrievalContext;
         if (flowScopedKnowledgePackage != null) {
@@ -37,14 +39,14 @@ public class AiContextAssembler {
         } else {
             canonicalInteractionModel = canonicalInteractionLayer == null
                     ? CanonicalUiInteractionModel.empty()
-                    : canonicalInteractionLayer.build(state.getMappedUiKnowledge());
+                    : canonicalInteractionLayer.build(input.mappedUiKnowledge());
             retrievalContext = retrievalService == null
                     ? UiKnowledgeRetrievalContext.empty("DB-backed retrieval is not configured")
-                    : retrievalService.retrieve(state, canonicalInteractionModel);
+                    : retrievalService.retrieve(UiKnowledgeRetrievalRequest.from(input, canonicalInteractionModel));
         }
 
         return packageFrom(
-                AiContextAssemblyInput.from(state),
+                input,
                 canonicalInteractionModel,
                 retrievalContext
         );
@@ -79,7 +81,7 @@ public class AiContextAssembler {
             UiKnowledgeRetrievalContext retrievalContext
     ) {
         FlowScopedKnowledgePackage flowScopedKnowledgePackage = input.flowScopedKnowledgePackage();
-        return new AiContextPackage(
+        AiContextPackage contextPackage = new AiContextPackage(
                 input.objective(),
                 input.normalizedRequirementBundle(),
                 input.generationPolicy(),
@@ -91,12 +93,37 @@ public class AiContextAssembler {
                 flowScopedKnowledgePackage == null
                         ? input.mappedUiKnowledge()
                         : flowScopedKnowledgePackage.mappedUiKnowledge(),
+                input.mappedUiKnowledgeCurated(),
                 input.pageModelBundle(),
                 canonicalInteractionModel,
                 retrievalContext,
                 input.assertionContracts(),
                 input.pageModelEnrichments(),
-                buildTemplateCapabilities()
+                buildTemplateCapabilities(),
+                PromptUiEvidence.empty("prompt-evidence:assembly-bootstrap")
+        );
+        return withPromptEvidence(contextPackage, promptUiEvidenceBuilder.build(contextPackage));
+    }
+
+    private AiContextPackage withPromptEvidence(AiContextPackage contextPackage, PromptUiEvidence promptUiEvidence) {
+        return new AiContextPackage(
+                contextPackage.objective(),
+                contextPackage.normalizedRequirementBundle(),
+                contextPackage.generationPolicy(),
+                contextPackage.projectProfile(),
+                contextPackage.testPlan(),
+                contextPackage.canonicalTestCaseBundle(),
+                contextPackage.uiTestPlan(),
+                contextPackage.canonicalPageFlowModel(),
+                contextPackage.mappedUiKnowledge(),
+                contextPackage.mappedUiKnowledgeCurated(),
+                contextPackage.pageModelBundle(),
+                contextPackage.canonicalInteractionModel(),
+                contextPackage.retrievalContext(),
+                contextPackage.assertionContracts(),
+                contextPackage.pageModelEnrichments(),
+                contextPackage.templateCapabilities(),
+                promptUiEvidence
         );
     }
 

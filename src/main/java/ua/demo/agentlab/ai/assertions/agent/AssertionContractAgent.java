@@ -8,15 +8,13 @@ import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 
 import java.util.List;
 import java.util.Set;
 
 public class AssertionContractAgent implements WorkflowAgent,
-        PipelineAgent<CanonicalTestCaseBundle, List<AssertionContract>>,
-        WorkflowStatePipelineAdapter<List<AssertionContract>> {
+        PipelineAgent<CanonicalTestCaseBundle, List<AssertionContract>> {
 
     private final AssertionContractBuilder contractBuilder;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
@@ -32,11 +30,6 @@ public class AssertionContractAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "assertion-contract-agent";
-    }
-
-    @Override
-    public int order() {
-        return 30;
     }
 
     @Override
@@ -57,17 +50,6 @@ public class AssertionContractAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.ASSERTION_CONTRACTS;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getCanonicalTestCaseBundle() != null && state.getAssertionContracts().isEmpty();
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        List<AssertionContract> contracts = execute(state.getCanonicalTestCaseBundle(), WorkflowRunEnvelope.from(state));
-        applyOutput(contracts, state);
     }
 
     @Override

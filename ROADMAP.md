@@ -402,7 +402,7 @@ Status legend:
 
 ### Track A. UI Layer to Product Level
 
-1. [x] Stabilize support-layer ownership between `src/main/java` and `src/test/java`.
+1. [x] Stabilize support-layer ownership between runtime code and dedicated unit tests under `src/test/ua.demo.agentlab/unity`.
 2. [x] Freeze stable contracts for `BasePage`, `BaseTest`, driver support, and test data support.
 3. [ ] Regenerate all generated Selenium page objects from the latest templates.
 4. [ ] Regenerate all generated Selenium/TestNG tests from the latest templates.

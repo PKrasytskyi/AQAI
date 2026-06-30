@@ -1,7 +1,6 @@
 package ua.demo.agentlab.ai.flow;
 
 import ua.demo.agentlab.futurefeat.testplan.model.TestScenario;
-import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
 import ua.demo.agentlab.testcase.model.CanonicalTestCase;
 import ua.demo.agentlab.ui.catalog.PageCapability;
@@ -17,21 +16,6 @@ import java.util.regex.Pattern;
 public class BusinessFlowResolver {
 
     private static final Pattern ROUTE_PATTERN = Pattern.compile("/[a-zA-Z0-9/_\\-]+");
-
-    public BusinessFlowContext resolve(WorkflowState state) {
-        if (state == null) {
-            return resolve((FlowScopedKnowledgeInput) null);
-        }
-        return resolve(new FlowScopedKnowledgeInput(
-                state.getObjective(),
-                state.getProjectProfile(),
-                state.getTestPlan(),
-                state.getNormalizedRequirementBundle(),
-                state.getCanonicalTestCaseBundle(),
-                state.getMappedUiKnowledge(),
-                state.getKnowledgeRunMetadata()
-        ));
-    }
 
     public BusinessFlowContext resolve(FlowScopedKnowledgeInput input) {
         Set<String> targetRoutes = new LinkedHashSet<>();

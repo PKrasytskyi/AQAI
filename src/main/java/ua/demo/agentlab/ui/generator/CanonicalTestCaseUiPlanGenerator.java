@@ -1,6 +1,5 @@
 package ua.demo.agentlab.ui.generator;
 
-import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.testcase.model.CanonicalTestCase;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 import ua.demo.agentlab.ui.UiTestPlan;
@@ -15,12 +14,11 @@ import java.util.Set;
 public class CanonicalTestCaseUiPlanGenerator implements UiTestPlanGenerator {
 
     @Override
-    public UiTestPlan generate(WorkflowState state) {
-        if (state == null || state.getCanonicalTestCaseBundle() == null) {
+    public UiTestPlan generate(CanonicalTestCaseBundle bundle) {
+        if (bundle == null) {
             return new UiTestPlan("unknown-source", "NoPages", List.of(), List.of());
         }
 
-        CanonicalTestCaseBundle bundle = state.getCanonicalTestCaseBundle();
         List<UiTestScenario> scenarios = bundle.testCases().stream()
                 .map(this::toUiScenario)
                 .toList();

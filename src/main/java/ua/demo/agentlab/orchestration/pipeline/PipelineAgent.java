@@ -21,6 +21,9 @@ public interface PipelineAgent<I, O> {
         return input != null;
     }
 
+    default void applyOutput(O output, WorkflowState state) {
+    }
+
     default boolean supports(PipelineArtifactStore store, WorkflowState state) {
         if (store == null) {
             return false;

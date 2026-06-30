@@ -60,14 +60,13 @@ The AI branch deliberately stops after `AiPageObjectSpecAgent`. It does not invo
 |---|---|
 | `app.DemoRunner` | Creates collaborators, selects deterministic or AI mode, and registers workflow agents. |
 | `orchestration.AgentOrchestrator` | Builds a dependency graph from agent `requires()` / `produces()`, executes the resulting DAG, records audit events, and stops on a failure. |
-| `orchestration.WorkflowState` | Compatibility run state for objective, requirement input, audit, failure, and legacy artifact storage. The long-term target is a run envelope, not shared business state. |
-| `orchestration.WorkflowAgent` | Common agent interface: `name`, `requires`, `produces`, `order`, `supports`, `execute`; `order()` is now only a tie-breaker/backward-compatible fallback. |
+| `orchestration.WorkflowState` | Run envelope/read model for objective, requirement input, audit, failure, generated artifact references, and reporting projection. Business data should flow through typed artifacts. |
+| `orchestration.WorkflowAgent` | Minimal graph contract: `name`, `requires`, and `produces`. Runtime execution is provided by `PipelineAgent<I, O>`. |
 | `orchestration.WorkflowArtifact` | Typed artifact keys used to connect agents, for example `RequirementDocument`, `PageModelBundle`, `MappedUiKnowledge`, and `AiContextPackage`. |
 | `orchestration.pipeline.PipelineAgent` | Typed stage interface: `input()`, `output()`, `supports(input, envelope)`, and `execute(input, envelope)`. |
-| `orchestration.pipeline.PipelineArtifactStore` | Bridge that reads typed artifacts from `WorkflowState`, passes them to migrated agents, and syncs typed outputs back during the migration. |
+| `orchestration.pipeline.PipelineArtifactStore` | Primary in-run typed artifact registry. It is initialized from the run envelope and expands compound outputs into downstream artifacts. |
 | `orchestration.pipeline.WorkflowRunEnvelope` | Immutable run metadata snapshot used by typed agents instead of direct `WorkflowState` access. |
-| `orchestration.pipeline.WorkflowStatePipelineAdapter` | Compatibility adapter that writes a typed stage output back to legacy `WorkflowState`. |
-| `orchestration.pipeline.StageOutputPublisher` | Centralized publisher for legacy side effects: state setters, artifact key/value entries, findings, and JSON artifact files. |
+| `orchestration.pipeline.StageOutputPublisher` | Centralized projection layer for artifact files, audit-visible state fields, findings, and generated-source references. |
 
 ### Requirement processing
 
@@ -250,7 +249,7 @@ AiContextAssemblyAgent
   produces: AiContextPackage
 ```
 
-`order()` still exists as a stable tie-breaker when two agents are independent or when a legacy agent has not declared artifacts yet. The AI POM workflow now follows this dependency path:
+Runtime execution is dependency-based, not numeric-order based. The orchestrator sorts agents from declared `requires()` / `produces()` artifacts and uses the input registration order only as a deterministic tie-breaker for independent graph nodes. The AI POM workflow follows this dependency path:
 
 ```text
 RequirementDocument
@@ -266,11 +265,11 @@ RequirementDocument
   -> AiPageObjectSpecs
 ```
 
-### Typed pipeline migration status
+### Typed pipeline status
 
-The platform is in a staged migration from shared mutable `WorkflowState` to typed stage contracts.
+The workflow core has moved to typed stage contracts. Agents execute through `PipelineAgent<I, O>` and exchange business data through `PipelineArtifactStore`; `WorkflowState` is retained as a run envelope/reporting projection.
 
-Current migrated agents:
+Representative typed agents:
 
 | Agent | Typed input | Typed output | Legacy adapter |
 |---|---|---|---|
@@ -291,24 +290,22 @@ Current migrated agents:
 | `AiContextAssemblyAgent` | `AiContextAssemblyInput` | `AiContextPackage` | `StageOutputPublisher.publishAiContextPackage` |
 | `AiPageObjectSpecAgent` | `AiPageObjectSpecInput` | `AiPageObjectGenerationResult` | `StageOutputPublisher.publishAiPageObjectGenerationResult` |
 
-For a migrated agent, `AgentOrchestrator` no longer calls `supports(WorkflowState)`.
-It resolves input from `PipelineArtifactStore`, evaluates `supports(input, WorkflowRunEnvelope)`, and calls `execute(input, WorkflowRunEnvelope)`.
-The legacy `execute(WorkflowState)` method remains only as a thin adapter for backward compatibility and direct old-style invocations.
+`AgentOrchestrator` resolves typed input from `PipelineArtifactStore`, evaluates `supports(input, WorkflowRunEnvelope)`, calls `execute(input, WorkflowRunEnvelope)`, stores the output, and then lets the agent publish any required file/reporting projection.
 
-`StageOutputPublisher` is intentionally transitional. It centralizes writes to `WorkflowState` and artifact files so the typed `execute(...)` methods can remain side-effect free. Once downstream agents are migrated, publisher logic can move behind a run-level artifact sink.
+`StageOutputPublisher` keeps side effects out of typed `execute(...)` methods where practical. Its remaining job is projection: write artifacts, expose generated file paths, and keep run reports readable.
 
 The following domain services now also expose typed entry points:
 
 | Service | Typed input | Legacy status |
 |---|---|---|
-| `RuleBasedRequirementToTestCaseGenerator` | `RequirementToTestCaseInput` | `generate(WorkflowState)` is an adapter. |
-| `BusinessFlowResolver` | `FlowScopedKnowledgeInput` | `resolve(WorkflowState)` is an adapter. |
-| `FlowScopedKnowledgeService` | `FlowScopedKnowledgeInput` | `scope(WorkflowState)` is an adapter. |
-| `UiKnowledgeRetrievalService` | `UiKnowledgeRetrievalRequest` | `retrieve(WorkflowState, ...)` is an adapter. |
-| `AiRunQualitySummaryService` | `AiRunQualitySummaryInput` | `summarize(WorkflowState)` is an adapter. |
-| `AiPageObjectSpecGenerator` | `AiPageObjectGenerationRequest` | `generate(WorkflowState, ...)` is an adapter. |
+| `RuleBasedRequirementToTestCaseGenerator` | `RequirementToTestCaseInput` | Produces capability-based canonical UI test cases. |
+| `BusinessFlowResolver` | `FlowScopedKnowledgeInput` | Resolves flow scope from operations, requirements, and confirmed capabilities. |
+| `FlowScopedKnowledgeService` | `FlowScopedKnowledgeInput` | Builds route/requirement-scoped knowledge packages. |
+| `UiKnowledgeRetrievalService` | `UiKnowledgeRetrievalRequest` | Retrieves namespace-filtered current-run or stable-cache evidence. |
+| `AiRunQualitySummaryService` | `AiRunQualitySummaryInput` | Computes run-level quality score. |
+| `AiPageObjectSpecGenerator` | `AiPageObjectGenerationRequest` | Coordinates typed POM prompt generation stages. |
 
-`AiPageObjectSpecAgent` now invokes the typed page-object generation path directly. The legacy `generate(WorkflowState, ...)` method remains as a compatibility adapter for old direct callers, but the prompt-side workflow is split into typed services:
+`AiPageObjectSpecAgent` invokes the typed page-object generation path directly. The prompt-side workflow is split into typed services:
 
 | Stage service | Responsibility |
 |---|---|
@@ -629,17 +626,15 @@ Minimum AI-run acceptance checks:
 - Historical Neo4j/Qdrant records are now isolated by current-run namespace, but long-term retention/cleanup policies are still needed.
 - AI mode does not yet generate reviewed Java. Re-enabling AI code generation requires contract validation, compile gates, review gates, and a controlled write policy.
 
-### Remaining work to make `WorkflowState` a run envelope
+### Remaining work around `WorkflowState`
 
-1. Migrate the remaining non-AI writer/validation/review agents to `PipelineAgent<I, O>`:
-   `UiTestPlanAgent`, `UiDiscoveryArtifactPersistenceAgent`, `PageObjectWriterAgent`,
-   `LayeredUiTestWriterAgent`, validation agents, review agent, and local file persistence.
-2. Replace direct `state.addArtifact`, `state.addFinding`, and `state.addAiArtifactFile` calls outside migrated agents with `StageOutputPublisher` or a new run-level artifact sink.
-3. Move `PipelineArtifactStore` from a compatibility bridge to the primary artifact source. At that point `WorkflowState` should only expose run metadata, audit, failure, and artifact file references.
-4. Replace legacy `supports(WorkflowState)` implementations after every agent has typed readiness. The method still exists because `WorkflowAgent` must support old agents during the transition.
-5. Remove remaining direct `WorkflowState` dependencies from artifact persistence, validation, review, deterministic writer services, and old direct prompt-generation callers.
-6. Split or disable the remaining monolithic AI code-generation services, especially test-spec generation, before re-enabling LLM-backed Java writes.
-7. Once no agent needs mutable business fields on `WorkflowState`, collapse it into:
+1. Shrink `WorkflowState` fields to the data needed by reports and console output; keep business data in `PipelineArtifactStore`.
+2. Split `StageOutputPublisher` further into dedicated artifact, event, AI-artifact, and generated-source publishers.
+3. Move deterministic validation/review/report services to typed read models so they no longer inspect the run envelope directly.
+4. Remove old direct service overloads that still accept `WorkflowState` once no tests or entry points depend on them.
+5. Keep LLM-backed Java writing disabled until schema validation, compile gate, review gate, and controlled source persistence are all green.
+
+Target envelope shape:
 
 ```text
 WorkflowRunEnvelope

@@ -6,15 +6,13 @@ import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.policy.model.GenerationPolicy;
 import ua.demo.agentlab.requirements.model.RequirementInput;
 
 import java.util.Set;
 
 public class PolicyLoadingAgent implements WorkflowAgent,
-        PipelineAgent<RequirementInput, GenerationPolicy>,
-        WorkflowStatePipelineAdapter<GenerationPolicy> {
+        PipelineAgent<RequirementInput, GenerationPolicy> {
 
     private final PolicyResolver policyResolver;
     private final String policyId;
@@ -35,11 +33,6 @@ public class PolicyLoadingAgent implements WorkflowAgent,
     }
 
     @Override
-    public int order() {
-        return 18;
-    }
-
-    @Override
     public Set<WorkflowArtifact> produces() {
         return Set.of(WorkflowArtifact.GENERATION_POLICY);
     }
@@ -52,16 +45,6 @@ public class PolicyLoadingAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.GENERATION_POLICY;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getGenerationPolicy() == null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(state.getRequirementInput(), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

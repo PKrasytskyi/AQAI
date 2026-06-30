@@ -10,13 +10,11 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 
 import java.util.Set;
 
 public class AiContextAssemblyAgent implements WorkflowAgent,
-        PipelineAgent<AiContextAssemblyInput, AiContextPackage>,
-        WorkflowStatePipelineAdapter<AiContextPackage> {
+        PipelineAgent<AiContextAssemblyInput, AiContextPackage> {
 
     private final AiContextAssembler contextAssembler;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
@@ -31,11 +29,6 @@ public class AiContextAssemblyAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "ai-context-assembly-agent";
-    }
-
-    @Override
-    public int order() {
-        return 34;
     }
 
     @Override
@@ -64,22 +57,11 @@ public class AiContextAssemblyAgent implements WorkflowAgent,
     }
 
     @Override
-    public boolean supports(WorkflowState state) {
-        return state.getMappedUiKnowledge() != null && state.getAiContextPackage() == null;
-    }
-
-    @Override
     public boolean supports(AiContextAssemblyInput input, WorkflowRunEnvelope run) {
         return input != null
                 && input.mappedUiKnowledge() != null
                 && input.canonicalTestCaseBundle() != null
                 && input.assertionContracts() != null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        AiContextPackage contextPackage = execute(AiContextAssemblyInput.from(state), WorkflowRunEnvelope.from(state));
-        applyOutput(contextPackage, state);
     }
 
     @Override

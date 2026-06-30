@@ -5,9 +5,14 @@ import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 
 public interface RequirementToTestCaseGenerator {
 
-    CanonicalTestCaseBundle generate(WorkflowState state);
+    CanonicalTestCaseBundle generate(RequirementToTestCaseInput input);
 
-    default CanonicalTestCaseBundle generate(RequirementToTestCaseInput input) {
-        throw new UnsupportedOperationException("Typed RequirementToTestCaseInput is not supported by this generator");
+    default CanonicalTestCaseBundle generate(WorkflowState state) {
+        return generate(state == null ? null : new RequirementToTestCaseInput(
+                state.getProjectProfile(),
+                state.getNormalizedRequirementBundle(),
+                state.getMappedUiKnowledge(),
+                state.getFlowScopedKnowledgePackage()
+        ));
     }
 }

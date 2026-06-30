@@ -47,6 +47,15 @@ public class AiPageObjectPromptBuildStage {
         metadata.put("mappedPageCount", scope.scopedContext() == null || scope.scopedContext().mappedUiKnowledge() == null
                 ? 0
                 : scope.scopedContext().mappedUiKnowledge().pages().size());
+        metadata.put("promptAllowedLocatorCount", scope.scopedContext() == null || scope.scopedContext().promptUiEvidence() == null
+                ? 0
+                : scope.scopedContext().promptUiEvidence().requiredLocators().size());
+        metadata.put("promptActionCount", scope.scopedContext() == null || scope.scopedContext().promptUiEvidence() == null
+                ? 0
+                : scope.scopedContext().promptUiEvidence().requiredActions().size());
+        metadata.put("promptAssertionCount", scope.scopedContext() == null || scope.scopedContext().promptUiEvidence() == null
+                ? 0
+                : scope.scopedContext().promptUiEvidence().requiredAssertions().size());
         metadata.put("pageModelPageCount", scope.scopedContext() == null || scope.scopedContext().pageModelBundle() == null
                 ? 0
                 : scope.scopedContext().pageModelBundle().pages().size());

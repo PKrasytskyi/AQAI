@@ -53,7 +53,8 @@ public class AiPageObjectPromptLintStage {
         int pageModelCount = scope.scopedContext() == null || scope.scopedContext().pageModelBundle() == null
                 ? 0
                 : scope.scopedContext().pageModelBundle().pages().size();
-        if (mappedPageCount == 0 && pageModelCount == 0) {
+        int promptEvidenceCount = promptEvidenceCount(scope);
+        if (mappedPageCount == 0 && pageModelCount == 0 && promptEvidenceCount == 0) {
             findings.add("Page scope for " + scope.pageName()
                     + " has no discovery evidence; continuing with deterministic baseline page object spec");
         }
@@ -71,11 +72,21 @@ public class AiPageObjectPromptLintStage {
         int pageModelCount = scope.scopedContext() == null || scope.scopedContext().pageModelBundle() == null
                 ? 0
                 : scope.scopedContext().pageModelBundle().pages().size();
+        int promptEvidenceCount = promptEvidenceCount(scope);
         if (scope.pageScenarios().isEmpty()) {
             throw new IllegalStateException("Page scope for " + scope.pageName() + " has no matching UI scenarios");
         }
-        if (mappedPageCount == 0 && pageModelCount == 0 && scope.baselineSpec() == null) {
+        if (mappedPageCount == 0 && pageModelCount == 0 && promptEvidenceCount == 0 && scope.baselineSpec() == null) {
             throw new IllegalStateException("Page scope for " + scope.pageName() + " has no mapped page evidence");
         }
+    }
+
+    private int promptEvidenceCount(AiPageObjectPromptScope scope) {
+        if (scope == null || scope.scopedContext() == null || scope.scopedContext().promptUiEvidence() == null) {
+            return 0;
+        }
+        return scope.scopedContext().promptUiEvidence().requiredLocators().size()
+                + scope.scopedContext().promptUiEvidence().requiredActions().size()
+                + scope.scopedContext().promptUiEvidence().requiredAssertions().size();
     }
 }

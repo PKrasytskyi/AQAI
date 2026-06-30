@@ -7,10 +7,11 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.ui.catalog.ConfirmedPageSourceResolver;
 import ua.demo.agentlab.ui.catalog.ConfirmedRouteGuard;
 import ua.demo.agentlab.ui.catalog.StablePageRegistry;
+import ua.demo.agentlab.ui.discovery.knowledge.MappedUiKnowledgeCurator;
+import ua.demo.agentlab.ui.discovery.knowledge.model.MappedUiKnowledgeRaw;
 import ua.demo.agentlab.ui.discovery.mapping.PageMapper;
 import ua.demo.agentlab.ui.discovery.mapping.MappedUiKnowledgeRouteFilter;
 import ua.demo.agentlab.ui.discovery.mapping.MappedUiKnowledgeRouteCollisionPolicy;
@@ -20,13 +21,13 @@ import java.util.List;
 import java.util.Set;
 
 public class UiPageMappingAgent implements WorkflowAgent,
-        PipelineAgent<UiPageMappingInput, MappedUiKnowledge>,
-        WorkflowStatePipelineAdapter<MappedUiKnowledge> {
+        PipelineAgent<UiPageMappingInput, UiPageMappingOutput> {
 
     private final PageMapper pageMapper;
     private final ConfirmedPageSourceResolver confirmedPageSourceResolver = new ConfirmedPageSourceResolver();
     private final MappedUiKnowledgeRouteFilter routeFilter = new MappedUiKnowledgeRouteFilter();
     private final MappedUiKnowledgeRouteCollisionPolicy routeCollisionPolicy = new MappedUiKnowledgeRouteCollisionPolicy();
+    private final MappedUiKnowledgeCurator knowledgeCurator = new MappedUiKnowledgeCurator();
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
 
     public UiPageMappingAgent(PageMapper pageMapper) {
@@ -39,11 +40,6 @@ public class UiPageMappingAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "ui-page-mapping-agent";
-    }
-
-    @Override
-    public int order() {
-        return 26;
     }
 
     @Override
@@ -67,17 +63,6 @@ public class UiPageMappingAgent implements WorkflowAgent,
     }
 
     @Override
-    public boolean supports(WorkflowState state) {
-        return state.getUiDiscoverySnapshot() != null
-                && state.getMappedUiKnowledge() == null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
-    }
-
-    @Override
     public UiPageMappingInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
         if (state == null) {
             throw new IllegalArgumentException("state cannot be null");
@@ -97,7 +82,7 @@ public class UiPageMappingAgent implements WorkflowAgent,
     }
 
     @Override
-    public MappedUiKnowledge execute(UiPageMappingInput input, WorkflowRunEnvelope run) {
+    public UiPageMappingOutput execute(UiPageMappingInput input, WorkflowRunEnvelope run) {
         if (input == null || input.discoverySnapshot() == null || input.pageModelBundle() == null) {
             throw new IllegalArgumentException("UI discovery snapshot and PageModel bundle are required");
         }
@@ -114,11 +99,22 @@ public class UiPageMappingAgent implements WorkflowAgent,
         );
         ConfirmedRouteGuard guard = new ConfirmedRouteGuard(confirmedPages);
         MappedUiKnowledge filtered = routeFilter.filter(mappedKnowledge, guard);
-        return routeCollisionPolicy.apply(filtered, new StablePageRegistry(confirmedPages));
+        MappedUiKnowledge collisionResolved = routeCollisionPolicy.apply(filtered, new StablePageRegistry(confirmedPages));
+        MappedUiKnowledgeRaw raw = new MappedUiKnowledgeRaw(
+                mappedKnowledge,
+                List.of("mapper:raw", "mapper:page-count=" + mappedKnowledge.pages().size())
+        );
+        return new UiPageMappingOutput(
+                raw,
+                knowledgeCurator.curate(new MappedUiKnowledgeRaw(
+                        collisionResolved,
+                        List.of("mapper:route-filter", "mapper:route-collision-policy")
+                ))
+        );
     }
 
     @Override
-    public void applyOutput(MappedUiKnowledge output, WorkflowState state) {
+    public void applyOutput(UiPageMappingOutput output, WorkflowState state) {
         outputPublisher.publishMappedUiKnowledge(output, state);
     }
 }

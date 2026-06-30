@@ -7,7 +7,6 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
 import ua.demo.agentlab.ui.discovery.mapping.LocatorPromotionFilter;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeNamespaceEnricher;
@@ -19,8 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
-        PipelineAgent<UiKnowledgePersistenceInput, UiKnowledgePersistenceOutput>,
-        WorkflowStatePipelineAdapter<UiKnowledgePersistenceOutput> {
+        PipelineAgent<UiKnowledgePersistenceInput, UiKnowledgePersistenceOutput> {
 
     private final List<PageKnowledgeWriter> writers;
     private final KnowledgeNamespaceEnricher namespaceEnricher = new KnowledgeNamespaceEnricher();
@@ -37,11 +35,6 @@ public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "ui-page-knowledge-persistence-agent";
-    }
-
-    @Override
-    public int order() {
-        return 32;
     }
 
     @Override
@@ -62,17 +55,6 @@ public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.UI_KNOWLEDGE_PERSISTED;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getMappedUiKnowledge() != null
-                && !state.getArtifacts().containsKey("ui.knowledge.persistence.completed");
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(inputFrom(null, state), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

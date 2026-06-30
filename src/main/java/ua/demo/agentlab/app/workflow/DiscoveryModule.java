@@ -1,0 +1,11 @@
+package ua.demo.agentlab.app.workflow;
+
+import ua.demo.agentlab.orchestration.WorkflowAgent;
+
+public record DiscoveryModule(
+        WorkflowAgent uiDiscoveryAgent,
+        WorkflowAgent uiDiscoveryArtifactPersistenceAgent,
+        WorkflowAgent uiPageModelAgent,
+        WorkflowAgent uiPageMappingAgent
+) {
+}

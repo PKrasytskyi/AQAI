@@ -5,19 +5,30 @@ import ua.demo.agentlab.ai.rag.intelligence.model.KnowledgeEnrichmentRunReport;
 import ua.demo.agentlab.ai.rag.intelligence.model.RepositoryIntelligenceReport;
 import ua.demo.agentlab.ai.rag.intelligence.service.KnowledgeEnrichmentRunReporter;
 import ua.demo.agentlab.ai.rag.intelligence.service.RepositoryIntelligenceIndexer;
+import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
+import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
+import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
+import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
+import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-public class RepositoryIntelligenceEnrichmentAgent implements WorkflowAgent {
+public class RepositoryIntelligenceEnrichmentAgent implements WorkflowAgent,
+        PipelineAgent<ProjectProfile, RepositoryIntelligenceEnrichmentResult> {
 
     private final RepositoryIntelligenceIndexer indexer;
     private final Path workspaceRoot;
     private final Path outputDirectory;
     private final KnowledgeEnrichmentRunReporter runReporter;
     private final AiRunArtifactWriter artifactWriter = new AiRunArtifactWriter();
+    private final StageOutputPublisher publisher = new StageOutputPublisher();
 
     public RepositoryIntelligenceEnrichmentAgent(
             RepositoryIntelligenceIndexer indexer,
@@ -42,37 +53,68 @@ public class RepositoryIntelligenceEnrichmentAgent implements WorkflowAgent {
     }
 
     @Override
-    public int order() {
-        return 5;
+    public Set<WorkflowArtifact> requires() {
+        return Set.of(WorkflowArtifact.PROJECT_PROFILE);
     }
 
     @Override
-    public boolean supports(WorkflowState state) {
-        return state != null && !state.getArtifacts().containsKey("ai.enrichment.completed");
+    public Set<WorkflowArtifact> produces() {
+        return Set.of(WorkflowArtifact.REPOSITORY_INTELLIGENCE_ENRICHMENT);
     }
 
     @Override
-    public void execute(WorkflowState state) {
+    public WorkflowArtifact input() {
+        return WorkflowArtifact.PROJECT_PROFILE;
+    }
+
+    @Override
+    public WorkflowArtifact output() {
+        return WorkflowArtifact.REPOSITORY_INTELLIGENCE_ENRICHMENT;
+    }
+
+    @Override
+    public boolean supports(PipelineArtifactStore store, WorkflowState state) {
+        return store != null
+                && store.get(WorkflowArtifact.REPOSITORY_INTELLIGENCE_ENRICHMENT).isEmpty()
+                && store.get(WorkflowArtifact.PROJECT_PROFILE).isPresent();
+    }
+
+    @Override
+    public RepositoryIntelligenceEnrichmentResult execute(ProjectProfile input, WorkflowRunEnvelope run) {
         RepositoryIntelligenceReport report = indexer.index(workspaceRoot, outputDirectory);
         KnowledgeEnrichmentRunReport enrichment = runReporter == null
                 ? KnowledgeEnrichmentRunReport.notStarted("rule-based")
                 : runReporter.lastRunReport();
 
-        state.addArtifact("ai.enrichment.completed", "true");
-        state.addArtifact("ai.enrichment.output", report.outputDirectory().toString());
-        state.addArtifact("ai.enrichment.records", String.valueOf(report.knowledgeEnrichments()));
-        state.addArtifact("ai.enrichment.source", enrichment.source());
-        state.addArtifact("ai.enrichment.batches.requested", String.valueOf(enrichment.requestedBatches()));
-        state.addArtifact("ai.enrichment.batches.completed", String.valueOf(enrichment.completedBatches()));
-        state.addArtifact("ai.enrichment.records.openai", String.valueOf(enrichment.enrichedRecordCount()));
-        state.addArtifact("ai.enrichment.failures", String.valueOf(enrichment.failures().size()));
-        state.addFinding("Repository intelligence enrichment completed: "
-                + enrichment.source() + " batches=" + enrichment.completedBatches()
-                + "/" + enrichment.requestedBatches());
-        state.addAiArtifactFile(artifactWriter.writeJson(
+        Map<String, String> artifacts = new LinkedHashMap<>();
+        artifacts.put("ai.enrichment.completed", "true");
+        artifacts.put("ai.enrichment.output", report.outputDirectory().toString());
+        artifacts.put("ai.enrichment.records", String.valueOf(report.knowledgeEnrichments()));
+        artifacts.put("ai.enrichment.source", enrichment.source());
+        artifacts.put("ai.enrichment.batches.requested", String.valueOf(enrichment.requestedBatches()));
+        artifacts.put("ai.enrichment.batches.completed", String.valueOf(enrichment.completedBatches()));
+        artifacts.put("ai.enrichment.records.openai", String.valueOf(enrichment.enrichedRecordCount()));
+        artifacts.put("ai.enrichment.failures", String.valueOf(enrichment.failures().size()));
+
+        String artifactFile = artifactWriter.writeJson(
                 "enrichment",
                 "repository-intelligence-report.json",
                 Map.of("repository", report, "enrichment", enrichment)
-        ).toString());
+        ).toString();
+        String finding = "Repository intelligence enrichment completed: "
+                + enrichment.source() + " batches=" + enrichment.completedBatches()
+                + "/" + enrichment.requestedBatches();
+        return new RepositoryIntelligenceEnrichmentResult(
+                report,
+                enrichment,
+                artifacts,
+                List.of(artifactFile),
+                List.of(finding)
+        );
+    }
+
+    @Override
+    public void applyOutput(RepositoryIntelligenceEnrichmentResult output, WorkflowState state) {
+        publisher.publishRepositoryIntelligenceEnrichment(output, state);
     }
 }

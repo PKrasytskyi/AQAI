@@ -6,7 +6,6 @@ import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowStatePipelineAdapter;
 import ua.demo.agentlab.requirements.model.RequirementDocument;
 import ua.demo.agentlab.requirements.model.RequirementInput;
 import ua.demo.agentlab.requirements.source.RequirementSource;
@@ -15,8 +14,7 @@ import java.util.List;
 import java.util.Set;
 
 public class RequirementReaderAgent implements WorkflowAgent,
-        PipelineAgent<RequirementInput, RequirementDocument>,
-        WorkflowStatePipelineAdapter<RequirementDocument> {
+        PipelineAgent<RequirementInput, RequirementDocument> {
 
     private final List<RequirementSource> requirementSources;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
@@ -28,11 +26,6 @@ public class RequirementReaderAgent implements WorkflowAgent,
     @Override
     public String name() {
         return "requirement-reader";
-    }
-
-    @Override
-    public int order() {
-        return 10;
     }
 
     @Override
@@ -48,16 +41,6 @@ public class RequirementReaderAgent implements WorkflowAgent,
     @Override
     public WorkflowArtifact output() {
         return WorkflowArtifact.REQUIREMENT_DOCUMENT;
-    }
-
-    @Override
-    public boolean supports(WorkflowState state) {
-        return state.getRequirementInput() != null;
-    }
-
-    @Override
-    public void execute(WorkflowState state) {
-        applyOutput(execute(state.getRequirementInput(), WorkflowRunEnvelope.from(state)), state);
     }
 
     @Override

@@ -45,6 +45,7 @@ Use Qdrant for:
 From the project root:
 
 ```powershell
+$env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD="local-neo4j-password"
 docker compose -f docker-compose.knowledge.yml up -d
 ```
 
@@ -61,14 +62,14 @@ Expected ports:
 - Qdrant HTTP: `http://localhost:6333`
 - Qdrant gRPC: `localhost:6334`
 
-## 2. Default Credentials
+## 2. Local Credentials
 
-Current compose defaults:
+Current compose uses the `KNOWLEDGE_GRAPH_NEO4J_PASSWORD` environment variable. If it is not set, Docker Compose falls back to the local demo password `local-neo4j-password`.
 
 - Neo4j username: `neo4j`
-- Neo4j password: `agentlab123`
+- Neo4j password: `$env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD`
 
-Change this before shared/team use.
+Set a real value before shared/team use. Do not commit private passwords to `framework.properties` or documentation.
 
 ## 3. Verify Neo4j
 
@@ -79,7 +80,7 @@ Open:
 Login with:
 
 - username: `neo4j`
-- password: `agentlab123`
+- password: value of `$env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD`
 
 Run a quick check:
 
@@ -92,7 +93,7 @@ RETURN 1 AS ok;
 ### Option A: from inside the container
 
 ```powershell
-docker exec -it agentlab-neo4j cypher-shell -u neo4j -p agentlab123 -f /var/lib/neo4j/import/page-knowledge-schema.cypher
+docker exec -it agentlab-neo4j cypher-shell -u neo4j -p $env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD -f /var/lib/neo4j/import/page-knowledge-schema.cypher
 ```
 
 ### Option B: paste manually in Neo4j Browser

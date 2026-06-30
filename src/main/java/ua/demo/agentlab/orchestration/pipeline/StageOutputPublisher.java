@@ -2,26 +2,35 @@ package ua.demo.agentlab.orchestration.pipeline;
 
 import ua.demo.agentlab.ai.assertions.model.AssertionContract;
 import ua.demo.agentlab.ai.context.AiContextPackage;
-import ua.demo.agentlab.ai.debug.AiRunArtifactWriter;
 import ua.demo.agentlab.ai.expectationenrichment.agent.TestCaseExpectationEnrichmentOutput;
 import ua.demo.agentlab.ai.expectationenrichment.model.ResolvedExpectedResult;
 import ua.demo.agentlab.ai.flow.FlowScopedKnowledgePackage;
 import ua.demo.agentlab.ai.pageenrichment.agent.PageModelEnrichmentOutput;
 import ua.demo.agentlab.ai.pageenrichment.cache.PageKnowledgeCacheLookupResult;
+import ua.demo.agentlab.ai.rag.intelligence.agent.RepositoryIntelligenceEnrichmentResult;
 import ua.demo.agentlab.ai.schema.LlmOutputSchemaVersion;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
 import ua.demo.agentlab.ai.ui.generation.AiPageObjectGenerationResult;
+import ua.demo.agentlab.ai.ui.generation.AiUiTestGenerationResult;
+import ua.demo.agentlab.api.agent.ApiGenerationResult;
+import ua.demo.agentlab.futurefeat.testplan.model.TestPlan;
 import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.policy.model.GenerationPolicy;
+import ua.demo.agentlab.review.GeneratedCodeReviewReport;
 import ua.demo.agentlab.requirements.model.RequirementDocument;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
+import ua.demo.agentlab.ui.discovery.agent.UiPageMappingOutput;
 import ua.demo.agentlab.ui.discovery.agent.UiDiscoveryOutput;
+import ua.demo.agentlab.ui.discovery.agent.UiDiscoveryArtifactPersistenceResult;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.PageKnowledgeWriteResult;
 import ua.demo.agentlab.ui.discovery.pagemodel.PageModelArtifactWriter;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
+import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
+import ua.demo.agentlab.validation.GeneratedCodeValidationResult;
+import ua.demo.agentlab.validation.GeneratedUiContractValidationResult;
 
 import java.util.List;
 import java.util.Map;
@@ -29,15 +38,15 @@ import java.util.stream.Collectors;
 
 public class StageOutputPublisher {
 
-    private final AiRunArtifactWriter aiArtifactWriter = new AiRunArtifactWriter();
+    private final AiArtifactPublisher aiArtifactPublisher = new AiArtifactPublisher();
 
     public void publishRequirementDocument(RequirementDocument document, WorkflowState state) {
         if (state == null || document == null) {
             return;
         }
         state.setRequirementDocument(document);
-        state.addArtifact("requirements.raw", document.content());
-        state.addFinding("Requirements loaded from: " + document.source());
+        putArtifact(state, "requirements.raw", document.content());
+        addFinding(state, "Requirements loaded from: " + document.source());
     }
 
     public void publishNormalizedRequirementBundle(NormalizedRequirementBundle bundle, WorkflowState state) {
@@ -45,11 +54,11 @@ public class StageOutputPublisher {
             return;
         }
         state.setNormalizedRequirementBundle(bundle);
-        state.addArtifact("requirements.normalized.source", bundle.source());
-        state.addArtifact("requirements.normalized.count", String.valueOf(bundle.requirements().size()));
-        state.addArtifact("requirements.normalized.assumptions", String.valueOf(bundle.assumptions().size()));
-        state.addArtifact("requirements.normalized.risks", String.valueOf(bundle.risks().size()));
-        state.addFinding("Requirements normalized: " + bundle.requirements().size());
+        putArtifact(state, "requirements.normalized.source", bundle.source());
+        putArtifact(state, "requirements.normalized.count", String.valueOf(bundle.requirements().size()));
+        putArtifact(state, "requirements.normalized.assumptions", String.valueOf(bundle.assumptions().size()));
+        putArtifact(state, "requirements.normalized.risks", String.valueOf(bundle.risks().size()));
+        addFinding(state, "Requirements normalized: " + bundle.requirements().size());
     }
 
     public void publishGenerationPolicy(GenerationPolicy policy, WorkflowState state) {
@@ -57,17 +66,36 @@ public class StageOutputPublisher {
             return;
         }
         state.setGenerationPolicy(policy);
-        state.addArtifact("policy.id", policy.policyId());
-        state.addArtifact("policy.description", policy.description());
-        state.addArtifact("policy.ui.framework", policy.frameworkPolicy().uiFramework().name());
-        state.addArtifact("policy.api.framework", policy.frameworkPolicy().apiFramework().name());
-        state.addArtifact("policy.test.style", policy.frameworkPolicy().testStyle().name());
-        state.addArtifact("policy.selector.order", policy.selectorPolicy().priorityOrder()
+        putArtifact(state, "policy.id", policy.policyId());
+        putArtifact(state, "policy.description", policy.description());
+        putArtifact(state, "policy.ui.framework", policy.frameworkPolicy().uiFramework().name());
+        putArtifact(state, "policy.api.framework", policy.frameworkPolicy().apiFramework().name());
+        putArtifact(state, "policy.test.style", policy.frameworkPolicy().testStyle().name());
+        putArtifact(state, "policy.selector.order", policy.selectorPolicy().priorityOrder()
                 .stream()
                 .map(Enum::name)
                 .collect(Collectors.joining(" -> "))
         );
-        state.addFinding("Generation policy loaded: " + policy.policyId());
+        addFinding(state, "Generation policy loaded: " + policy.policyId());
+    }
+
+    public void publishTestPlan(TestPlan testPlan, WorkflowState state) {
+        if (state == null || testPlan == null) {
+            return;
+        }
+        state.setTestPlan(testPlan);
+        putArtifact(state, "test.plan.source", testPlan.source());
+        putArtifact(
+                state,
+                "test.plan.summary",
+                "areas=%d, scenarios=%d, assumptions=%d, risks=%d".formatted(
+                        testPlan.functionalAreas().size(),
+                        testPlan.scenarios().size(),
+                        testPlan.assumptions().size(),
+                        testPlan.risks().size()
+                )
+        );
+        addFinding(state, "Test plan created with " + testPlan.scenarios().size() + " scenarios");
     }
 
     public void publishUiDiscoveryOutput(UiDiscoveryOutput output, WorkflowState state) {
@@ -77,24 +105,24 @@ public class StageOutputPublisher {
         state.setUiDiscoverySnapshot(output.discoverySnapshot());
         state.setSeleniumDiscoveryResult(output.seleniumDiscoveryResult());
         state.setCanonicalPageFlowModel(output.canonicalPageFlowModel());
-        state.addArtifact("ui.discovery.page.count", String.valueOf(output.discoverySnapshot().pages().size()));
-        state.addArtifact("ui.discovery.flow.count", String.valueOf(output.discoverySnapshot().flows().size()));
+        putArtifact(state, "ui.discovery.page.count", String.valueOf(output.discoverySnapshot().pages().size()));
+        putArtifact(state, "ui.discovery.flow.count", String.valueOf(output.discoverySnapshot().flows().size()));
         if (output.canonicalPageFlowModel() != null) {
-            state.addArtifact("ui.canonical.page.count", String.valueOf(output.canonicalPageFlowModel().pages().size()));
-            state.addArtifact("ui.canonical.flow.count", String.valueOf(output.canonicalPageFlowModel().flows().size()));
-            state.addFinding("Canonical UI model prepared with " + output.canonicalPageFlowModel().flows().size() + " flows");
+            putArtifact(state, "ui.canonical.page.count", String.valueOf(output.canonicalPageFlowModel().pages().size()));
+            putArtifact(state, "ui.canonical.flow.count", String.valueOf(output.canonicalPageFlowModel().flows().size()));
+            addFinding(state, "Canonical UI model prepared with " + output.canonicalPageFlowModel().flows().size() + " flows");
         }
-        state.addFinding("UI discovery identified " + output.discoverySnapshot().pages().size() + " candidate pages");
+        addFinding(state, "UI discovery identified " + output.discoverySnapshot().pages().size() + " candidate pages");
         if (output.seleniumDiscoveryResult() != null) {
-            state.addArtifact("ui.discovery.transition.count",
+            putArtifact(state, "ui.discovery.transition.count",
                     String.valueOf(output.seleniumDiscoveryResult().transitions().size()));
-            state.addArtifact("ui.discovery.repeat.run.count",
+            putArtifact(state, "ui.discovery.repeat.run.count",
                     String.valueOf(output.seleniumDiscoveryResult().discoveryRunCount()));
-            state.addArtifact("ui.discovery.locator.observation.count",
+            putArtifact(state, "ui.discovery.locator.observation.count",
                     String.valueOf(output.seleniumDiscoveryResult().locatorObservationCounts().size()));
-            state.addFinding("Selenium discovery captured "
+            addFinding(state, "Selenium discovery captured "
                     + output.seleniumDiscoveryResult().pages().size() + " raw page snapshots");
-            state.addFinding("Selenium discovery stability gate aggregated "
+            addFinding(state, "Selenium discovery stability gate aggregated "
                     + output.seleniumDiscoveryResult().discoveryRunCount() + " run(s)");
         }
     }
@@ -104,10 +132,10 @@ public class StageOutputPublisher {
             return;
         }
         state.setCanonicalTestCaseBundle(bundle);
-        state.addArtifact("canonical.test.case.primary.page", bundle.primaryPage());
-        state.addArtifact("canonical.test.case.pages", String.join(", ", bundle.pageNames()));
-        state.addArtifact("canonical.test.case.count", String.valueOf(bundle.testCases().size()));
-        state.addFinding("Canonical test case bundle created with " + bundle.testCases().size() + " test case(s)");
+        putArtifact(state, "canonical.test.case.primary.page", bundle.primaryPage());
+        putArtifact(state, "canonical.test.case.pages", String.join(", ", bundle.pageNames()));
+        putArtifact(state, "canonical.test.case.count", String.valueOf(bundle.testCases().size()));
+        addFinding(state, "Canonical test case bundle created with " + bundle.testCases().size() + " test case(s)");
     }
 
     public void publishExpectationEnrichment(TestCaseExpectationEnrichmentOutput output, WorkflowState state) {
@@ -116,39 +144,43 @@ public class StageOutputPublisher {
         }
         state.setCanonicalTestCaseBundle(output.bundle());
         long approved = output.resolved().stream().filter(result -> result.isApproved()).count();
-        state.addArtifact("test.case.expectation.candidate.count", String.valueOf(output.candidates().size()));
-        state.addArtifact("test.case.expectation.resolved.count", String.valueOf(approved));
-        state.addArtifact("test.case.expectation.failures", String.valueOf(output.failures().size()));
-        state.addArtifact("llm.schema.resolved.expected.result.version", LlmOutputSchemaVersion.RESOLVED_EXPECTED_RESULT);
-        state.addAiArtifactFile(aiArtifactWriter.writeJson(
+        putArtifact(state, "test.case.expectation.candidate.count", String.valueOf(output.candidates().size()));
+        putArtifact(state, "test.case.expectation.resolved.count", String.valueOf(approved));
+        putArtifact(state, "test.case.expectation.failures", String.valueOf(output.failures().size()));
+        putArtifact(state, "llm.schema.resolved.expected.result.version", LlmOutputSchemaVersion.RESOLVED_EXPECTED_RESULT);
+        aiArtifactPublisher.writeJson(
+                state,
                 "expectations",
                 "test-case-expected-results.json",
                 output.resolved()
-        ).toString());
-        state.addAiArtifactFile(aiArtifactWriter.writeJson(
+        );
+        aiArtifactPublisher.writeJson(
+                state,
                 "expectations",
                 "expected-result-candidates.json",
                 output.candidates()
-        ).toString());
+        );
         List<ResolvedExpectedResult> needsReview = output.resolved().stream()
                 .filter(result -> !result.isApproved())
                 .toList();
-        state.addArtifact("test.case.expectation.needs.review.count", String.valueOf(needsReview.size()));
+        putArtifact(state, "test.case.expectation.needs.review.count", String.valueOf(needsReview.size()));
         if (!needsReview.isEmpty()) {
-            state.addAiArtifactFile(aiArtifactWriter.writeJson(
+            aiArtifactPublisher.writeJson(
+                    state,
                     "need-review",
                     "expected-results-needs-review.json",
                     needsReview
-            ).toString());
+            );
             for (ResolvedExpectedResult result : needsReview) {
-                state.addAiArtifactFile(aiArtifactWriter.writeJson(
+                aiArtifactPublisher.writeJson(
+                        state,
                         "need-review",
                         safeFileName(result.testCaseId()) + "-expected-result.json",
                         result
-                ).toString());
+                );
             }
         }
-        state.addFinding("Expected-result enrichment resolved "
+        addFinding(state, "Expected-result enrichment resolved "
                 + approved + " of " + output.resolved().size() + " canonical test case(s)");
     }
 
@@ -179,13 +211,13 @@ public class StageOutputPublisher {
                 .mapToInt(page -> page.flows().size())
                 .sum();
 
-        state.addArtifact("ui.page.model.page.count", String.valueOf(pageModelBundle.pages().size()));
-        state.addArtifact("ui.page.model.element.count", String.valueOf(elementCount));
-        state.addArtifact("ui.page.model.form.count", String.valueOf(formCount));
-        state.addArtifact("ui.page.model.flow.count", String.valueOf(flowCount));
-        state.addArtifact("ui.page.model.artifact.count", String.valueOf(writtenFiles.size()));
-        state.addArtifact("ui.page.model.artifact.files", String.join(",", writtenFiles));
-        state.addFinding("PageModel prepared " + pageModelBundle.pages().size()
+        putArtifact(state, "ui.page.model.page.count", String.valueOf(pageModelBundle.pages().size()));
+        putArtifact(state, "ui.page.model.element.count", String.valueOf(elementCount));
+        putArtifact(state, "ui.page.model.form.count", String.valueOf(formCount));
+        putArtifact(state, "ui.page.model.flow.count", String.valueOf(flowCount));
+        putArtifact(state, "ui.page.model.artifact.count", String.valueOf(writtenFiles.size()));
+        putArtifact(state, "ui.page.model.artifact.files", String.join(",", writtenFiles));
+        addFinding(state, "PageModel prepared " + pageModelBundle.pages().size()
                 + " page(s), " + elementCount + " element(s), " + formCount + " form(s)");
     }
 
@@ -194,12 +226,29 @@ public class StageOutputPublisher {
             return;
         }
         state.setMappedUiKnowledge(mappedUiKnowledge);
-        state.addArtifact("ui.mapped.page.count", String.valueOf(mappedUiKnowledge.pages().size()));
-        state.addArtifact("ui.mapped.transition.count", String.valueOf(mappedUiKnowledge.transitions().size()));
-        state.addArtifact("ui.mapped.graph.node.count", String.valueOf(mappedUiKnowledge.graphNodes().size()));
-        state.addArtifact("ui.mapped.graph.edge.count", String.valueOf(mappedUiKnowledge.graphEdges().size()));
-        state.addArtifact("ui.mapped.vector.document.count", String.valueOf(mappedUiKnowledge.vectorDocuments().size()));
-        state.addFinding("Page mapper prepared " + mappedUiKnowledge.pages().size() + " mapped UI page(s)");
+        putArtifact(state, "ui.mapped.page.count", String.valueOf(mappedUiKnowledge.pages().size()));
+        putArtifact(state, "ui.mapped.transition.count", String.valueOf(mappedUiKnowledge.transitions().size()));
+        putArtifact(state, "ui.mapped.graph.node.count", String.valueOf(mappedUiKnowledge.graphNodes().size()));
+        putArtifact(state, "ui.mapped.graph.edge.count", String.valueOf(mappedUiKnowledge.graphEdges().size()));
+        putArtifact(state, "ui.mapped.vector.document.count", String.valueOf(mappedUiKnowledge.vectorDocuments().size()));
+        addFinding(state, "Page mapper prepared " + mappedUiKnowledge.pages().size() + " mapped UI page(s)");
+    }
+
+    public void publishMappedUiKnowledge(UiPageMappingOutput output, WorkflowState state) {
+        if (state == null || output == null) {
+            return;
+        }
+        state.setMappedUiKnowledgeRaw(output.rawKnowledge());
+        state.setMappedUiKnowledgeCurated(output.curatedKnowledge());
+        publishMappedUiKnowledge(output.curatedKnowledge().knowledge(), state);
+        putArtifact(state, "ui.mapped.raw.page.count", String.valueOf(output.rawKnowledge().knowledge().pages().size()));
+        putArtifact(state, "ui.mapped.curated.page.count", String.valueOf(output.curatedKnowledge().knowledge().pages().size()));
+        putArtifact(state, "ui.mapped.curated.excluded.evidence.count",
+                String.valueOf(output.curatedKnowledge().excludedEvidence().size()));
+        putArtifact(state, "ui.mapped.curated.confidence",
+                String.format(java.util.Locale.ROOT, "%.2f", output.curatedKnowledge().confidence()));
+        addFinding(state, "Mapped UI knowledge curated for persistence/prompt use; excluded evidence: "
+                + output.curatedKnowledge().excludedEvidence().size());
     }
 
     public void publishFlowScopedKnowledgePackage(FlowScopedKnowledgePackage knowledgePackage, WorkflowState state) {
@@ -207,19 +256,20 @@ public class StageOutputPublisher {
             return;
         }
         state.setFlowScopedKnowledgePackage(knowledgePackage);
-        state.addArtifact("flow.scope.page.count", String.valueOf(knowledgePackage.mappedUiKnowledge().pages().size()));
-        state.addArtifact("flow.scope.interaction.count",
+        putArtifact(state, "flow.scope.page.count", String.valueOf(knowledgePackage.mappedUiKnowledge().pages().size()));
+        putArtifact(state, "flow.scope.interaction.count",
                 String.valueOf(knowledgePackage.canonicalInteractionModel().interactions().size()));
-        state.addArtifact("flow.scope.vector.match.count",
+        putArtifact(state, "flow.scope.vector.match.count",
                 String.valueOf(knowledgePackage.retrievalContext().vectorMatches().size()));
-        state.addArtifact("flow.scope.graph.match.count",
+        putArtifact(state, "flow.scope.graph.match.count",
                 String.valueOf(knowledgePackage.retrievalContext().graphMatches().size()));
-        state.addFinding("Flow-scoped knowledge package prepared for AI context");
-        state.addAiArtifactFile(aiArtifactWriter.writeJson(
+        addFinding(state, "Flow-scoped knowledge package prepared for AI context");
+        aiArtifactPublisher.writeJson(
+                state,
                 "flow-scoped-knowledge",
                 "flow-scoped-knowledge-package.json",
                 knowledgePackage
-        ).toString());
+        );
     }
 
     public void publishRefreshedFlowScopedKnowledgePackage(FlowScopedKnowledgePackage knowledgePackage, WorkflowState state) {
@@ -227,8 +277,8 @@ public class StageOutputPublisher {
             return;
         }
         state.setFlowScopedKnowledgePackage(knowledgePackage);
-        state.addArtifact("flow.scoped.knowledge.refreshed", "true");
-        state.addFinding("Flow-scoped knowledge refreshed after UI knowledge persistence");
+        putArtifact(state, "flow.scoped.knowledge.refreshed", "true");
+        addFinding(state, "Flow-scoped knowledge refreshed after UI knowledge persistence");
     }
 
     public void publishPageKnowledgeCacheLookup(
@@ -244,15 +294,16 @@ public class StageOutputPublisher {
             state.setKnowledgeRunMetadata(runMetadata);
         }
         state.setPageKnowledgeCacheLookupResult(result);
-        state.addArtifact("page.knowledge.cache.retrieval.mode", retrievalMode == null ? "" : retrievalMode);
-        state.addArtifact("page.knowledge.cache.hit.count", String.valueOf(result.hitCount()));
-        state.addArtifact("page.knowledge.cache.miss.count", String.valueOf(result.missCount()));
-        state.addAiArtifactFile(aiArtifactWriter.writeJson(
+        putArtifact(state, "page.knowledge.cache.retrieval.mode", retrievalMode == null ? "" : retrievalMode);
+        putArtifact(state, "page.knowledge.cache.hit.count", String.valueOf(result.hitCount()));
+        putArtifact(state, "page.knowledge.cache.miss.count", String.valueOf(result.missCount()));
+        aiArtifactPublisher.writeJson(
+                state,
                 "enrichment",
                 "page-knowledge-cache-lookup.json",
                 result
-        ).toString());
-        state.addFinding("Page knowledge cache lookup completed: hits="
+        );
+        addFinding(state, "Page knowledge cache lookup completed: hits="
                 + result.hitCount() + ", misses=" + result.missCount());
     }
 
@@ -262,21 +313,22 @@ public class StageOutputPublisher {
         }
         state.setPageModelEnrichments(output.records());
         state.setEnrichedMappedUiKnowledge(output.enrichedMappedUiKnowledge());
-        state.addArtifact("page.enrichment.page.count", String.valueOf(output.records().size()));
-        state.addArtifact("page.enrichment.cache.hit.count", String.valueOf(output.cachedRecords().size()));
-        state.addArtifact("page.enrichment.generated.count", String.valueOf(output.generatedRecords().size()));
-        state.addArtifact("llm.schema.page.model.enrichment.version", LlmOutputSchemaVersion.PAGE_MODEL_ENRICHMENT_RECORD);
-        state.addArtifact("page.enrichment.openai.count", String.valueOf(output.records().stream()
+        putArtifact(state, "page.enrichment.page.count", String.valueOf(output.records().size()));
+        putArtifact(state, "page.enrichment.cache.hit.count", String.valueOf(output.cachedRecords().size()));
+        putArtifact(state, "page.enrichment.generated.count", String.valueOf(output.generatedRecords().size()));
+        putArtifact(state, "llm.schema.page.model.enrichment.version", LlmOutputSchemaVersion.PAGE_MODEL_ENRICHMENT_RECORD);
+        putArtifact(state, "page.enrichment.openai.count", String.valueOf(output.records().stream()
                 .filter(record -> "openai".equals(record.enrichmentSource())).count()));
-        state.addArtifact("page.enrichment.failures", String.valueOf(output.failures().size()));
-        state.addAiArtifactFile(aiArtifactWriter.writeJson("enrichment", "page-model-enrichments.json", output.records()).toString());
-        state.addAiArtifactFile(aiArtifactWriter.writeJson(
+        putArtifact(state, "page.enrichment.failures", String.valueOf(output.failures().size()));
+        aiArtifactPublisher.writeJson(state, "enrichment", "page-model-enrichments.json", output.records());
+        aiArtifactPublisher.writeJson(
+                state,
                 "enrichment",
                 "page-model-enrichment-report.json",
                 Map.of("records", output.records().size(), "openAiRecords", output.records().stream()
                         .filter(record -> "openai".equals(record.enrichmentSource())).count(), "failures", output.failures())
-        ).toString());
-        state.addFinding("PageModel enrichment prepared "
+        );
+        addFinding(state, "PageModel enrichment prepared "
                 + output.records().size() + " requirement-scoped page record(s)");
     }
 
@@ -290,28 +342,28 @@ public class StageOutputPublisher {
         }
         if (runMetadata != null) {
             state.setKnowledgeRunMetadata(runMetadata);
-            state.addArtifact("ui.knowledge.run.id", runMetadata.runId());
-            state.addArtifact("ui.knowledge.app.id", runMetadata.appId());
-            state.addArtifact("ui.knowledge.schema.version", runMetadata.schemaVersion());
-            state.addArtifact("ui.knowledge.requirement.set.hash", runMetadata.requirementSetHash());
-            state.addArtifact("ui.knowledge.base.url.hash", runMetadata.baseUrlHash());
-            state.addArtifact("ui.knowledge.discovery.session.id", runMetadata.discoverySessionId());
+            putArtifact(state, "ui.knowledge.run.id", runMetadata.runId());
+            putArtifact(state, "ui.knowledge.app.id", runMetadata.appId());
+            putArtifact(state, "ui.knowledge.schema.version", runMetadata.schemaVersion());
+            putArtifact(state, "ui.knowledge.requirement.set.hash", runMetadata.requirementSetHash());
+            putArtifact(state, "ui.knowledge.base.url.hash", runMetadata.baseUrlHash());
+            putArtifact(state, "ui.knowledge.discovery.session.id", runMetadata.discoverySessionId());
         }
         int executedTargets = 0;
         for (PageKnowledgeWriteResult result : results == null ? List.<PageKnowledgeWriteResult>of() : results) {
-            state.addArtifact("ui.knowledge." + result.target() + ".executed", String.valueOf(result.executed()));
-            state.addArtifact("ui.knowledge." + result.target() + ".node.count", String.valueOf(result.nodeCount()));
-            state.addArtifact("ui.knowledge." + result.target() + ".edge.count", String.valueOf(result.edgeCount()));
-            state.addArtifact("ui.knowledge." + result.target() + ".document.count", String.valueOf(result.documentCount()));
+            putArtifact(state, "ui.knowledge." + result.target() + ".executed", String.valueOf(result.executed()));
+            putArtifact(state, "ui.knowledge." + result.target() + ".node.count", String.valueOf(result.nodeCount()));
+            putArtifact(state, "ui.knowledge." + result.target() + ".edge.count", String.valueOf(result.edgeCount()));
+            putArtifact(state, "ui.knowledge." + result.target() + ".document.count", String.valueOf(result.documentCount()));
             if (!result.details().isBlank()) {
-                state.addFinding(result.target().toUpperCase() + ": " + result.details());
+                addFinding(state, result.target().toUpperCase() + ": " + result.details());
             }
             if (result.executed()) {
                 executedTargets++;
             }
         }
-        state.addArtifact("ui.knowledge.persistence.completed", "true");
-        state.addArtifact("ui.knowledge.persistence.executed.target.count", String.valueOf(executedTargets));
+        putArtifact(state, "ui.knowledge.persistence.completed", "true");
+        putArtifact(state, "ui.knowledge.persistence.executed.target.count", String.valueOf(executedTargets));
     }
 
     public void publishAssertionContracts(List<AssertionContract> contracts, WorkflowState state) {
@@ -319,9 +371,46 @@ public class StageOutputPublisher {
             return;
         }
         state.setAssertionContracts(contracts);
-        state.addArtifact("assertion.contract.count", String.valueOf(contracts.size()));
-        state.addAiArtifactFile(aiArtifactWriter.writeJson("expectations", "assertion-contracts.json", contracts).toString());
-        state.addFinding("Assertion contracts prepared " + contracts.size() + " typed assertion contract(s)");
+        putArtifact(state, "assertion.contract.count", String.valueOf(contracts.size()));
+        aiArtifactPublisher.writeJson(state, "expectations", "assertion-contracts.json", contracts);
+        addFinding(state, "Assertion contracts prepared " + contracts.size() + " typed assertion contract(s)");
+    }
+
+    public void publishApiGenerationResult(ApiGenerationResult result, WorkflowState state) {
+        if (state == null || result == null) {
+            return;
+        }
+        putArtifacts(state, result.artifacts());
+        aiArtifactPublisher.writeJson(state, "api", "api-endpoint-bundle.json", result.endpoints());
+        aiArtifactPublisher.writeJson(state, "api", "canonical-api-test-cases.json", result.testCases());
+        aiArtifactPublisher.writeJson(state, "api", "api-generation-spec.json", result.generationSpec());
+        aiArtifactPublisher.writeJson(state, "api", "api-quality-report.json", result.qualityReport());
+        aiArtifactPublisher.writeJson(state, "api", "generated-source-files.json", result.sourceFiles());
+        for (GeneratedSourceFile sourceFile : result.sourceFiles()) {
+            aiArtifactPublisher.writeText(
+                    state,
+                    "api",
+                    "preview-" + sourceFile.className() + ".java",
+                    sourceFile.content()
+            );
+        }
+        if (result.qualityReport() != null && !result.qualityReport().hasBlockingIssues()) {
+            state.setApiSourceFiles(result.sourceFiles().stream()
+                    .filter(sourceFile -> sourceFile.relativePath().startsWith("src/main/java/"))
+                    .toList());
+            state.setApiTestFiles(result.sourceFiles().stream()
+                    .filter(sourceFile -> sourceFile.relativePath().startsWith("src/test/java/"))
+                    .toList());
+            putArtifact(state, "api.generated.source.persistable", "true");
+        } else {
+            state.setApiSourceFiles(List.of());
+            state.setApiTestFiles(List.of());
+            putArtifact(state, "api.generated.source.persistable", "false");
+        }
+        addFinding(state, "API generation prepared "
+                + result.endpoints().endpoints().size() + " endpoint(s), "
+                + result.generationSpec().clientSpecs().size() + " client spec(s), "
+                + result.sourceFiles().size() + " source preview file(s)");
     }
 
     public void publishAiContextPackage(AiContextPackage contextPackage, WorkflowState state) {
@@ -329,25 +418,31 @@ public class StageOutputPublisher {
             return;
         }
         state.setAiContextPackage(contextPackage);
-        state.addArtifact("ai.context.ready", "true");
-        state.addArtifact(
+        state.setPromptUiEvidence(contextPackage.promptUiEvidence());
+        putArtifact(state, "ai.context.ready", "true");
+        putArtifact(state, "prompt.ui.evidence.locator.count",
+                String.valueOf(contextPackage.promptUiEvidence().requiredLocators().size()));
+        putArtifact(state, "prompt.ui.evidence.excluded.count",
+                String.valueOf(contextPackage.promptUiEvidence().excludedEvidence().size()));
+        putArtifact(state, 
                 "ai.context.canonical.interactions",
                 String.valueOf(contextPackage.canonicalInteractionModel().interactions().size())
         );
-        state.addArtifact(
+        putArtifact(state, 
                 "ai.context.retrieval.vector.matches",
                 String.valueOf(contextPackage.retrievalContext().vectorMatches().size())
         );
-        state.addArtifact(
+        putArtifact(state, 
                 "ai.context.retrieval.graph.matches",
                 String.valueOf(contextPackage.retrievalContext().graphMatches().size())
         );
-        state.addFinding("AI context package assembled from typed pipeline input");
-        state.addAiArtifactFile(aiArtifactWriter.writeJson(
+        addFinding(state, "AI context package assembled from typed pipeline input");
+        aiArtifactPublisher.writeJson(
+                state,
                 "context",
                 "ai-context-package.json",
                 contextPackage
-        ).toString());
+        );
     }
 
     public void publishAiPageObjectSpecs(List<AiPageObjectSpec> specs, WorkflowState state) {
@@ -355,7 +450,7 @@ public class StageOutputPublisher {
             return;
         }
         state.setAiPageObjectSpecs(specs);
-        state.addArtifact("ai.page.object.spec.count", String.valueOf(specs.size()));
+        putArtifact(state, "ai.page.object.spec.count", String.valueOf(specs.size()));
     }
 
     public void publishAiPageObjectGenerationResult(AiPageObjectGenerationResult result, WorkflowState state) {
@@ -363,9 +458,162 @@ public class StageOutputPublisher {
             return;
         }
         state.setAiPageObjectSpecs(result.specs());
-        result.artifactFiles().forEach(state::addAiArtifactFile);
-        result.artifacts().forEach(state::addArtifact);
-        result.findings().forEach(state::addFinding);
-        state.addArtifact("ai.page.object.spec.count", String.valueOf(result.specs().size()));
+        result.artifactFiles().forEach(file -> aiArtifactPublisher.register(state, file));
+        putArtifacts(state, result.artifacts());
+        result.findings().forEach(finding -> addFinding(state, finding));
+        putArtifact(state, "ai.page.object.spec.count", String.valueOf(result.specs().size()));
+    }
+
+    public void publishAiUiTestGenerationResult(AiUiTestGenerationResult result, WorkflowState state) {
+        if (state == null || result == null) {
+            return;
+        }
+        state.setAiUiTestSpecs(result.specs());
+        result.artifactFiles().forEach(file -> aiArtifactPublisher.register(state, file));
+        putArtifacts(state, result.artifacts());
+        result.findings().forEach(finding -> addFinding(state, finding));
+        putArtifact(state, "ai.ui.test.spec.count", String.valueOf(result.specs().size()));
+    }
+
+    public void publishGeneratedUiContractValidation(
+            GeneratedUiContractValidationResult result,
+            WorkflowState state
+    ) {
+        if (state == null || result == null) {
+            return;
+        }
+        state.setGeneratedUiContractValidationResult(result);
+        putArtifact(state, "generated.ui.contract.validation.status", result.status().name());
+        putArtifact(state, "generated.ui.contract.validation.summary", result.summary());
+        addFinding(state, result.summary());
+
+        if (result.isFailed()) {
+            failRun(state, "Generated UI contract validation failed:\n- "
+                    + String.join("\n- ", result.violations()));
+        }
+    }
+
+    public void publishGeneratedCodeValidation(
+            GeneratedCodeValidationResult result,
+            WorkflowState state
+    ) {
+        if (state == null || result == null) {
+            return;
+        }
+        putArtifact(state, "generated.code.validation.status", result.status().name());
+        putArtifact(state, "generated.code.validation.summary", result.summary());
+        addFinding(state, result.summary());
+        state.setGeneratedCodeValidationResult(result);
+
+        if (result.isFailed()) {
+            failRun(state, "Generated code validation failed:\n" + result.compilerOutput());
+        }
+    }
+
+    public void publishGeneratedCodeReview(
+            GeneratedCodeReviewReport report,
+            WorkflowState state
+    ) {
+        if (state == null || report == null) {
+            return;
+        }
+        state.setGeneratedCodeReviewReport(report);
+        putArtifact(state, "generated.code.review.findings", String.valueOf(report.totalFindings()));
+        putArtifact(state, "generated.code.review.summary", report.summary());
+        addFinding(state, report.summary());
+    }
+
+    public void publishApiGeneratedSourcePersistence(List<String> writtenFiles, WorkflowState state) {
+        if (state == null) {
+            return;
+        }
+        List<String> files = writtenFiles == null ? List.of() : writtenFiles;
+        files.forEach(state::addWrittenFile);
+        putArtifact(state, "api.generated.source.persisted", "true");
+        putArtifact(state, "api.generated.source.file.written", String.valueOf(files.size()));
+        addFinding(state, "API generated source persisted: " + files.size());
+    }
+
+    public void publishAiPageObjectFiles(List<GeneratedSourceFile> files, WorkflowState state) {
+        if (state == null) {
+            return;
+        }
+        List<GeneratedSourceFile> generated = files == null ? List.of() : files;
+        if (generated.isEmpty()) {
+            failRun(state, "Pure AI mode did not produce any page object files");
+            return;
+        }
+        state.setPageObjectFiles(generated);
+        putArtifact(state, "ui.page.objects.count", String.valueOf(generated.size()));
+        putArtifact(state, "ui.page.objects.ai.override.count", String.valueOf(generated.size()));
+        addFinding(state, "Pure AI page objects generated: " + generated.size());
+    }
+
+    public void publishAiUiTestFiles(List<GeneratedSourceFile> files, WorkflowState state) {
+        if (state == null) {
+            return;
+        }
+        List<GeneratedSourceFile> generated = files == null ? List.of() : files;
+        if (generated.isEmpty()) {
+            failRun(state, "Pure AI mode did not produce any UI test files");
+            return;
+        }
+        state.setUiTestFiles(generated);
+        putArtifact(state, "ui.test.count", String.valueOf(generated.size()));
+        putArtifact(state, "ui.test.ai.override.count", String.valueOf(generated.size()));
+        addFinding(state, "Pure AI UI test files generated: " + generated.size());
+    }
+
+    public void publishRepositoryIntelligenceEnrichment(
+            RepositoryIntelligenceEnrichmentResult result,
+            WorkflowState state
+    ) {
+        if (state == null || result == null) {
+            return;
+        }
+        putArtifacts(state, result.artifacts());
+        result.artifactFiles().forEach(file -> aiArtifactPublisher.register(state, file));
+        result.findings().forEach(finding -> addFinding(state, finding));
+    }
+
+    public void publishUiDiscoveryArtifactPersistence(
+            UiDiscoveryArtifactPersistenceResult result,
+            WorkflowState state
+    ) {
+        if (state == null || result == null) {
+            return;
+        }
+        result.writtenFiles().forEach(state::addDiscoveryArtifactFile);
+        putArtifacts(state, result.artifacts());
+        result.findings().forEach(finding -> addFinding(state, finding));
+    }
+
+    private void putArtifact(WorkflowState state, String key, String value) {
+        if (state == null || key == null || key.isBlank() || value == null) {
+            return;
+        }
+        state.addArtifact(key, value);
+    }
+
+    private void putArtifacts(WorkflowState state, Map<String, String> artifacts) {
+        if (state == null || artifacts == null || artifacts.isEmpty()) {
+            return;
+        }
+        artifacts.forEach((key, value) -> putArtifact(state, key, value));
+    }
+
+    private void addFinding(WorkflowState state, String finding) {
+        if (state == null || finding == null || finding.isBlank()) {
+            return;
+        }
+        state.addFinding(finding);
+    }
+
+    private void failRun(WorkflowState state, String reason) {
+        if (state == null || reason == null || reason.isBlank()) {
+            return;
+        }
+        state.fail(reason);
     }
 }
+

@@ -10,6 +10,7 @@ import ua.demo.agentlab.policy.model.GenerationPolicy;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 import ua.demo.agentlab.ui.UiTestPlan;
+import ua.demo.agentlab.ui.discovery.knowledge.model.MappedUiKnowledgeCurated;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
@@ -27,6 +28,7 @@ public record AiContextAssemblyInput(
         UiTestPlan uiTestPlan,
         CanonicalPageFlowModel canonicalPageFlowModel,
         MappedUiKnowledge mappedUiKnowledge,
+        MappedUiKnowledgeCurated mappedUiKnowledgeCurated,
         PageModelBundle pageModelBundle,
         KnowledgeRunMetadata knowledgeRunMetadata,
         FlowScopedKnowledgePackage flowScopedKnowledgePackage,
@@ -53,6 +55,7 @@ public record AiContextAssemblyInput(
                 state.getUiTestPlan(),
                 state.getCanonicalPageFlowModel(),
                 state.getMappedUiKnowledge(),
+                state.getMappedUiKnowledgeCurated(),
                 state.getPageModelBundle(),
                 state.getKnowledgeRunMetadata(),
                 state.getFlowScopedKnowledgePackage(),

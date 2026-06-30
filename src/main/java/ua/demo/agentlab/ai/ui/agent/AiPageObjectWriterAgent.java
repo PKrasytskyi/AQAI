@@ -1,15 +1,24 @@
 package ua.demo.agentlab.ai.ui.agent;
 
+import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
 import ua.demo.agentlab.ai.ui.writer.AiPageObjectTemplateWriter;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
+import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
+import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
+import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
+import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
 import java.util.List;
+import java.util.Set;
 
-public class AiPageObjectWriterAgent implements WorkflowAgent {
+public class AiPageObjectWriterAgent implements WorkflowAgent,
+        PipelineAgent<List<AiPageObjectSpec>, List<GeneratedSourceFile>> {
 
     private final AiPageObjectTemplateWriter aiWriter;
+    private final StageOutputPublisher publisher = new StageOutputPublisher();
 
     public AiPageObjectWriterAgent(AiPageObjectTemplateWriter aiWriter) {
         if (aiWriter == null) {
@@ -24,27 +33,45 @@ public class AiPageObjectWriterAgent implements WorkflowAgent {
     }
 
     @Override
-    public int order() {
-        return 40;
+    public Set<WorkflowArtifact> requires() {
+        return Set.of(WorkflowArtifact.AI_PAGE_OBJECT_SPECS, WorkflowArtifact.UI_TEST_PLAN);
     }
 
     @Override
-    public boolean supports(WorkflowState state) {
-        return state.getUiTestPlan() != null && state.getPageObjectFiles().isEmpty();
+    public Set<WorkflowArtifact> produces() {
+        return Set.of(WorkflowArtifact.PAGE_OBJECT_FILES);
     }
 
     @Override
-    public void execute(WorkflowState state) {
-        List<GeneratedSourceFile> aiFiles = state.getAiPageObjectSpecs().isEmpty()
-                ? List.of()
-                : aiWriter.write(state.getAiPageObjectSpecs());
-        if (aiFiles.isEmpty()) {
-            state.fail("Pure AI mode did not produce any page object files");
-            return;
-        }
-        state.setPageObjectFiles(aiFiles);
-        state.addArtifact("ui.page.objects.count", String.valueOf(aiFiles.size()));
-        state.addArtifact("ui.page.objects.ai.override.count", String.valueOf(aiFiles.size()));
-        state.addFinding("Pure AI page objects generated: " + aiFiles.size());
+    public WorkflowArtifact input() {
+        return WorkflowArtifact.AI_PAGE_OBJECT_SPECS;
+    }
+
+    @Override
+    public WorkflowArtifact output() {
+        return WorkflowArtifact.PAGE_OBJECT_FILES;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<AiPageObjectSpec> inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        return (List<AiPageObjectSpec>) store.get(WorkflowArtifact.AI_PAGE_OBJECT_SPECS).orElse(List.of());
+    }
+
+    @Override
+    public boolean supports(PipelineArtifactStore store, WorkflowState state) {
+        return store != null
+                && store.get(WorkflowArtifact.UI_TEST_PLAN).isPresent()
+                && store.get(WorkflowArtifact.PAGE_OBJECT_FILES).isEmpty();
+    }
+
+    @Override
+    public List<GeneratedSourceFile> execute(List<AiPageObjectSpec> input, WorkflowRunEnvelope run) {
+        return input == null || input.isEmpty() ? List.of() : aiWriter.write(input);
+    }
+
+    @Override
+    public void applyOutput(List<GeneratedSourceFile> output, WorkflowState state) {
+        publisher.publishAiPageObjectFiles(output, state);
     }
 }

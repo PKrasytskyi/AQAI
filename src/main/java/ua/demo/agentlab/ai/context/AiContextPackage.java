@@ -8,6 +8,7 @@ import ua.demo.agentlab.policy.model.GenerationPolicy;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 import ua.demo.agentlab.ui.UiTestPlan;
+import ua.demo.agentlab.ui.discovery.knowledge.model.MappedUiKnowledgeCurated;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
 import ua.demo.agentlab.ui.flow.model.CanonicalPageFlowModel;
@@ -24,12 +25,14 @@ public record AiContextPackage(
         UiTestPlan uiTestPlan,
         CanonicalPageFlowModel canonicalPageFlowModel,
         MappedUiKnowledge mappedUiKnowledge,
+        MappedUiKnowledgeCurated mappedUiKnowledgeCurated,
         PageModelBundle pageModelBundle,
         CanonicalUiInteractionModel canonicalInteractionModel,
         UiKnowledgeRetrievalContext retrievalContext,
         List<AssertionContract> assertionContracts,
         List<PageModelEnrichmentRecord> pageModelEnrichments,
-        List<String> templateCapabilities
+        List<String> templateCapabilities,
+        PromptUiEvidence promptUiEvidence
 ) {
     public AiContextPackage {
         objective = objective == null ? "" : objective.trim();
@@ -43,5 +46,6 @@ public record AiContextPackage(
         assertionContracts = assertionContracts == null ? List.of() : List.copyOf(assertionContracts);
         pageModelEnrichments = pageModelEnrichments == null ? List.of() : List.copyOf(pageModelEnrichments);
         templateCapabilities = templateCapabilities == null ? List.of() : List.copyOf(templateCapabilities);
+        promptUiEvidence = promptUiEvidence == null ? PromptUiEvidence.empty("prompt-evidence:not-built") : promptUiEvidence;
     }
 }

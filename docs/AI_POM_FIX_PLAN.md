@@ -1,5 +1,11 @@
 # AI POM Fix Plan
 
+> Status: historical stabilization plan. The examples in this document use older
+> ecommerce-style page names such as `ListingPage`, `DetailsPage`, and
+> `CartPage` because they describe the original failure mode. The current
+> implementation uses capability/route/evidence-based page selection through
+> `ConfirmedPageRegistry`, `MappedUiKnowledgeCurated`, and `PromptUiEvidence`.
+
 ## Objective
 Stabilize the AI-driven UI pipeline so that:
 - page object generation receives correct page-scoped context

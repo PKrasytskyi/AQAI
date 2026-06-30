@@ -8,7 +8,6 @@ import ua.demo.agentlab.ai.context.UiKnowledgeRetrievalContext;
 import ua.demo.agentlab.ai.context.UiKnowledgeRetrievalRequest;
 import ua.demo.agentlab.ai.context.UiKnowledgeRetrievalService;
 import ua.demo.agentlab.ai.rag.model.RetrievedChunk;
-import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.ui.discovery.identity.PageReferenceMatcher;
 import ua.demo.agentlab.ui.catalog.PageCapability;
 import ua.demo.agentlab.ui.discovery.mapping.model.AssertionHint;
@@ -53,21 +52,6 @@ public class FlowScopedKnowledgeService {
         this.businessFlowResolver = businessFlowResolver;
         this.canonicalInteractionLayer = canonicalInteractionLayer;
         this.retrievalService = retrievalService;
-    }
-
-    public FlowScopedKnowledgePackage scope(WorkflowState state) {
-        if (state == null || state.getMappedUiKnowledge() == null) {
-            throw new IllegalArgumentException("state with mapped UI knowledge is required");
-        }
-        return scope(new FlowScopedKnowledgeInput(
-                state.getObjective(),
-                state.getProjectProfile(),
-                state.getTestPlan(),
-                state.getNormalizedRequirementBundle(),
-                state.getCanonicalTestCaseBundle(),
-                state.getMappedUiKnowledge(),
-                state.getKnowledgeRunMetadata()
-        ));
     }
 
     public FlowScopedKnowledgePackage scope(FlowScopedKnowledgeInput input) {

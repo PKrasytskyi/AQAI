@@ -14,18 +14,19 @@ public record WorkflowPipelineSnapshot(
         if (state == null) {
             return new WorkflowPipelineSnapshot(
                     WorkflowRunEnvelope.from(null),
-                    new RequirementPipelineStage(null, null),
+                    new RequirementPipelineStage(null, null, null),
                     new DiscoveryPipelineStage(null, null, null, null),
                     new MappingPipelineStage(null, null, null, null, null, null, null, null, null),
                     new AiContextPipelineStage(null),
-                    new GenerationPipelineStage(null, null, null, null, null, null)
+                    new GenerationPipelineStage(null, null, null, null, null, null, null, null, null, null)
             );
         }
         return new WorkflowPipelineSnapshot(
                 WorkflowRunEnvelope.from(state),
                 new RequirementPipelineStage(
                         state.getRequirementDocument(),
-                        state.getNormalizedRequirementBundle()
+                        state.getNormalizedRequirementBundle(),
+                        state.getTestPlan()
                 ),
                 new DiscoveryPipelineStage(
                         state.getUiDiscoverySnapshot(),
@@ -50,8 +51,12 @@ public record WorkflowPipelineSnapshot(
                         state.getAiUiTestSpecs(),
                         state.getPageObjectFiles(),
                         state.getUiTestFiles(),
+                        state.getWrittenFiles(),
+                        state.getAiArtifactFiles(),
+                        state.getDiscoveryArtifactFiles(),
                         state.getGeneratedUiContractValidationResult(),
-                        state.getGeneratedCodeValidationResult()
+                        state.getGeneratedCodeValidationResult(),
+                        state.getGeneratedCodeReviewReport()
                 )
         );
     }

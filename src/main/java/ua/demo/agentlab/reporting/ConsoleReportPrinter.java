@@ -2,42 +2,51 @@ package ua.demo.agentlab.reporting;
 
 import ua.demo.agentlab.futurefeat.testplan.model.TestPlan;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.orchestration.pipeline.WorkflowPipelineSnapshot;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 import ua.demo.agentlab.ui.UiTestPlan;
 
 public class ConsoleReportPrinter {
 
     public void printWorkflowFailure(WorkflowState result) {
-        System.out.println("Workflow failed: " + result.getFailureReason());
+        printWorkflowFailure(WorkflowPipelineSnapshot.from(result));
+    }
+
+    public void printWorkflowFailure(WorkflowPipelineSnapshot snapshot) {
+        System.out.println("Workflow failed: " + snapshot.runEnvelope().failureReason());
     }
 
     public void printWorkflowSummary(WorkflowState result) {
-        printAudit(result);
-        printFindings(result);
-        printTestPlanSummary(result.getTestPlan());
-        printCanonicalTestCaseSummary(result.getCanonicalTestCaseBundle());
-        printDiscoverySummary(result);
-        printUiTestPlanSummary(result.getUiTestPlan());
-        printAiArtifactsSummary(result);
-        printGeneratedFilesSummary(result);
-        printGeneratedUiContractValidationSummary(result);
-        printGeneratedCodeValidationSummary(result);
-        printGeneratedCodeReviewSummary(result);
+        printWorkflowSummary(WorkflowPipelineSnapshot.from(result));
     }
 
-    private void printAudit(WorkflowState result) {
+    public void printWorkflowSummary(WorkflowPipelineSnapshot snapshot) {
+        printAudit(snapshot);
+        printFindings(snapshot);
+        printTestPlanSummary(snapshot.requirements().testPlan());
+        printCanonicalTestCaseSummary(snapshot.mapping().canonicalTestCaseBundle());
+        printDiscoverySummary(snapshot);
+        printUiTestPlanSummary(snapshot.mapping().uiTestPlan());
+        printAiArtifactsSummary(snapshot);
+        printGeneratedFilesSummary(snapshot);
+        printGeneratedUiContractValidationSummary(snapshot);
+        printGeneratedCodeValidationSummary(snapshot);
+        printGeneratedCodeReviewSummary(snapshot);
+    }
+
+    private void printAudit(WorkflowPipelineSnapshot snapshot) {
         System.out.println("\n=== Audit ===");
-        result.getAuditTrail().forEach(item -> System.out.println("- " + item));
+        snapshot.runEnvelope().auditTrail().forEach(item -> System.out.println("- " + item));
     }
 
-    private void printFindings(WorkflowState result) {
+    private void printFindings(WorkflowPipelineSnapshot snapshot) {
         System.out.println("\n=== Findings ===");
-        if (result.getFindings().isEmpty()) {
+        if (snapshot.runEnvelope().findingsList().isEmpty()) {
             System.out.println("- No findings");
             return;
         }
 
-        result.getFindings().forEach(item -> System.out.println("- " + item));
+        snapshot.runEnvelope().findingsList().forEach(item -> System.out.println("- " + item));
     }
 
     private void printTestPlanSummary(TestPlan testPlan) {
@@ -145,76 +154,78 @@ public class ConsoleReportPrinter {
         );
     }
 
-    private void printDiscoverySummary(WorkflowState result) {
-        if (result.getUiDiscoverySnapshot() == null) {
+    private void printDiscoverySummary(WorkflowPipelineSnapshot snapshot) {
+        if (snapshot.discovery().uiDiscoverySnapshot() == null) {
             return;
         }
 
         System.out.println("\n=== UI Discovery Summary ===");
-        System.out.println("Discovered pages: " + result.getUiDiscoverySnapshot().pages().size());
-        System.out.println("Discovered flows: " + result.getUiDiscoverySnapshot().flows().size());
-        if (result.getSeleniumDiscoveryResult() != null) {
-            System.out.println("Raw Selenium pages: " + result.getSeleniumDiscoveryResult().pages().size());
-            System.out.println("Raw Selenium transitions: " + result.getSeleniumDiscoveryResult().transitions().size());
-            long evidencePages = result.getSeleniumDiscoveryResult().pages().stream()
+        System.out.println("Discovered pages: " + snapshot.discovery().uiDiscoverySnapshot().pages().size());
+        System.out.println("Discovered flows: " + snapshot.discovery().uiDiscoverySnapshot().flows().size());
+        if (snapshot.discovery().seleniumDiscoveryResult() != null) {
+            System.out.println("Raw Selenium pages: " + snapshot.discovery().seleniumDiscoveryResult().pages().size());
+            System.out.println("Raw Selenium transitions: " + snapshot.discovery().seleniumDiscoveryResult().transitions().size());
+            long evidencePages = snapshot.discovery().seleniumDiscoveryResult().pages().stream()
                     .filter(page -> page.evidence() != null)
                     .count();
             System.out.println("Evidence pages: " + evidencePages);
         }
 
-        if (!result.getDiscoveryArtifactFiles().isEmpty()) {
+        if (!snapshot.generation().discoveryArtifactFiles().isEmpty()) {
             System.out.println("\n=== UI Discovery Artifacts ===");
-            result.getDiscoveryArtifactFiles().forEach(path -> System.out.println("- " + path));
+            snapshot.generation().discoveryArtifactFiles().forEach(path -> System.out.println("- " + path));
         }
     }
 
-    private void printGeneratedFilesSummary(WorkflowState result) {
-        if (result.getPageObjectFiles().isEmpty() && result.getUiTestFiles().isEmpty() && result.getWrittenFiles().isEmpty()) {
+    private void printGeneratedFilesSummary(WorkflowPipelineSnapshot snapshot) {
+        if (snapshot.generation().pageObjectFiles().isEmpty()
+                && snapshot.generation().uiTestFiles().isEmpty()
+                && snapshot.generation().writtenFiles().isEmpty()) {
             return;
         }
 
         System.out.println("\n=== Generated Files Summary ===");
-        System.out.println("Page object files: " + result.getPageObjectFiles().size());
-        System.out.println("UI test files: " + result.getUiTestFiles().size());
-        System.out.println("Written files: " + result.getWrittenFiles().size());
+        System.out.println("Page object files: " + snapshot.generation().pageObjectFiles().size());
+        System.out.println("UI test files: " + snapshot.generation().uiTestFiles().size());
+        System.out.println("Written files: " + snapshot.generation().writtenFiles().size());
 
-        if (!result.getPageObjectFiles().isEmpty()) {
+        if (!snapshot.generation().pageObjectFiles().isEmpty()) {
             System.out.println("\n=== Page Object Files ===");
-            result.getPageObjectFiles().forEach(file ->
+            snapshot.generation().pageObjectFiles().forEach(file ->
                     System.out.println("- " + file.relativePath())
             );
         }
 
-        if (!result.getUiTestFiles().isEmpty()) {
+        if (!snapshot.generation().uiTestFiles().isEmpty()) {
             System.out.println("\n=== UI Test Files ===");
-            result.getUiTestFiles().forEach(file ->
+            snapshot.generation().uiTestFiles().forEach(file ->
                     System.out.println("- " + file.relativePath())
             );
         }
 
-        if (!result.getWrittenFiles().isEmpty()) {
+        if (!snapshot.generation().writtenFiles().isEmpty()) {
             System.out.println("\n=== Written Files ===");
-            result.getWrittenFiles().forEach(path ->
+            snapshot.generation().writtenFiles().forEach(path ->
                     System.out.println("- " + path)
             );
         }
     }
 
-    private void printAiArtifactsSummary(WorkflowState result) {
-        if (result.getAiArtifactFiles().isEmpty()) {
+    private void printAiArtifactsSummary(WorkflowPipelineSnapshot snapshot) {
+        if (snapshot.generation().aiArtifactFiles().isEmpty()) {
             return;
         }
 
         System.out.println("\n=== AI Artifacts ===");
-        result.getAiArtifactFiles().forEach(path -> System.out.println("- " + path));
+        snapshot.generation().aiArtifactFiles().forEach(path -> System.out.println("- " + path));
     }
 
-    private void printGeneratedUiContractValidationSummary(WorkflowState result) {
-        if (result.getGeneratedUiContractValidationResult() == null) {
+    private void printGeneratedUiContractValidationSummary(WorkflowPipelineSnapshot snapshot) {
+        if (snapshot.generation().generatedUiContractValidationResult() == null) {
             return;
         }
 
-        var validation = result.getGeneratedUiContractValidationResult();
+        var validation = snapshot.generation().generatedUiContractValidationResult();
 
         System.out.println("\n=== Generated UI Contract Validation ===");
         System.out.println("Status: " + validation.status());
@@ -228,24 +239,24 @@ public class ConsoleReportPrinter {
         validation.violations().forEach(violation -> System.out.println("- " + violation));
     }
 
-    private void printGeneratedCodeValidationSummary(WorkflowState result) {
-        if (result.getGeneratedCodeValidationResult() == null) {
+    private void printGeneratedCodeValidationSummary(WorkflowPipelineSnapshot snapshot) {
+        if (snapshot.generation().generatedCodeValidationResult() == null) {
             return;
         }
 
-        var validation = result.getGeneratedCodeValidationResult();
+        var validation = snapshot.generation().generatedCodeValidationResult();
 
         System.out.println("\n=== Generated Code Validation ===");
         System.out.println("Status: " + validation.status());
         System.out.println("Summary: " + validation.summary());
     }
 
-    private void printGeneratedCodeReviewSummary(WorkflowState result) {
-        if (result.getGeneratedCodeReviewReport() == null) {
+    private void printGeneratedCodeReviewSummary(WorkflowPipelineSnapshot snapshot) {
+        if (snapshot.generation().generatedCodeReviewReport() == null) {
             return;
         }
 
-        var review = result.getGeneratedCodeReviewReport();
+        var review = snapshot.generation().generatedCodeReviewReport();
 
         System.out.println("\n=== Generated Code Review ===");
         System.out.println("Reviewed files: " + review.reviewedFiles());

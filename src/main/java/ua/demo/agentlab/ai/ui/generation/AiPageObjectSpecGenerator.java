@@ -1,6 +1,5 @@
 package ua.demo.agentlab.ai.ui.generation;
 
-import ua.demo.agentlab.ai.context.AiContextAssembler;
 import ua.demo.agentlab.ai.context.AiContextPackage;
 import ua.demo.agentlab.ai.openai.OpenAiRuntimeConfig;
 import ua.demo.agentlab.ai.quality.AiRunQualityArtifactResult;
@@ -9,9 +8,6 @@ import ua.demo.agentlab.ai.quality.AiRunQualitySummaryWriter;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
 import ua.demo.agentlab.ai.ui.prompt.quality.PromptQualityGateException;
 import ua.demo.agentlab.ai.ui.prompt.quality.PromptQualityReport;
-import ua.demo.agentlab.orchestration.WorkflowState;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowPipelineSnapshot;
-import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,17 +17,15 @@ import java.util.Map;
 public class AiPageObjectSpecGenerator {
 
     private final OpenAiRuntimeConfig runtimeConfig;
-    private final AiContextAssembler contextAssembler;
     private final AiPageObjectScopeResolverStage scopeResolverStage;
     private final AiPageObjectPromptBuildStage promptBuildStage;
     private final AiPageObjectPromptLintStage promptLintStage;
     private final AiPageObjectPromptArtifactWriter promptArtifactWriter;
     private final AiRunQualitySummaryWriter qualitySummaryWriter;
 
-    public AiPageObjectSpecGenerator(OpenAiRuntimeConfig runtimeConfig, AiContextAssembler contextAssembler) {
+    public AiPageObjectSpecGenerator(OpenAiRuntimeConfig runtimeConfig) {
         this(
                 runtimeConfig,
-                contextAssembler,
                 new AiPageObjectScopeResolverStage(),
                 new AiPageObjectPromptBuildStage(),
                 new AiPageObjectPromptLintStage(),
@@ -42,57 +36,25 @@ public class AiPageObjectSpecGenerator {
 
     AiPageObjectSpecGenerator(
             OpenAiRuntimeConfig runtimeConfig,
-            AiContextAssembler contextAssembler,
             AiPageObjectScopeResolverStage scopeResolverStage,
             AiPageObjectPromptBuildStage promptBuildStage,
             AiPageObjectPromptLintStage promptLintStage,
             AiPageObjectPromptArtifactWriter promptArtifactWriter,
             AiRunQualitySummaryWriter qualitySummaryWriter
     ) {
-        if (runtimeConfig == null || contextAssembler == null) {
-            throw new IllegalArgumentException("runtime config and context assembler cannot be null");
+        if (runtimeConfig == null) {
+            throw new IllegalArgumentException("runtime config cannot be null");
         }
         if (scopeResolverStage == null || promptBuildStage == null || promptLintStage == null
                 || promptArtifactWriter == null || qualitySummaryWriter == null) {
             throw new IllegalArgumentException("page object generation stages cannot be null");
         }
         this.runtimeConfig = runtimeConfig;
-        this.contextAssembler = contextAssembler;
         this.scopeResolverStage = scopeResolverStage;
         this.promptBuildStage = promptBuildStage;
         this.promptLintStage = promptLintStage;
         this.promptArtifactWriter = promptArtifactWriter;
         this.qualitySummaryWriter = qualitySummaryWriter;
-    }
-
-    public List<AiPageObjectSpec> generate(WorkflowState state, List<AiPageObjectSpec> baselineSpecs) {
-        if (state == null || state.getUiTestPlan() == null) {
-            return List.of();
-        }
-        AiContextPackage contextPackage = state.getAiContextPackage();
-        if (contextPackage == null) {
-            contextPackage = contextAssembler.assemble(state);
-            state.setAiContextPackage(contextPackage);
-        }
-        AiPageObjectGenerationResult result = generate(new AiPageObjectGenerationRequest(
-                WorkflowRunEnvelope.from(state),
-                contextPackage,
-                state.getUiTestPlan(),
-                baselineSpecs,
-                new AiRunQualitySummaryInput(
-                        state.getKnowledgeRunMetadata(),
-                        state.getNormalizedRequirementBundle(),
-                        state.getCanonicalTestCaseBundle(),
-                        state.getMappedUiKnowledge(),
-                        state.getArtifacts()
-                ),
-                WorkflowPipelineSnapshot.from(state),
-                state.getArtifacts()
-        ));
-        result.artifactFiles().forEach(state::addAiArtifactFile);
-        result.artifacts().forEach(state::addArtifact);
-        result.findings().forEach(state::addFinding);
-        return result.specs();
     }
 
     public AiPageObjectGenerationResult generate(AiPageObjectGenerationRequest request) {

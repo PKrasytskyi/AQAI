@@ -1,197 +1,144 @@
 package config;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
-
+/**
+ * @deprecated Use {@link ua.demo.agentlab.core.config.ConfigReader}. This facade
+ * exists only for older generated examples that imported {@code config.ConfigReader}.
+ */
+@Deprecated(since = "0.0.1", forRemoval = false)
 public final class ConfigReader {
-
-    private static final String CONFIG_RESOURCE = "framework.properties";
-    private static final Properties PROPERTIES = loadProperties();
 
     private ConfigReader() {
     }
 
     public static String getBaseUrl() {
-        return readText("test.base-url", "TEST_BASE_URL", "http://localhost:8080");
+        return ua.demo.agentlab.core.config.ConfigReader.getBaseUrl();
+    }
+
+    public static String getApiBaseUrl() {
+        return ua.demo.agentlab.core.config.ConfigReader.getApiBaseUrl();
+    }
+
+    public static String getApiAuthToken() {
+        return ua.demo.agentlab.core.config.ConfigReader.getApiAuthToken();
     }
 
     public static long getTimeout() {
-        String rawValue = readText("test.timeout-seconds", "TEST_TIMEOUT_SECONDS", "10");
-        try {
-            return Long.parseLong(rawValue);
-        } catch (NumberFormatException exception) {
-            throw new IllegalStateException("Invalid timeout value: " + rawValue, exception);
-        }
+        return ua.demo.agentlab.core.config.ConfigReader.getTimeout();
     }
 
     public static String getBrowser() {
-        return readText("test.browser", "TEST_BROWSER", "chrome").toLowerCase();
+        return ua.demo.agentlab.core.config.ConfigReader.getBrowser();
     }
 
     public static boolean isHeadless() {
-        return Boolean.parseBoolean(readText("test.headless", "TEST_HEADLESS", "false"));
+        return ua.demo.agentlab.core.config.ConfigReader.isHeadless();
     }
 
     public static String getValidUsername() {
-        return readText("test.credentials.valid.username", "TEST_VALID_USERNAME", "john");
+        return ua.demo.agentlab.core.config.ConfigReader.getValidUsername();
     }
 
     public static String getValidPassword() {
-        return readText("test.credentials.valid.password", "TEST_VALID_PASSWORD", "demo");
+        return ua.demo.agentlab.core.config.ConfigReader.getValidPassword();
     }
 
     public static String getInvalidUsername() {
-        return readText("test.credentials.invalid.username", "TEST_INVALID_USERNAME", "wrong-user");
+        return ua.demo.agentlab.core.config.ConfigReader.getInvalidUsername();
     }
 
     public static String getInvalidPassword() {
-        return readText("test.credentials.invalid.password", "TEST_INVALID_PASSWORD", "wrong-password");
+        return ua.demo.agentlab.core.config.ConfigReader.getInvalidPassword();
     }
 
     public static String getRegistrationUsernamePrefix() {
-        return readText(
-                "test.credentials.registration.username-prefix",
-                "TEST_REGISTRATION_USERNAME_PREFIX",
-                "autouser"
-        );
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationUsernamePrefix();
     }
 
     public static String getRegistrationPassword() {
-        return readText(
-                "test.credentials.registration.password",
-                "TEST_REGISTRATION_PASSWORD",
-                getValidPassword()
-        );
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationPassword();
     }
 
     public static String getRegistrationFirstName() {
-        return readText("test.data.registration.first-name", "TEST_REGISTRATION_FIRST_NAME", "John");
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationFirstName();
     }
 
     public static String getRegistrationLastName() {
-        return readText("test.data.registration.last-name", "TEST_REGISTRATION_LAST_NAME", "Doe");
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationLastName();
     }
 
     public static String getRegistrationAddress() {
-        return readText("test.data.registration.address", "TEST_REGISTRATION_ADDRESS", "Main Street 1");
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationAddress();
     }
 
     public static String getRegistrationCity() {
-        return readText("test.data.registration.city", "TEST_REGISTRATION_CITY", "Testville");
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationCity();
     }
 
     public static String getRegistrationState() {
-        return readText("test.data.registration.state", "TEST_REGISTRATION_STATE", "CA");
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationState();
     }
 
     public static String getRegistrationZipCode() {
-        return readText("test.data.registration.zip-code", "TEST_REGISTRATION_ZIP_CODE", "90210");
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationZipCode();
     }
 
     public static String getRegistrationPhone() {
-        return readText("test.data.registration.phone", "TEST_REGISTRATION_PHONE", "1234567890");
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationPhone();
     }
 
     public static String getRegistrationSsn() {
-        return readText("test.data.registration.ssn", "TEST_REGISTRATION_SSN", "123-45-6789");
+        return ua.demo.agentlab.core.config.ConfigReader.getRegistrationSsn();
     }
 
     public static String getBillPayName() {
-        return readText("test.data.bill-pay.name", "TEST_BILL_PAY_NAME", "Utility Company");
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayName();
     }
 
     public static String getBillPayAddress() {
-        return readText("test.data.bill-pay.address", "TEST_BILL_PAY_ADDRESS", "Payment Street 5");
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayAddress();
     }
 
     public static String getBillPayCity() {
-        return readText("test.data.bill-pay.city", "TEST_BILL_PAY_CITY", "Billtown");
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayCity();
     }
 
     public static String getBillPayState() {
-        return readText("test.data.bill-pay.state", "TEST_BILL_PAY_STATE", "TX");
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayState();
     }
 
     public static String getBillPayZipCode() {
-        return readText("test.data.bill-pay.zip-code", "TEST_BILL_PAY_ZIP_CODE", "73301");
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayZipCode();
     }
 
     public static String getBillPayPhone() {
-        return readText("test.data.bill-pay.phone", "TEST_BILL_PAY_PHONE", "1234567890");
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayPhone();
     }
 
     public static String getBillPayAccountNumber() {
-        return readText("test.data.bill-pay.account-number", "TEST_BILL_PAY_ACCOUNT_NUMBER", "123456789");
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayAccountNumber();
     }
 
     public static String getBillPayVerifyAccountNumber() {
-        return readText(
-                "test.data.bill-pay.verify-account-number",
-                "TEST_BILL_PAY_VERIFY_ACCOUNT_NUMBER",
-                getBillPayAccountNumber()
-        );
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayVerifyAccountNumber();
     }
 
     public static String getBillPayAmount() {
-        return readText("test.data.bill-pay.amount", "TEST_BILL_PAY_AMOUNT", "35");
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayAmount();
     }
 
     public static int getBillPayFromAccountIndex() {
-        return readInt("test.data.bill-pay.from-account-index", "TEST_BILL_PAY_FROM_ACCOUNT_INDEX", 0);
+        return ua.demo.agentlab.core.config.ConfigReader.getBillPayFromAccountIndex();
     }
 
     public static String getTransferAmount() {
-        return readText("test.data.transfer.amount", "TEST_TRANSFER_AMOUNT", "25");
+        return ua.demo.agentlab.core.config.ConfigReader.getTransferAmount();
     }
 
     public static int getTransferFromAccountIndex() {
-        return readInt("test.data.transfer.from-account-index", "TEST_TRANSFER_FROM_ACCOUNT_INDEX", 0);
+        return ua.demo.agentlab.core.config.ConfigReader.getTransferFromAccountIndex();
     }
 
     public static int getTransferToAccountIndex() {
-        return readInt("test.data.transfer.to-account-index", "TEST_TRANSFER_TO_ACCOUNT_INDEX", 1);
-    }
-
-    private static String readText(String propertyKey, String envKey, String defaultValue) {
-        String systemValue = System.getProperty(propertyKey);
-        if (systemValue != null && !systemValue.isBlank()) {
-            return systemValue.trim();
-        }
-
-        String envValue = System.getenv(envKey);
-        if (envValue != null && !envValue.isBlank()) {
-            return envValue.trim();
-        }
-
-        String propertyValue = PROPERTIES.getProperty(propertyKey);
-        if (propertyValue != null && !propertyValue.isBlank()) {
-            return propertyValue.trim();
-        }
-
-        return defaultValue;
-    }
-
-    private static int readInt(String propertyKey, String envKey, int defaultValue) {
-        String rawValue = readText(propertyKey, envKey, String.valueOf(defaultValue));
-        try {
-            return Integer.parseInt(rawValue);
-        } catch (NumberFormatException exception) {
-            throw new IllegalStateException("Invalid integer value for " + propertyKey + ": " + rawValue, exception);
-        }
-    }
-
-    private static Properties loadProperties() {
-        Properties properties = new Properties();
-
-        try (InputStream inputStream = ConfigReader.class.getClassLoader().getResourceAsStream(CONFIG_RESOURCE)) {
-            if (inputStream != null) {
-                properties.load(inputStream);
-            }
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot load " + CONFIG_RESOURCE, exception);
-        }
-
-        return properties;
+        return ua.demo.agentlab.core.config.ConfigReader.getTransferToAccountIndex();
     }
 }
