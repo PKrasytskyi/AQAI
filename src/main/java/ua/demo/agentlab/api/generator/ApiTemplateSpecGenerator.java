@@ -9,6 +9,7 @@ import ua.demo.agentlab.api.model.CanonicalApiTestCaseBundle;
 import ua.demo.agentlab.api.model.HttpMethod;
 import ua.demo.agentlab.api.spec.ApiClientMethodSpec;
 import ua.demo.agentlab.api.spec.ApiClientSpec;
+import ua.demo.agentlab.api.spec.ApiCrudScenarioSpec;
 import ua.demo.agentlab.api.spec.ApiDtoKind;
 import ua.demo.agentlab.api.spec.ApiDtoSpec;
 import ua.demo.agentlab.api.spec.ApiGenerationSpec;
@@ -64,7 +65,8 @@ public class ApiTemplateSpecGenerator {
         return new ApiGenerationSpec(
                 clients,
                 deduplicateDtos(dtos),
-                testSpecs(testCaseBundle, clientsByEndpointId)
+                testSpecs(testCaseBundle, clientsByEndpointId),
+                crudScenarioSpecs(clients)
         );
     }
 
@@ -228,6 +230,54 @@ public class ApiTemplateSpecGenerator {
             ));
         }
         return specs;
+    }
+
+    private List<ApiCrudScenarioSpec> crudScenarioSpecs(List<ApiClientSpec> clients) {
+        List<ApiCrudScenarioSpec> specs = new ArrayList<>();
+        for (ApiClientSpec client : clients) {
+            ApiClientMethodSpec create = findMethod(client, HttpMethod.POST, false, true);
+            ApiClientMethodSpec read = findMethod(client, HttpMethod.GET, true, false);
+            ApiClientMethodSpec update = findMethod(client, HttpMethod.PUT, true, true);
+            ApiClientMethodSpec patch = findMethod(client, HttpMethod.PATCH, true, true);
+            ApiClientMethodSpec delete = findMethod(client, HttpMethod.DELETE, true, false);
+            if (create == null || read == null || update == null || patch == null || delete == null) {
+                continue;
+            }
+            String resourceName = client.className().replaceAll("Client$", "");
+            specs.add(new ApiCrudScenarioSpec(
+                    TEST_PACKAGE,
+                    resourceName + "CrudApiTest",
+                    "shouldCreateReadUpdatePatchAndDelete" + resourceName,
+                    client.className(),
+                    create.methodName(),
+                    read.methodName(),
+                    update.methodName(),
+                    patch.methodName(),
+                    delete.methodName(),
+                    create.requestDtoClassName(),
+                    update.requestDtoClassName(),
+                    patch.requestDtoClassName(),
+                    read.responseDtoClassName(),
+                    read.pathParameters().isEmpty() ? "id" : read.pathParameters().get(0),
+                    "id"
+            ));
+        }
+        return specs;
+    }
+
+    private ApiClientMethodSpec findMethod(
+            ApiClientSpec client,
+            HttpMethod method,
+            boolean requiresPathParameter,
+            boolean requiresBody
+    ) {
+        return client.methods().stream()
+                .filter(candidate -> candidate.httpMethod() == method)
+                .filter(candidate -> candidate.authMode() != ApiAuthMode.UNAUTHORIZED)
+                .filter(candidate -> requiresPathParameter == !candidate.pathParameters().isEmpty())
+                .filter(candidate -> !requiresBody || candidate.hasRequestBody())
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean samePath(String left, String right) {

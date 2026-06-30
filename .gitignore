@@ -54,6 +54,10 @@ target/repository-intelligence-check/
 src/main/java/ua/demo/agentlab/ui/generated/
 src/test/java/ua/demo/agentlab/ui/generated/
 
+# Generated API code produced by local demo runs
+src/main/java/ua/demo/agentlab/api/generated/
+src/test/java/ua/demo/agentlab/api/generated/
+
 # Local secrets and machine-specific configuration
 .env
 .env.*

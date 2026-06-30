@@ -49,11 +49,12 @@ The old numeric `order()` execution model and `WorkflowStatePipelineAdapter` hav
 - canonical API test cases;
 - typed API assertion contracts;
 - `ApiClientSpec`, `ApiDtoSpec`, and `ApiTestSpec`;
+- `ApiCrudScenarioSpec` for controlled create/read/update/patch/delete flow tests;
 - RestAssured/TestNG writer;
 - API quality gate;
 - controlled source persistence after quality gate.
 
-Default API test generation is conservative: confirmed GET collection endpoints only. Path-parameter and mutation tests require explicit scenario data and auth/data-factory policy.
+Default API test generation is conservative: confirmed GET collection endpoints only. Path-parameter and mutation tests are not emitted as isolated tests by default. When a resource has the complete CRUD endpoint set, `--api` mode can generate a single controlled CRUD flow that creates its own entity, reads it by the created id, updates it, patches it, and deletes it.
 
 ### AI Boundary
 
@@ -105,7 +106,5 @@ Strengths:
 
 Remaining public-readiness work:
 
-- keep the current large change set as one controlled commit boundary;
-- verify no accidental runtime artifacts are staged;
 - continue shrinking `WorkflowState` and `StageOutputPublisher` over time;
-- add scenario data/data-factory support before enabling path-param or mutation API tests by default.
+- add richer scenario data/data-factory support before enabling arbitrary path-param or mutation API tests outside controlled CRUD flows.

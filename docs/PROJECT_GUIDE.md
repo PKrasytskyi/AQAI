@@ -24,6 +24,7 @@ Implemented today:
 - API endpoint evidence ingestion from OpenAPI, network scan, and configured endpoint seeds;
 - API client/DTO/test specs with RestAssured/TestNG writer;
 - API quality gate for endpoint evidence, assertions, source roots, path params, and mutation safety;
+- API demo mode via `--api`, including controlled full CRUD flow generation when the endpoint set supports it;
 - unit tests under `src/test/ua.demo.agentlab/unity`.
 
 Current AI mode intentionally stops after deterministic POM prompt generation. Direct LLM-backed Java writing remains disabled until schema, compile, review, and persistence gates are fully stabilized.
@@ -63,6 +64,14 @@ flowchart TD
     E --> F["ApiQualityGate"]
     F --> G["RestAssured/TestNG source preview or controlled persistence"]
 ```
+
+Run API-only demo mode with:
+
+```powershell
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--api requirements/valid-author.md"
+```
+
+For resources with `GET collection`, `POST collection`, `GET by id`, `PUT by id`, `PATCH by id`, and `DELETE by id`, the generated API test is a single atomic CRUD flow that owns its setup and cleanup.
 
 ## 4. Important Packages
 

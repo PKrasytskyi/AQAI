@@ -7,6 +7,10 @@ import java.util.Arrays;
 public class WorkflowModeResolver {
 
     public WorkflowMode resolve(String[] args) {
+        if (args != null && Arrays.stream(args).anyMatch(arg ->
+                "--api".equalsIgnoreCase(arg) || "--api-demo".equalsIgnoreCase(arg))) {
+            return WorkflowMode.API_DEMO;
+        }
         if (args != null && Arrays.stream(args).anyMatch("--deterministic"::equalsIgnoreCase)) {
             return WorkflowMode.DETERMINISTIC;
         }

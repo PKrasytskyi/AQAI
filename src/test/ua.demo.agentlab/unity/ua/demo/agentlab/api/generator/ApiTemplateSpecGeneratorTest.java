@@ -67,6 +67,34 @@ public class ApiTemplateSpecGeneratorTest {
     }
 
     @Test
+    public void generatesFullCrudScenarioWhenResourceHasCreateReadUpdatePatchDelete() {
+        ApiEndpointBundle endpoints = new ApiEndpointSeedParser().parse(
+                "test-seed",
+                "GET /public/v2/users listUsers; "
+                        + "GET /public/v2/users/{id} getUser; "
+                        + "POST /public/v2/users createUser; "
+                        + "PUT /public/v2/users/{id} updateUser; "
+                        + "PATCH /public/v2/users/{id} patchUser; "
+                        + "DELETE /public/v2/users/{id} deleteUser"
+        );
+        CanonicalApiTestCaseBundle testCases = new RuleBasedCanonicalApiTestCaseGenerator().generate(endpoints);
+
+        ApiGenerationSpec spec = new ApiTemplateSpecGenerator().generate(endpoints, testCases);
+        ApiQualityReport report = new ApiQualityGate().validate(endpoints, testCases, spec);
+        List<GeneratedSourceFile> files = new ApiRestAssuredTestNgWriter().write(spec);
+
+        Assert.assertFalse(report.hasBlockingIssues(), report.issues().toString());
+        Assert.assertEquals(spec.crudScenarioSpecs().size(), 1);
+        String crudContent = file(files, "UserCrudApiTest").content();
+        Assert.assertTrue(crudContent.contains("client.createUser(createRequest)"));
+        Assert.assertTrue(crudContent.contains("client.getUserById(createdId)"));
+        Assert.assertTrue(crudContent.contains("client.updateUserById(createdId, updateRequest)"));
+        Assert.assertTrue(crudContent.contains("client.patchUserById(createdId, patchRequest)"));
+        Assert.assertTrue(crudContent.contains("client.deleteUserById(createdId)"));
+        Assert.assertTrue(crudContent.contains("ApiAssertions.assertStatusCode(deleteResponse.statusCode(), 204);"));
+    }
+
+    @Test
     public void defaultCanonicalApiTestsUseOnlyConfirmedGetCollectionEndpoints() {
         ApiEndpointBundle endpoints = new ApiEndpointSeedParser().parse(
                 "test-seed",

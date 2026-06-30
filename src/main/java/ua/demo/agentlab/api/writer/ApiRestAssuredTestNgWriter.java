@@ -5,6 +5,7 @@ import ua.demo.agentlab.api.model.ApiAssertionContract;
 import ua.demo.agentlab.api.model.HttpMethod;
 import ua.demo.agentlab.api.spec.ApiClientMethodSpec;
 import ua.demo.agentlab.api.spec.ApiClientSpec;
+import ua.demo.agentlab.api.spec.ApiCrudScenarioSpec;
 import ua.demo.agentlab.api.spec.ApiDtoFieldSpec;
 import ua.demo.agentlab.api.spec.ApiDtoSpec;
 import ua.demo.agentlab.api.spec.ApiGenerationSpec;
@@ -35,6 +36,10 @@ public class ApiRestAssuredTestNgWriter {
         spec.testSpecs().stream()
                 .sorted(Comparator.comparing(ApiTestSpec::className))
                 .map(test -> writeTest(test, spec.clientSpecs(), spec.dtoSpecs()))
+                .forEach(files::add);
+        spec.crudScenarioSpecs().stream()
+                .sorted(Comparator.comparing(ApiCrudScenarioSpec::className))
+                .map(test -> writeCrudTest(test, spec.clientSpecs(), spec.dtoSpecs()))
                 .forEach(files::add);
         return files;
     }
@@ -155,6 +160,120 @@ public class ApiRestAssuredTestNgWriter {
         builder.append("    }").append(System.lineSeparator());
         builder.append("}").append(System.lineSeparator());
         return sourceFile("src/test/java", spec.packageName(), spec.className(), builder.toString());
+    }
+
+    private GeneratedSourceFile writeCrudTest(
+            ApiCrudScenarioSpec spec,
+            List<ApiClientSpec> clients,
+            List<ApiDtoSpec> dtoSpecs
+    ) {
+        ApiClientSpec client = clients.stream()
+                .filter(candidate -> candidate.className().equals(spec.clientClassName()))
+                .findFirst()
+                .orElse(null);
+        ApiDtoSpec createDto = dto(dtoSpecs, spec.createRequestDtoClassName());
+        ApiDtoSpec updateDto = dto(dtoSpecs, spec.updateRequestDtoClassName());
+        ApiDtoSpec patchDto = dto(dtoSpecs, spec.patchRequestDtoClassName());
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("package ").append(spec.packageName()).append(";").append(System.lineSeparator()).append(System.lineSeparator());
+        if (client != null) {
+            builder.append("import ").append(client.packageName()).append(".").append(client.className()).append(";").append(System.lineSeparator());
+        }
+        appendDtoImport(builder, createDto);
+        appendDtoImport(builder, updateDto);
+        appendDtoImport(builder, patchDto);
+        builder.append("import ua.demo.agentlab.core.api.ApiManager;").append(System.lineSeparator());
+        builder.append("import io.restassured.response.Response;").append(System.lineSeparator());
+        builder.append("import org.testng.annotations.Test;").append(System.lineSeparator());
+        builder.append("import ua.demo.agentlab.core.api.assertions.ApiAssertions;").append(System.lineSeparator()).append(System.lineSeparator());
+        builder.append("public class ").append(spec.className()).append(" {").append(System.lineSeparator()).append(System.lineSeparator());
+        builder.append("    private final ApiManager apiManager = new ApiManager();").append(System.lineSeparator()).append(System.lineSeparator());
+        builder.append("    @Test").append(System.lineSeparator());
+        builder.append("    public void ").append(spec.testMethodName()).append("() {").append(System.lineSeparator());
+        builder.append("        ").append(spec.clientClassName()).append(" client = new ").append(spec.clientClassName()).append("(apiManager);").append(System.lineSeparator());
+        builder.append("        ").append(spec.createRequestDtoClassName()).append(" createRequest = new ").append(spec.createRequestDtoClassName()).append("();").append(System.lineSeparator());
+        appendDtoAssignments(builder, "createRequest", createDto, "create");
+        builder.append("        Response createResponse = client.").append(spec.createMethodName()).append("(createRequest);").append(System.lineSeparator());
+        builder.append("        ApiAssertions.assertStatusCode(createResponse.statusCode(), 201);").append(System.lineSeparator());
+        builder.append("        int createdId = createResponse.jsonPath().getInt(\"").append(spec.idJsonPath()).append("\");").append(System.lineSeparator());
+        builder.append("        ApiAssertions.assertFieldExists(createdId, \"").append(spec.idJsonPath()).append("\");").append(System.lineSeparator()).append(System.lineSeparator());
+        builder.append("        Response readResponse = client.").append(spec.readMethodName()).append("(createdId);").append(System.lineSeparator());
+        builder.append("        ApiAssertions.assertStatusCode(readResponse.statusCode(), 200);").append(System.lineSeparator());
+        builder.append("        ApiAssertions.assertFieldEquals(String.valueOf(readResponse.jsonPath().getInt(\"").append(spec.idJsonPath()).append("\")), String.valueOf(createdId), \"").append(spec.idJsonPath()).append("\");").append(System.lineSeparator()).append(System.lineSeparator());
+        builder.append("        ").append(spec.updateRequestDtoClassName()).append(" updateRequest = new ").append(spec.updateRequestDtoClassName()).append("();").append(System.lineSeparator());
+        appendDtoAssignments(builder, "updateRequest", updateDto, "update");
+        builder.append("        Response updateResponse = client.").append(spec.updateMethodName()).append("(createdId, updateRequest);").append(System.lineSeparator());
+        builder.append("        ApiAssertions.assertStatusCode(updateResponse.statusCode(), 200);").append(System.lineSeparator()).append(System.lineSeparator());
+        builder.append("        ").append(spec.patchRequestDtoClassName()).append(" patchRequest = new ").append(spec.patchRequestDtoClassName()).append("();").append(System.lineSeparator());
+        appendDtoAssignments(builder, "patchRequest", patchDto, "patch");
+        builder.append("        Response patchResponse = client.").append(spec.patchMethodName()).append("(createdId, patchRequest);").append(System.lineSeparator());
+        builder.append("        ApiAssertions.assertStatusCode(patchResponse.statusCode(), 200);").append(System.lineSeparator()).append(System.lineSeparator());
+        builder.append("        Response deleteResponse = client.").append(spec.deleteMethodName()).append("(createdId);").append(System.lineSeparator());
+        builder.append("        ApiAssertions.assertStatusCode(deleteResponse.statusCode(), 204);").append(System.lineSeparator());
+        builder.append("    }").append(System.lineSeparator());
+        builder.append("}").append(System.lineSeparator());
+        return sourceFile("src/test/java", spec.packageName(), spec.className(), builder.toString());
+    }
+
+    private ApiDtoSpec dto(List<ApiDtoSpec> dtoSpecs, String className) {
+        return dtoSpecs.stream()
+                .filter(candidate -> candidate.className().equals(className))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void appendDtoImport(StringBuilder builder, ApiDtoSpec dto) {
+        if (dto != null) {
+            builder.append("import ").append(dto.packageName()).append(".").append(dto.className()).append(";").append(System.lineSeparator());
+        }
+    }
+
+    private void appendDtoAssignments(StringBuilder builder, String variableName, ApiDtoSpec dto, String phase) {
+        if (dto == null) {
+            return;
+        }
+        for (ApiDtoFieldSpec field : dto.fields()) {
+            builder.append("        ").append(variableName).append(".set").append(capitalize(field.name())).append("(")
+                    .append(sampleValue(field, phase))
+                    .append(");").append(System.lineSeparator());
+        }
+    }
+
+    private String sampleValue(ApiDtoFieldSpec field, String phase) {
+        String name = field.name().toLowerCase(java.util.Locale.ROOT);
+        String type = field.javaType().toLowerCase(java.util.Locale.ROOT);
+        if ("int".equals(type) || "integer".equals(type)) {
+            return "1";
+        }
+        if ("long".equals(type)) {
+            return "1L";
+        }
+        if ("boolean".equals(type)) {
+            return "true";
+        }
+        if (name.contains("email")) {
+            return "\"agentlab-\" + System.currentTimeMillis() + \"@example.com\"";
+        }
+        if (name.contains("gender")) {
+            return "\"male\"";
+        }
+        if (name.contains("status")) {
+            return "\"active\"";
+        }
+        if (name.contains("title")) {
+            return "\"AgentLab \" + \"" + phase + " title\"";
+        }
+        if (name.contains("body")) {
+            return "\"AgentLab \" + \"" + phase + " body\"";
+        }
+        if (name.contains("due")) {
+            return "\"2030-01-01T00:00:00.000+05:30\"";
+        }
+        if (name.contains("name")) {
+            return "\"AgentLab " + phase + "\"";
+        }
+        return "\"AgentLab " + phase + "\"";
     }
 
     private void appendAssertions(StringBuilder builder, ApiAssertionContract contract) {

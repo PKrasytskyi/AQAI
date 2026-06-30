@@ -116,6 +116,18 @@ Endpoint evidence can come from:
 
 Runnable demo tests are intentionally conservative: default generation creates tests only for confirmed GET collection endpoints. Path-parameter and mutation tests require explicit scenario data, auth policy, and data-factory support.
 
+For full CRUD resources, API demo mode can generate a controlled flow test:
+
+```text
+create -> read created id -> update -> patch -> delete
+```
+
+Run it with:
+
+```powershell
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--api requirements/valid-author.md"
+```
+
 ## Runtime Support Packages
 
 Preferred platform namespace:
@@ -152,7 +164,7 @@ Before publishing:
 
 ```powershell
 git status --short
-rg -n 'BEGIN .*PRIVATE KEY' src docs docker-compose*.yml
+rg -n 'BEGIN .*PRIVATE KEY' src docker-compose*.yml
 rg -n 'sk-' src/main/resources src/test/resources docker-compose*.yml
 rg -n 'password\s*=\s*[^${].+|token\s*=\s*[^${].+' src/main/resources src/test/resources docker-compose*.yml
 mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" test

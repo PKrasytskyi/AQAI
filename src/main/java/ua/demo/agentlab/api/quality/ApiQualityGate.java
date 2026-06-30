@@ -7,6 +7,7 @@ import ua.demo.agentlab.api.model.CanonicalApiTestCase;
 import ua.demo.agentlab.api.model.CanonicalApiTestCaseBundle;
 import ua.demo.agentlab.api.spec.ApiClientMethodSpec;
 import ua.demo.agentlab.api.spec.ApiClientSpec;
+import ua.demo.agentlab.api.spec.ApiCrudScenarioSpec;
 import ua.demo.agentlab.api.spec.ApiDtoSpec;
 import ua.demo.agentlab.api.spec.ApiGenerationSpec;
 import ua.demo.agentlab.api.spec.ApiTestSpec;
@@ -69,6 +70,9 @@ public class ApiQualityGate {
         }
         for (ApiTestSpec testSpec : generationSpec.testSpecs()) {
             validateTestSpec(testSpec, generationSpec.clientSpecs(), issues);
+        }
+        for (ApiCrudScenarioSpec crudSpec : generationSpec.crudScenarioSpecs()) {
+            validateCrudScenarioSpec(crudSpec, generationSpec.clientSpecs(), generationSpec.dtoSpecs(), issues);
         }
         return new ApiQualityReport("api-generation", issues);
     }
@@ -189,6 +193,85 @@ public class ApiQualityGate {
         }
         if (testSpec.assertionContract() == null) {
             issues.add(blocker("API_TEST_ASSERTION_CONTRACT_PRESENT", "API test spec requires assertion contract", testSpec.className()));
+        }
+    }
+
+    private void validateCrudScenarioSpec(
+            ApiCrudScenarioSpec crudSpec,
+            List<ApiClientSpec> clients,
+            List<ApiDtoSpec> dtoSpecs,
+            List<ApiQualityIssue> issues
+    ) {
+        if (crudSpec == null || !crudSpec.complete()) {
+            issues.add(blocker("API_CRUD_SCENARIO_COMPLETE",
+                    "CRUD scenario requires create/read/update/patch/delete methods and DTOs",
+                    String.valueOf(crudSpec)));
+            return;
+        }
+        Optional<ApiClientSpec> client = clients.stream()
+                .filter(candidate -> candidate.className().equals(crudSpec.clientClassName()))
+                .findFirst();
+        if (client.isEmpty()) {
+            issues.add(blocker("API_CRUD_CLIENT_EXISTS",
+                    "CRUD scenario references missing client",
+                    crudSpec.className() + " -> " + crudSpec.clientClassName()));
+            return;
+        }
+        requireCrudMethod(client.get(), crudSpec.createMethodName(), ua.demo.agentlab.api.model.HttpMethod.POST, false, true, issues);
+        requireCrudMethod(client.get(), crudSpec.readMethodName(), ua.demo.agentlab.api.model.HttpMethod.GET, true, false, issues);
+        requireCrudMethod(client.get(), crudSpec.updateMethodName(), ua.demo.agentlab.api.model.HttpMethod.PUT, true, true, issues);
+        requireCrudMethod(client.get(), crudSpec.patchMethodName(), ua.demo.agentlab.api.model.HttpMethod.PATCH, true, true, issues);
+        requireCrudMethod(client.get(), crudSpec.deleteMethodName(), ua.demo.agentlab.api.model.HttpMethod.DELETE, true, false, issues);
+        requireDto(dtoSpecs, crudSpec.createRequestDtoClassName(), crudSpec.className(), issues);
+        requireDto(dtoSpecs, crudSpec.updateRequestDtoClassName(), crudSpec.className(), issues);
+        requireDto(dtoSpecs, crudSpec.patchRequestDtoClassName(), crudSpec.className(), issues);
+    }
+
+    private void requireCrudMethod(
+            ApiClientSpec client,
+            String methodName,
+            ua.demo.agentlab.api.model.HttpMethod httpMethod,
+            boolean requiresPathParameter,
+            boolean requiresBody,
+            List<ApiQualityIssue> issues
+    ) {
+        Optional<ApiClientMethodSpec> method = client.methods().stream()
+                .filter(candidate -> candidate.methodName().equals(methodName))
+                .findFirst();
+        if (method.isEmpty()) {
+            issues.add(blocker("API_CRUD_CLIENT_METHOD_EXISTS",
+                    "CRUD scenario references missing client method",
+                    client.className() + "." + methodName));
+            return;
+        }
+        ApiClientMethodSpec spec = method.get();
+        if (spec.httpMethod() != httpMethod) {
+            issues.add(blocker("API_CRUD_METHOD_MATCHES_HTTP_VERB",
+                    "CRUD method uses unexpected HTTP verb",
+                    methodName + " -> " + spec.httpMethod() + " vs " + httpMethod));
+        }
+        if (requiresPathParameter && spec.pathParameters().isEmpty()) {
+            issues.add(blocker("API_CRUD_PATH_PARAMETER_PRESENT",
+                    "CRUD read/update/patch/delete methods require a path parameter",
+                    client.className() + "." + methodName));
+        }
+        if (requiresBody && !spec.hasRequestBody()) {
+            issues.add(blocker("API_CRUD_REQUEST_BODY_PRESENT",
+                    "CRUD create/update/patch methods require request DTOs",
+                    client.className() + "." + methodName));
+        }
+    }
+
+    private void requireDto(
+            List<ApiDtoSpec> dtoSpecs,
+            String className,
+            String evidence,
+            List<ApiQualityIssue> issues
+    ) {
+        if (!dtoExists(dtoSpecs, className)) {
+            issues.add(blocker("API_CRUD_REQUEST_DTO_EXISTS",
+                    "CRUD scenario request DTO must exist",
+                    evidence + " -> " + className));
         }
     }
 

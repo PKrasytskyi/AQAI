@@ -14,13 +14,15 @@ public class AppBootstrap {
     private final WorkflowCoreModuleFactory coreModuleFactory;
     private final DeterministicWorkflowFactory deterministicWorkflowFactory;
     private final AiPromptWorkflowFactory aiPromptWorkflowFactory;
+    private final ApiDemoWorkflowFactory apiDemoWorkflowFactory;
 
     public AppBootstrap() {
         this(
                 new WorkflowRequestFactory(),
                 new WorkflowCoreModuleFactory(),
                 new DeterministicWorkflowFactory(),
-                new AiPromptWorkflowFactory()
+                new AiPromptWorkflowFactory(),
+                new ApiDemoWorkflowFactory()
         );
     }
 
@@ -28,18 +30,21 @@ public class AppBootstrap {
             WorkflowRequestFactory requestFactory,
             WorkflowCoreModuleFactory coreModuleFactory,
             DeterministicWorkflowFactory deterministicWorkflowFactory,
-            AiPromptWorkflowFactory aiPromptWorkflowFactory
+            AiPromptWorkflowFactory aiPromptWorkflowFactory,
+            ApiDemoWorkflowFactory apiDemoWorkflowFactory
     ) {
         if (requestFactory == null
                 || coreModuleFactory == null
                 || deterministicWorkflowFactory == null
-                || aiPromptWorkflowFactory == null) {
+                || aiPromptWorkflowFactory == null
+                || apiDemoWorkflowFactory == null) {
             throw new IllegalArgumentException("bootstrap collaborators cannot be null");
         }
         this.requestFactory = requestFactory;
         this.coreModuleFactory = coreModuleFactory;
         this.deterministicWorkflowFactory = deterministicWorkflowFactory;
         this.aiPromptWorkflowFactory = aiPromptWorkflowFactory;
+        this.apiDemoWorkflowFactory = apiDemoWorkflowFactory;
     }
 
     public WorkflowDefinition createWorkflow(String[] args) {
@@ -49,6 +54,9 @@ public class AppBootstrap {
         if (request.mode() == WorkflowMode.AI_PROMPT) {
             new AiRunWorkingDirectoryArchiver().archiveAndCleanBeforeRun();
             return aiPromptWorkflowFactory.create(initialState, core);
+        }
+        if (request.mode() == WorkflowMode.API_DEMO) {
+            return apiDemoWorkflowFactory.create(initialState, core);
         }
         return deterministicWorkflowFactory.create(initialState, core);
     }

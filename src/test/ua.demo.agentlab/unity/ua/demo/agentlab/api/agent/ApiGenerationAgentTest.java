@@ -31,6 +31,7 @@ public class ApiGenerationAgentTest {
         Assert.assertEquals(state.getArtifacts().get("api.generated.source.persistable"), "true");
         Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.endpoint.count")) > 0);
         Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.client.spec.count")) > 0);
+        Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.crud.spec.count")) > 0);
         Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.source.preview.count")) > 0);
         Assert.assertEquals(state.getArtifacts().get("api.quality.blocking.count"), "0");
         Assert.assertTrue(state.getApiSourceFiles().stream()
@@ -43,6 +44,8 @@ public class ApiGenerationAgentTest {
                 .anyMatch(path -> path.endsWith("api-generation-spec.json")));
         Assert.assertTrue(state.getAiArtifactFiles().stream()
                 .anyMatch(path -> path.endsWith("preview-UserClient.java")));
+        Assert.assertTrue(state.getAiArtifactFiles().stream()
+                .anyMatch(path -> path.endsWith("preview-UserCrudApiTest.java")));
     }
 
     @Test

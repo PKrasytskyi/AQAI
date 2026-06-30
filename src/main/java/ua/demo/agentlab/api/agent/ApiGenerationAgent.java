@@ -133,6 +133,7 @@ public class ApiGenerationAgent implements WorkflowAgent,
         artifacts.put("api.client.spec.count", String.valueOf(generationSpec.clientSpecs().size()));
         artifacts.put("api.dto.spec.count", String.valueOf(generationSpec.dtoSpecs().size()));
         artifacts.put("api.test.spec.count", String.valueOf(generationSpec.testSpecs().size()));
+        artifacts.put("api.crud.spec.count", String.valueOf(generationSpec.crudScenarioSpecs().size()));
         artifacts.put("api.source.preview.count", String.valueOf(sourceFiles.size()));
         artifacts.put("api.quality.blocking.count", String.valueOf(qualityReport.blockingIssueCount()));
         artifacts.put("api.generation.completed", "true");

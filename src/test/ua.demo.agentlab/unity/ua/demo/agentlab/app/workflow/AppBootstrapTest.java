@@ -17,4 +17,17 @@ public class AppBootstrapTest {
                 .map(WorkflowAgent::name)
                 .anyMatch("ui-discovery-agent"::equals));
     }
+
+    @Test
+    public void bootstrapCreatesApiDemoWorkflowDefinition() {
+        WorkflowDefinition definition = new AppBootstrap().createWorkflow(new String[]{"--api"});
+
+        Assert.assertEquals(definition.initialState().getArtifacts().get("workflow.mode"), WorkflowMode.API_DEMO.name());
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("api-generation-agent"::equals));
+        Assert.assertFalse(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("ui-discovery-agent"::equals));
+    }
 }

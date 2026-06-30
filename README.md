@@ -164,6 +164,15 @@ Current AI mode records deterministic POM prompts and enrichment artifacts. Dire
 
 API generation is currently demo-safe by default: endpoint discovery may produce client and DTO specs for the discovered surface, but runnable RestAssured/TestNG tests are generated only for confirmed GET collection endpoints until explicit scenario data and auth/data-factory policy are available for path-parameter and mutation flows.
 
+API CRUD demo run:
+
+```powershell
+$env:API_AUTH_TOKEN="..."
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--api requirements/valid-author.md"
+```
+
+More details: [Release / Demo Notes](docs/RELEASE_DEMO_NOTES.md).
+
 ## Important Runtime Artifacts
 
 Runtime artifacts are generated under `target/` and are ignored by Git:
@@ -222,6 +231,7 @@ The repository intentionally excludes:
 - generated runtime artifacts;
 - generated UI source produced by local workflow runs;
 - local DB volumes.
+- generated API/UI source from local demo runs.
 
 This keeps GitHub focused on source code, requirements, docs, infrastructure definitions, and reproducible tests.
 
@@ -238,7 +248,7 @@ Recommended pre-push checks:
 
 ```powershell
 git status --short
-rg -n 'BEGIN .*PRIVATE KEY' src docs docker-compose*.yml
+rg -n 'BEGIN .*PRIVATE KEY' src docker-compose*.yml
 rg -n 'sk-' src/main/resources src/test/resources docker-compose*.yml
 rg -n 'password\s*=\s*[^${].+|token\s*=\s*[^${].+' src/main/resources src/test/resources docker-compose*.yml
 mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" test
