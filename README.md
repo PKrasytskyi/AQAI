@@ -171,7 +171,10 @@ $env:API_AUTH_TOKEN="..."
 mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--api requirements/valid-author.md"
 ```
 
-More details: [Release / Demo Notes](docs/RELEASE_DEMO_NOTES.md).
+More details:
+
+- [API Layer Documentation](docs/API_LAYER.md)
+- [Release / Demo Notes](docs/RELEASE_DEMO_NOTES.md)
 
 ## Important Runtime Artifacts
 
@@ -213,6 +216,7 @@ The platform has executable checks for:
 
 ## Documentation
 
+- [API Layer Documentation](docs/API_LAYER.md)
 - [Current AI UI Architecture](docs/CURRENT_AI_UI_ARCHITECTURE.md)
 - [Project Detailed Guide](docs/PROJECT_DETAILED_GUIDE.md)
 - [AI POM Fix Plan](docs/AI_POM_FIX_PLAN.md)

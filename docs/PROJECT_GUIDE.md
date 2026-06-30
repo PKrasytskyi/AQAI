@@ -73,6 +73,8 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.
 
 For resources with `GET collection`, `POST collection`, `GET by id`, `PUT by id`, `PATCH by id`, and `DELETE by id`, the generated API test is a single atomic CRUD flow that owns its setup and cleanup.
 
+Detailed API layer documentation: [API Layer Documentation](API_LAYER.md).
+
 ## 4. Important Packages
 
 - `ua.demo.agentlab.app.workflow` - composition root split into workflow/module factories.
