@@ -217,6 +217,7 @@ The platform has executable checks for:
 ## Documentation
 
 - [API Layer Documentation](docs/API_LAYER.md)
+- [GitHub Actions CI/CD](docs/GITHUB_ACTIONS_CI_CD.md)
 - [Current AI UI Architecture](docs/CURRENT_AI_UI_ARCHITECTURE.md)
 - [Project Detailed Guide](docs/PROJECT_DETAILED_GUIDE.md)
 - [AI POM Fix Plan](docs/AI_POM_FIX_PLAN.md)

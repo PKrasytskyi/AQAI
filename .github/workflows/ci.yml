@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      run_api_demo:
+        description: "Generate API demo sources before compile validation"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build and Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Compile main sources
+        run: mvn --batch-mode --no-transfer-progress compile
+
+      - name: Run unit tests
+        run: mvn --batch-mode --no-transfer-progress test
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
+
+  api-demo-compile:
+    name: API Demo Compile Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_api_demo }}
+
+    env:
+      API_AUTH_TOKEN: ${{ secrets.API_AUTH_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Generate API demo sources
+        run: mvn --batch-mode --no-transfer-progress exec:java "-Dexec.args=--api requirements/valid-author.md"
+
+      - name: Compile generated API sources and tests
+        run: mvn --batch-mode --no-transfer-progress test-compile
+
+      - name: Upload API demo artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-demo-artifacts
+          path: |
+            target/
+            src/main/java/ua/demo/agentlab/api/generated/
+            src/test/java/ua/demo/agentlab/api/generated/
+          if-no-files-found: ignore
