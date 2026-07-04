@@ -218,6 +218,9 @@ The platform has executable checks for:
 
 ## Documentation
 
+- [License](LICENSE)
+- [Contributing](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
 - [API Layer Documentation](docs/API_LAYER.md)
 - [GitHub Actions CI/CD](docs/GITHUB_ACTIONS_CI_CD.md)
 - [Current AI UI Architecture](docs/CURRENT_AI_UI_ARCHITECTURE.md)
