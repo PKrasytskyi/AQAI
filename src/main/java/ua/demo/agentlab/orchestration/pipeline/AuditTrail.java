@@ -30,6 +30,10 @@ public class AuditTrail {
         return entries;
     }
 
+    public List<String> getEntries() {
+        return List.copyOf(entries);
+    }
+
     public AuditTrail snapshot() {
         return new AuditTrail(new ArrayList<>(entries));
     }

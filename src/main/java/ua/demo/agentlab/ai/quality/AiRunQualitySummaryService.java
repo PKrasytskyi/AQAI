@@ -48,6 +48,8 @@ public class AiRunQualitySummaryService {
         int expectedResultsResolved = intArtifact(input, "test.case.expectation.resolved.count", 0);
         int expectedResultsNeedsReview = Math.max(0, canonicalTestCases - expectedResultsResolved);
         int mappedPages = mappedKnowledge == null ? 0 : mappedKnowledge.pages().size();
+        int pageObjectPrompts = pageObjectPromptCount(input);
+        int promptPagesWithoutAllowedLocators = promptPagesWithoutAllowedLocators(input);
         int routeCollisions = routeCollisions(mappedKnowledge);
         int externalEvidenceRejected = (int) locatorCandidates.stream()
                 .filter(this::isExternalEvidence)
@@ -57,16 +59,24 @@ public class AiRunQualitySummaryService {
                         || locator.risks().stream().anyMatch(this::isUnstableRisk))
                 .count();
         int promptBlockingIssues = promptBlockingIssues(input);
+        int promptAllowedLocators = intArtifact(input, "prompt.ui.evidence.locator.count", 0);
+        int runtimeFeedbackIssues = intArtifact(input, "ui.runtime.feedback.issue.count", 0);
+        double runtimeLocatorPassRate = doubleArtifact(input, "ui.runtime.feedback.locator.pass.rate", 1.0d);
+        double runtimeFlakyRiskScore = doubleArtifact(input, "ui.runtime.feedback.flaky.risk.score", 0.0d);
         double averageLocatorScore = averageLocatorScore(locatorCandidates);
         int qualityScore = qualityScore(
                 canonicalTestCases,
                 expectedResultsNeedsReview,
                 locatorCandidates.size(),
+                promptAllowedLocators,
                 lowConfidenceLocators,
                 routeCollisions,
                 externalEvidenceRejected,
                 promptBlockingIssues,
-                averageLocatorScore
+                averageLocatorScore,
+                runtimeFeedbackIssues,
+                runtimeLocatorPassRate,
+                runtimeFlakyRiskScore
         );
         return new AiRunQualitySummary(
                 runId(input),
@@ -75,6 +85,8 @@ public class AiRunQualitySummaryService {
                 expectedResultsResolved,
                 expectedResultsNeedsReview,
                 mappedPages,
+                pageObjectPrompts,
+                promptPagesWithoutAllowedLocators,
                 routeCollisions,
                 externalEvidenceRejected,
                 lowConfidenceLocators,
@@ -87,6 +99,8 @@ public class AiRunQualitySummaryService {
     private AiRunQualitySummary emptySummary() {
         return new AiRunQualitySummary(
                 Instant.now().toString(),
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -186,6 +200,7 @@ public class AiRunQualitySummaryService {
         }
         return candidates.stream()
                 .mapToDouble(LocatorCandidate::stabilityScore)
+                .filter(Double::isFinite)
                 .average()
                 .orElse(0.0d);
     }
@@ -196,6 +211,25 @@ public class AiRunQualitySummaryService {
                         && entry.getKey().endsWith(".blocking"))
                 .mapToInt(entry -> parseInt(entry.getValue(), 0))
                 .sum();
+    }
+
+    private int pageObjectPromptCount(AiRunQualitySummaryInput input) {
+        int scopedRequests = intArtifact(input, "openai.page.object.scoped.requests", -1);
+        if (scopedRequests >= 0) {
+            return scopedRequests;
+        }
+        return (int) input.artifacts().keySet().stream()
+                .filter(key -> key.startsWith("ai.page.object.prompt.")
+                        && key.endsWith(".allowedLocators"))
+                .count();
+    }
+
+    private int promptPagesWithoutAllowedLocators(AiRunQualitySummaryInput input) {
+        return (int) input.artifacts().entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith("ai.page.object.prompt.")
+                        && entry.getKey().endsWith(".allowedLocators"))
+                .filter(entry -> parseInt(entry.getValue(), 0) == 0)
+                .count();
     }
 
     private int intArtifact(AiRunQualitySummaryInput input, String key, int defaultValue) {
@@ -213,15 +247,31 @@ public class AiRunQualitySummaryService {
         }
     }
 
+    private double doubleArtifact(AiRunQualitySummaryInput input, String key, double defaultValue) {
+        String value = input.artifacts().get(key);
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (NumberFormatException exception) {
+            return defaultValue;
+        }
+    }
+
     private int qualityScore(
             int canonicalTestCases,
             int expectedResultsNeedsReview,
             int locatorCount,
+            int promptAllowedLocators,
             int lowConfidenceLocators,
             int routeCollisions,
             int externalEvidenceRejected,
             int promptBlockingIssues,
-            double averageLocatorScore
+            double averageLocatorScore,
+            int runtimeFeedbackIssues,
+            double runtimeLocatorPassRate,
+            double runtimeFlakyRiskScore
     ) {
         double score = 100.0d;
         if (canonicalTestCases > 0) {
@@ -230,7 +280,10 @@ public class AiRunQualitySummaryService {
         if (locatorCount > 0) {
             score -= 15.0d * lowConfidenceLocators / locatorCount;
         } else {
-            score -= 10.0d;
+            score -= 20.0d;
+        }
+        if (promptAllowedLocators <= 0 && canonicalTestCases > 0) {
+            score -= 25.0d;
         }
         score -= Math.min(20.0d, promptBlockingIssues * 25.0d);
         score -= Math.min(15.0d, routeCollisions * 10.0d);
@@ -238,10 +291,18 @@ public class AiRunQualitySummaryService {
         if (averageLocatorScore < 0.80d) {
             score -= (0.80d - averageLocatorScore) * 25.0d;
         }
+        if (runtimeLocatorPassRate < 0.75d) {
+            score -= (0.75d - runtimeLocatorPassRate) * 20.0d;
+        }
+        score -= Math.min(10.0d, runtimeFlakyRiskScore * 10.0d);
+        score -= Math.min(10.0d, runtimeFeedbackIssues * 2.0d);
         return (int) Math.round(Math.max(0.0d, Math.min(100.0d, score)));
     }
 
     private double round2(double value) {
+        if (!Double.isFinite(value)) {
+            return 0.0d;
+        }
         return Math.round(value * 100.0d) / 100.0d;
     }
 }

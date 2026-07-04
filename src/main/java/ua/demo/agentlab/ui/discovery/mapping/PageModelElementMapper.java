@@ -54,6 +54,9 @@ public class PageModelElementMapper {
     }
 
     private List<LocatorCandidate> mapLocators(String pageUrl, PageElementModel element, List<PageLocatorModel> locators) {
+        if (element == null || !element.visible()) {
+            return List.of();
+        }
         return locators.stream()
                 .map(locator -> locatorQualityEvaluator.evaluate(pageUrl, element, locator))
                 .filter(locatorQualityEvaluator::allowed)

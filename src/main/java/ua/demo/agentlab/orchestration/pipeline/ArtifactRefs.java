@@ -30,6 +30,10 @@ public class ArtifactRefs {
         return values;
     }
 
+    public Map<String, String> getValues() {
+        return Map.copyOf(values);
+    }
+
     public ArtifactRefs snapshot() {
         return new ArtifactRefs(new LinkedHashMap<>(values));
     }

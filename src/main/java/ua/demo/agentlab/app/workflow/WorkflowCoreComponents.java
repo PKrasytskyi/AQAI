@@ -15,6 +15,7 @@ public record WorkflowCoreComponents(
         WorkflowAgent requirementNormalizationAgent,
         WorkflowAgent policyLoadingAgent,
         WorkflowAgent uiDiscoveryAgent,
+        WorkflowAgent uiRuntimeEvidenceAgent,
         WorkflowAgent uiPageModelAgent,
         WorkflowAgent uiPageMappingAgent,
         WorkflowAgent uiPageKnowledgePersistenceAgent,

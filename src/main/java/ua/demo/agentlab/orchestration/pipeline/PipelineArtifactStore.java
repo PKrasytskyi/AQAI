@@ -56,6 +56,10 @@ public class PipelineArtifactStore {
             putIfPresent(WorkflowArtifact.CANONICAL_PAGE_FLOW_MODEL, output.canonicalPageFlowModel());
             return;
         }
+        if (value instanceof ua.demo.agentlab.ui.discovery.runtime.model.RuntimeEvidenceBundle output) {
+            putIfPresent(WorkflowArtifact.UI_RUNTIME_EVIDENCE, output);
+            return;
+        }
         if (value instanceof ua.demo.agentlab.ui.discovery.agent.UiPageMappingOutput output) {
             putIfPresent(WorkflowArtifact.MAPPED_UI_KNOWLEDGE, output.curatedKnowledge().knowledge());
             return;
@@ -105,6 +109,7 @@ public class PipelineArtifactStore {
         putIfPresent(WorkflowArtifact.TEST_PLAN, state.getTestPlan());
         putIfPresent(WorkflowArtifact.UI_DISCOVERY_SNAPSHOT, state.getUiDiscoverySnapshot());
         putIfPresent(WorkflowArtifact.SELENIUM_DISCOVERY_RESULT, state.getSeleniumDiscoveryResult());
+        putIfPresent(WorkflowArtifact.UI_RUNTIME_EVIDENCE, state.getRuntimeEvidenceBundle());
         putIfPresent(WorkflowArtifact.CANONICAL_PAGE_FLOW_MODEL, state.getCanonicalPageFlowModel());
         putIfPresent(WorkflowArtifact.PAGE_MODEL_BUNDLE, state.getPageModelBundle());
         putIfPresent(WorkflowArtifact.MAPPED_UI_KNOWLEDGE, state.getMappedUiKnowledge());

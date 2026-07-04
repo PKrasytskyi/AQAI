@@ -31,7 +31,13 @@ public class AiRunArtifactWriter {
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(target.toFile(), payload);
             return target.toAbsolutePath().normalize();
         } catch (IOException exception) {
-            throw new IllegalStateException("Failed to write AI JSON artifact for stage '%s'".formatted(stage), exception);
+            String detail = exception.getMessage() == null || exception.getMessage().isBlank()
+                    ? exception.getClass().getSimpleName()
+                    : exception.getMessage();
+            throw new IllegalStateException(
+                    "Failed to write AI JSON artifact for stage '%s': %s".formatted(stage, detail),
+                    exception
+            );
         }
     }
 

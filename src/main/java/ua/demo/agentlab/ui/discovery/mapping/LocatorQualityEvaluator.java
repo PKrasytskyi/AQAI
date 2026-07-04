@@ -79,6 +79,9 @@ public class LocatorQualityEvaluator {
         } else if (containsAny(normalized, "aria-label") || !safe(element == null ? "" : element.ariaLabel()).isBlank()
                 || !safe(element == null ? "" : element.role()).isBlank()) {
             base = 0.75d;
+        } else if (strategy == LocatorStrategy.CSS && normalized.contains("[type='submit']")
+                && isSubmitControl(element)) {
+            base = 0.78d;
         } else if (strategy == LocatorStrategy.CSS && shortStableCss(normalized)) {
             base = 0.60d;
         } else if (strategy == LocatorStrategy.XPATH && risks.contains("external-link-text-xpath")) {
@@ -94,6 +97,19 @@ public class LocatorQualityEvaluator {
         if (!origin.sameOrigin()) {
             base = Math.min(base, strategy == LocatorStrategy.XPATH ? 0.05d : 0.15d);
         }
+        if (risks.contains("semantic-locator-conflict")) {
+            base = Math.min(base, 0.05d);
+        }
+        if (risks.contains("hidden-or-invisible-element") || risks.contains("security-token-field")) {
+            base = Math.min(base, 0.05d);
+        }
+        if (risks.contains("generated-locator-token")) {
+            base = Math.min(base, 0.35d);
+        }
+        if (risks.contains("generic-id")) {
+            base = Math.min(base, 0.50d);
+        }
+        base += semanticMatchBonus(strategy, normalized, element);
         if (!uniqueOnPage) {
             base -= 0.05d;
         }
@@ -101,6 +117,39 @@ public class LocatorQualityEvaluator {
             base -= 0.15d;
         }
         return Math.max(0.0d, Math.min(1.0d, base));
+    }
+
+    private double semanticMatchBonus(LocatorStrategy strategy, String locatorValue, PageElementModel element) {
+        if (element == null) {
+            return 0.0d;
+        }
+        String evidence = (safe(element.technicalType()) + " "
+                + safe(element.semanticType()) + " "
+                + safe(element.inputType()) + " "
+                + safe(element.name()) + " "
+                + safe(element.id()) + " "
+                + safe(element.placeholder()) + " "
+                + safe(element.ariaLabel())).toLowerCase(Locale.ROOT);
+        boolean stableAttributeStrategy = strategy == LocatorStrategy.ID
+                || strategy == LocatorStrategy.NAME
+                || strategy == LocatorStrategy.CSS && (locatorValue.contains("[name=")
+                || locatorValue.contains("[id=")
+                || locatorValue.contains("[aria-label=")
+                || locatorValue.contains("[placeholder="));
+        if (!stableAttributeStrategy) {
+            return 0.0d;
+        }
+        if (containsAny(evidence, "password", "pass") && containsAny(locatorValue, "password", "pass")) {
+            return 0.08d;
+        }
+        if (containsAny(evidence, "username", "user", "email", "login")
+                && containsAny(locatorValue, "username", "user", "email")) {
+            return 0.08d;
+        }
+        if (containsAny(evidence, "submit", "button") && containsAny(locatorValue, "submit", "button")) {
+            return 0.04d;
+        }
+        return 0.0d;
     }
 
     private boolean shortStableCss(String value) {
@@ -119,6 +168,14 @@ public class LocatorQualityEvaluator {
                 + safe(element == null ? "" : element.tag()) + " "
                 + safe(element == null ? "" : element.inputType());
         return containsAny(text.toLowerCase(Locale.ROOT), "input", "field", "password", "email", "textarea", "select");
+    }
+
+    private boolean isSubmitControl(PageElementModel element) {
+        String text = safe(element == null ? "" : element.technicalType()) + " "
+                + safe(element == null ? "" : element.semanticType()) + " "
+                + safe(element == null ? "" : element.tag()) + " "
+                + safe(element == null ? "" : element.inputType());
+        return containsAny(text.toLowerCase(Locale.ROOT), "button", "submit", "input");
     }
 
     private boolean containsAny(String text, String... fragments) {

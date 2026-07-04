@@ -22,7 +22,9 @@ public record LocatorCandidate(
     public LocatorCandidate {
         strategy = strategy == null ? LocatorStrategy.UNKNOWN : strategy;
         value = value == null ? "" : value.trim();
-        stabilityScore = Math.max(0.0d, Math.min(1.0d, stabilityScore));
+        stabilityScore = Double.isFinite(stabilityScore)
+                ? Math.max(0.0d, Math.min(1.0d, stabilityScore))
+                : 0.0d;
         evidenceSource = evidenceSource == null ? "" : evidenceSource.trim();
         elementRole = elementRole == null ? "" : elementRole.trim();
         accessibleName = accessibleName == null ? "" : accessibleName.trim();

@@ -13,7 +13,7 @@ Finish the UI layer first, make the generated Selenium/TestNG output stable, and
 Goal:
 
 - make sure generated test code imports only stable support classes;
-- avoid mixed ownership between runtime support in `src/main/java` and dedicated unit tests under `src/test/ua.demo.agentlab/unity`.
+- avoid mixed ownership between runtime support in `src/main/java` and dedicated unit tests under `src/test/unit/tests`.
 
 Actions:
 

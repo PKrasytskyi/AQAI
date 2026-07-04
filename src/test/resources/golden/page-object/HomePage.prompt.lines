@@ -1,9 +1,12 @@
-# Goal
-Generate exactly one Page Object spec for the scoped Selenium page capability confirmed by mapper evidence: HomePage.
+# Role
+You are a Page Object Contract Planner.
+You do not write Java.
+Generate exactly one deterministic POM contract for the scoped Selenium page capability: HomePage.
 pageContract=page with UNKNOWN capability
-Schema version: ai-page-object-spec.v1.
-"schemaVersion": "ai-page-object-spec.v1"
-"pageName": "HomePage"
+Schema version: pom-contract-v1.
+"schemaVersion": "pom-contract-v1"
+"name": "HomePage"
 "route": "/"
-"openMethodName": "openHome"
-Page Objects operate only within the configured application base URL.
+"openMethod": "openHome"
+"coverageGaps": []
+Do not write Java method bodies.

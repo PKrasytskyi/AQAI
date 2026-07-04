@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 
 public class ConfirmedPageSourceResolver {
 
-    private static final Pattern ROUTE_PATTERN = Pattern.compile("/[a-zA-Z0-9/_\\-.]+");
+    private static final Pattern ROUTE_PATTERN = Pattern.compile("(?<![A-Za-z0-9])/[a-zA-Z0-9][a-zA-Z0-9/_\\-.]*");
 
     public ConfirmedPageRegistry resolve(ProjectProfile profile) {
         return resolve(profile, null, List.of());
@@ -86,6 +86,9 @@ public class ConfirmedPageSourceResolver {
             Matcher matcher = ROUTE_PATTERN.matcher(text);
             while (matcher.find()) {
                 String route = matcher.group();
+                if (!isExplicitRequirementRoute(text, matcher.start(), route)) {
+                    continue;
+                }
                 if (seen.add(route)) {
                     PageCapability capability = inferCapability(route + " " + text);
                     addCandidate(
@@ -299,6 +302,42 @@ public class ConfirmedPageSourceResolver {
                 safe(requirement.statement()),
                 safe(requirement.expectedResult()),
                 String.join(" ", requirement.tags() == null ? List.of() : requirement.tags()));
+    }
+
+    private boolean isExplicitRequirementRoute(String text, int routeStart, String route) {
+        if (route == null || route.isBlank()) {
+            return false;
+        }
+        String normalizedRoute = route.trim();
+        if (normalizedRoute.equals("/") || normalizedRoute.startsWith("//")) {
+            return false;
+        }
+        String prefix = text == null || routeStart <= 0
+                ? ""
+                : text.substring(Math.max(0, routeStart - 48), routeStart).toLowerCase(Locale.ROOT);
+        boolean explicitContext = containsAny(prefix,
+                "route",
+                "url",
+                "uri",
+                "path",
+                "redirect",
+                "navigate",
+                "open",
+                "current url",
+                "url contains",
+                "route matches",
+                "target route");
+        return explicitContext || routeSegments(normalizedRoute) >= 2;
+    }
+
+    private int routeSegments(String route) {
+        String normalized = route == null ? "" : route.trim().replaceAll("^/+", "").replaceAll("/+$", "");
+        if (normalized.isBlank()) {
+            return 0;
+        }
+        return (int) java.util.Arrays.stream(normalized.split("/"))
+                .filter(segment -> !segment.isBlank())
+                .count();
     }
 
     private String sourceLine(NormalizedRequirement requirement) {

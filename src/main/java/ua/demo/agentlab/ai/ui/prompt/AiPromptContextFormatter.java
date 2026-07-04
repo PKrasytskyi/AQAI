@@ -28,8 +28,10 @@ import ua.demo.agentlab.ai.context.PromptUiEvidence;
 import ua.demo.agentlab.ai.context.UiKnowledgeGraphMatch;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.regex.Matcher;
@@ -60,6 +62,24 @@ public class AiPromptContextFormatter {
         builder.append("Template capabilities: ").append(context.templateCapabilities()).append(System.lineSeparator());
         builder.append(System.lineSeparator()).append("Defined test cases:").append(System.lineSeparator());
         builder.append(summarizeDefinedTestCases(context, requestedPageName));
+        return builder.toString().strip();
+    }
+
+    public String summarizeCompactContext(AiContextPackage context) {
+        if (context == null) {
+            return "Objective: Generate one scoped Page Object contract";
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append("Objective: ").append(context.objective()).append(System.lineSeparator());
+        if (context.projectProfile() != null) {
+            builder.append("Project: ").append(context.projectProfile().projectName())
+                    .append(" | baseUrl=").append(context.projectProfile().baseUrl())
+                    .append(System.lineSeparator());
+            builder.append("Active routes: ").append(summarizeConfiguredRoutes(context.projectProfile()))
+                    .append(System.lineSeparator());
+        }
+        builder.append("Policy: ").append(summarizePolicy(context)).append(System.lineSeparator());
+        builder.append("Template capabilities: ").append(context.templateCapabilities());
         return builder.toString().strip();
     }
 
@@ -203,14 +223,7 @@ public class AiPromptContextFormatter {
         if (evidence.requiredLocators().isEmpty()) {
             builder.append("- none").append(System.lineSeparator());
         } else {
-            evidence.requiredLocators().stream().limit(12).forEach(locator -> builder
-                    .append("- ").append(locator.fieldHint())
-                    .append(" | element=").append(locator.elementName())
-                    .append(" | strategy=").append(locator.strategy())
-                    .append(" | value=").append(locator.value())
-                    .append(" | sameOrigin=").append(locator.sameOrigin())
-                    .append(" | score=").append(String.format(Locale.ROOT, "%.2f", locator.stabilityScore()))
-                    .append(System.lineSeparator()));
+            appendGroupedAllowedLocators(builder, evidence.requiredLocators().stream().limit(12).toList());
         }
         builder.append("Excluded evidence:").append(System.lineSeparator());
         if (evidence.excludedEvidence().isEmpty()) {
@@ -223,6 +236,152 @@ public class AiPromptContextFormatter {
                     .append(System.lineSeparator()));
         }
         return builder.toString().stripTrailing();
+    }
+
+    public String summarizePromptRequiredContract(
+            AiContextPackage context,
+            String requestedPageName,
+            List<UiTestScenario> pageScenarios
+    ) {
+        if (context == null || context.promptUiEvidence() == null) {
+            return "- none";
+        }
+        PromptUiEvidence evidence = context.promptUiEvidence();
+        Set<String> scopedIds = pageScenarios == null
+                ? Set.of()
+                : pageScenarios.stream()
+                .map(UiTestScenario::id)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        StringBuilder builder = new StringBuilder();
+        builder.append("- targetPage=").append(evidence.targetPage())
+                .append(" | targetRoute=").append(evidence.targetRoute())
+                .append(" | confidence=").append(String.format(Locale.ROOT, "%.2f", evidence.confidence()))
+                .append(System.lineSeparator());
+        List<String> requirementIds = scopedIds.isEmpty()
+                ? evidence.requirementIds()
+                : evidence.requirementIds().stream().filter(scopedIds::contains).toList();
+        builder.append("- requirementIds=").append(requirementIds).append(System.lineSeparator());
+        builder.append("Page-owned actions:").append(System.lineSeparator());
+        List<ua.demo.agentlab.ai.context.PromptActionEvidence> actions = evidence.requiredActions().stream()
+                .filter(action -> belongsToRequestedPage(action.ownerPage(), requestedPageName))
+                .filter(action -> belongsToScopedRequirements(action.sourceTrace(), scopedIds))
+                .limit(10)
+                .toList();
+        if (actions.isEmpty()) {
+            builder.append("- none").append(System.lineSeparator());
+        } else {
+            actions.forEach(action -> builder
+                    .append("- ").append(action.name())
+                    .append(" | type=").append(action.type())
+                    .append(" | source=").append(action.sourceTrace())
+                    .append(System.lineSeparator()));
+        }
+        builder.append("Page-owned assertions:").append(System.lineSeparator());
+        List<ua.demo.agentlab.ai.context.PromptAssertionEvidence> assertions = summarizeScopedAssertions(
+                context,
+                evidence,
+                requestedPageName,
+                scopedIds
+        );
+        if (assertions.isEmpty()) {
+            builder.append("- none").append(System.lineSeparator());
+        } else {
+            assertions.forEach(assertion -> builder
+                    .append("- ").append(assertion.type())
+                    .append(" | expectedValue=").append(assertion.expectedValue())
+                    .append(" | confidence=").append(String.format(Locale.ROOT, "%.2f", assertion.confidence()))
+                    .append(" | source=").append(assertion.sourceTrace())
+                    .append(System.lineSeparator()));
+        }
+        return builder.toString().stripTrailing();
+    }
+
+    private List<ua.demo.agentlab.ai.context.PromptAssertionEvidence> summarizeScopedAssertions(
+            AiContextPackage context,
+            PromptUiEvidence evidence,
+            String requestedPageName,
+            Set<String> scopedIds
+    ) {
+        if (context != null && context.assertionContracts() != null && !context.assertionContracts().isEmpty()) {
+            return context.assertionContracts().stream()
+                    .filter(contract -> scopedIds.isEmpty() || scopedIds.contains(contract.testCaseId()))
+                    .filter(contract -> belongsToRequestedPage(contract.ownerPage(), requestedPageName))
+                    .map(contract -> new ua.demo.agentlab.ai.context.PromptAssertionEvidence(
+                            contract.type().name(),
+                            contract.expectedValue(),
+                            contract.ownerPage(),
+                            contract.sourceLine(),
+                            contract.confidence()
+                    ))
+                    .limit(12)
+                    .toList();
+        }
+        return evidence.requiredAssertions().stream()
+                .filter(assertion -> belongsToRequestedPage(assertion.ownerPage(), requestedPageName))
+                .filter(assertion -> belongsToScopedRequirements(assertion.sourceTrace(), scopedIds))
+                .limit(12)
+                .toList();
+    }
+
+    public String summarizeAllowedPromptLocators(AiContextPackage context) {
+        if (context == null || context.promptUiEvidence() == null
+                || context.promptUiEvidence().requiredLocators().isEmpty()) {
+            return "- none";
+        }
+        StringBuilder builder = new StringBuilder();
+        appendGroupedAllowedLocators(builder, context.promptUiEvidence().requiredLocators().stream().limit(16).toList());
+        return builder.toString().stripTrailing();
+    }
+
+    private void appendGroupedAllowedLocators(
+            StringBuilder builder,
+            List<ua.demo.agentlab.ai.context.PromptLocatorEvidence> locators
+    ) {
+        Map<String, List<ua.demo.agentlab.ai.context.PromptLocatorEvidence>> byComponent = new LinkedHashMap<>();
+        for (ua.demo.agentlab.ai.context.PromptLocatorEvidence locator : locators) {
+            String component = locator.componentName().isBlank() ? "PageScope" : locator.componentName();
+            byComponent.computeIfAbsent(component, ignored -> new java.util.ArrayList<>()).add(locator);
+        }
+        byComponent.forEach((component, componentLocators) -> {
+            builder.append("component: ").append(component);
+            String componentType = componentLocators.stream()
+                    .map(ua.demo.agentlab.ai.context.PromptLocatorEvidence::componentType)
+                    .filter(type -> type != null && !type.isBlank())
+                    .findFirst()
+                    .orElse("");
+            if (!componentType.isBlank()) {
+                builder.append(" | type=").append(componentType);
+            }
+            builder.append(System.lineSeparator());
+            componentLocators.forEach(locator -> builder
+                .append("- ").append(locator.fieldHint())
+                .append(" | element=").append(locator.elementName())
+                .append(" | strategy=").append(locator.strategy())
+                .append(" | value=").append(locator.value())
+                .append(" | role=").append(locator.role())
+                .append(" | sameOrigin=").append(locator.sameOrigin())
+                .append(" | uniqueWithinComponent=").append(locator.uniqueWithinComponent())
+                .append(" | globalCount=").append(locator.globalMatchCount())
+                .append(" | scopedCount=").append(locator.scopedMatchCount())
+                .append(" | score=").append(String.format(Locale.ROOT, "%.2f", locator.stabilityScore()))
+                .append(System.lineSeparator()));
+        });
+    }
+
+    private boolean belongsToRequestedPage(String ownerPage, String requestedPageName) {
+        if (ownerPage == null || ownerPage.isBlank() || requestedPageName == null || requestedPageName.isBlank()) {
+            return true;
+        }
+        return PageReferenceMatcher.matchesScenarioPage(ownerPage, "", requestedPageName);
+    }
+
+    private boolean belongsToScopedRequirements(String sourceTrace, Set<String> scopedIds) {
+        if (scopedIds == null || scopedIds.isEmpty()) {
+            return true;
+        }
+        String source = sourceTrace == null ? "" : sourceTrace;
+        return scopedIds.stream().anyMatch(source::contains);
     }
 
     private String promptSafeExcludedReason(String reason) {

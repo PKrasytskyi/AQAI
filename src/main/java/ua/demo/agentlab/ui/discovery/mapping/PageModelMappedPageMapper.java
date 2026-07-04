@@ -9,9 +9,11 @@ import ua.demo.agentlab.ui.discovery.mapping.model.MappedForm;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedSection;
 import ua.demo.agentlab.ui.discovery.mapping.model.PageStateHints;
+import ua.demo.agentlab.ui.discovery.pagemodel.model.PageApiRelationModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageElementModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModel;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,10 +41,13 @@ public class PageModelMappedPageMapper {
         List<MappedForm> forms = page.forms().stream()
                 .map(form -> formMapper.map(page.url(), form, elementsById))
                 .toList();
-        List<MappedAction> actions = page.elements().stream()
+        List<MappedAction> actions = new ArrayList<>(page.elements().stream()
                 .flatMap(element -> elementMapper.mapActions(page.pageId(), element).stream())
                 .distinct()
-                .toList();
+                .toList());
+        actions.addAll(page.apiRelations().stream()
+                .map(relation -> toRuntimeAction(page.pageId(), relation))
+                .toList());
 
         CanonicalPageType canonicalPageType = CanonicalPageType.fromMappedType(page.featureGuess());
         String pageName = canonicalPageType == CanonicalPageType.GENERIC
@@ -68,6 +73,42 @@ public class PageModelMappedPageMapper {
                 canonicalPageType,
                 PageIdentity.legacy(pageName, pageType, page.route())
         );
+    }
+
+    private MappedAction toRuntimeAction(String pageId, PageApiRelationModel relation) {
+        String actionType = relation.relationType().isBlank() ? "runtime-api" : relation.relationType();
+        String endpoint = relation.endpoint().isBlank() ? "runtime endpoint" : relation.endpoint();
+        return new MappedAction(
+                pageId + ":runtime:" + sanitize(actionType + "-" + endpoint),
+                toActionName(actionType),
+                actionType,
+                relation.elementId(),
+                "",
+                "Runtime API relation " + endpoint + " (" + relation.reason() + ")",
+                relation.confidenceScore()
+        );
+    }
+
+    private String toActionName(String actionType) {
+        String normalized = actionType == null ? "" : actionType.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isBlank()) {
+            return "Observe runtime API";
+        }
+        String[] parts = normalized.split("[^a-z0-9]+");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+            if (!builder.isEmpty()) {
+                builder.append(' ');
+            }
+            builder.append(Character.toUpperCase(part.charAt(0)));
+            if (part.length() > 1) {
+                builder.append(part.substring(1));
+            }
+        }
+        return builder.isEmpty() ? "Observe runtime API" : builder.toString();
     }
 
     private List<MappedSection> buildSections(PageModel page, List<MappedElement> elements, List<MappedForm> forms) {
@@ -143,6 +184,12 @@ public class PageModelMappedPageMapper {
 
     private String normalize(String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT);
+    }
+
+    private String sanitize(String value) {
+        String normalized = value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
+        normalized = normalized.replaceAll("(^-+|-+$)", "");
+        return normalized.isBlank() ? "runtime" : normalized;
     }
 
     private String firstNonBlank(String... values) {

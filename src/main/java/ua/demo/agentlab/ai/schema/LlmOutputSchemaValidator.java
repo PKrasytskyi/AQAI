@@ -10,6 +10,25 @@ public class LlmOutputSchemaValidator {
 
     private static final Set<String> LOCATOR_STRATEGIES = Set.of("id", "name", "css", "xpath", "partialLinkText");
     private static final Set<String> EXPECTED_STATUSES = Set.of("resolved", "needs-review");
+    private static final Set<String> POM_STEP_ACTIONS = Set.of(
+            "CLICK",
+            "CLEAR_AND_TYPE",
+            "SEND_KEYS",
+            "SELECT_BY_VISIBLE_TEXT",
+            "UPLOAD_FILE",
+            "OPEN_ROUTE"
+    );
+    private static final Set<String> POM_CHECK_TYPES = Set.of(
+            "VISIBLE",
+            "TEXT_CONTAINS",
+            "TEXT_EQUALS",
+            "TEXT_PRESENT",
+            "URL_CONTAINS",
+            "URL_EQUALS",
+            "ATTRIBUTE_EQUALS",
+            "COUNT_GREATER_THAN",
+            "LIST_TEXTS"
+    );
 
     public LlmOutputSchemaValidationReport validatePageObjectSpec(JsonNode root) {
         List<LlmOutputSchemaIssue> issues = new ArrayList<>();
@@ -56,6 +75,29 @@ public class LlmOutputSchemaValidator {
             }
         }
         return report(LlmOutputSchemaVersion.AI_UI_TEST_SPEC, issues);
+    }
+
+    public LlmOutputSchemaValidationReport validatePomContract(JsonNode root) {
+        List<LlmOutputSchemaIssue> issues = new ArrayList<>();
+        requireSchemaVersion(root, LlmOutputSchemaVersion.POM_CONTRACT, issues);
+        JsonNode page = root.path("page");
+        if (!page.isObject()) {
+            issues.add(new LlmOutputSchemaIssue("$.page", "must be an object"));
+        } else {
+            requireText(page, "name", "$.page.name", issues);
+            requireTextual(page, "route", "$.page.route", issues);
+            requireTextual(page, "capability", "$.page.capability", issues);
+            requireText(page, "openMethod", "$.page.openMethod", issues);
+        }
+        requireArray(root, "locators", "$.locators", issues);
+        requireArray(root, "actions", "$.actions", issues);
+        requireArray(root, "assertions", "$.assertions", issues);
+        requireArray(root, "coverageGaps", "$.coverageGaps", issues);
+        requireArray(root, "rejectedSuggestions", "$.rejectedSuggestions", issues);
+        validatePomLocators(root.path("locators"), "$.locators", issues);
+        validatePomActions(root.path("actions"), "$.actions", issues);
+        validatePomAssertions(root.path("assertions"), "$.assertions", issues);
+        return report(LlmOutputSchemaVersion.POM_CONTRACT, issues);
     }
 
     public LlmOutputSchemaValidationReport validateResolvedExpectedResult(JsonNode root) {
@@ -131,6 +173,118 @@ public class LlmOutputSchemaValidator {
             requireArray(item, "parameters", itemPath + ".parameters", issues);
             requireText(item, "body", itemPath + ".body", issues);
             requireArray(item, "requiredImports", itemPath + ".requiredImports", issues);
+        }
+    }
+
+    private void validatePomLocators(JsonNode locators, String path, List<LlmOutputSchemaIssue> issues) {
+        if (!locators.isArray()) {
+            return;
+        }
+        for (int index = 0; index < locators.size(); index++) {
+            JsonNode item = locators.get(index);
+            String itemPath = path + "[" + index + "]";
+            requireText(item, "id", itemPath + ".id", issues);
+            requireTextual(item, "elementName", itemPath + ".elementName", issues);
+            String strategy = text(item, "strategy");
+            if (!LOCATOR_STRATEGIES.contains(strategy)) {
+                issues.add(new LlmOutputSchemaIssue(itemPath + ".strategy", "unsupported locator strategy: " + strategy));
+            }
+            requireText(item, "value", itemPath + ".value", issues);
+            requireTextual(item, "role", itemPath + ".role", issues);
+            requireNumber(item, "stabilityScore", itemPath + ".stabilityScore", issues);
+        }
+    }
+
+    private void validatePomActions(JsonNode actions, String path, List<LlmOutputSchemaIssue> issues) {
+        if (!actions.isArray()) {
+            return;
+        }
+        for (int index = 0; index < actions.size(); index++) {
+            JsonNode item = actions.get(index);
+            String itemPath = path + "[" + index + "]";
+            requireText(item, "methodName", itemPath + ".methodName", issues);
+            requireArray(item, "parameters", itemPath + ".parameters", issues);
+            requireArray(item, "steps", itemPath + ".steps", issues);
+            JsonNode steps = item.path("steps");
+            if (steps.isArray() && steps.isEmpty()) {
+                issues.add(new LlmOutputSchemaIssue(itemPath + ".steps", "must contain at least one step"));
+            }
+            validatePomParameters(item.path("parameters"), itemPath + ".parameters", issues);
+            validatePomSteps(steps, itemPath + ".steps", issues);
+        }
+    }
+
+    private void validatePomParameters(JsonNode parameters, String path, List<LlmOutputSchemaIssue> issues) {
+        if (!parameters.isArray()) {
+            return;
+        }
+        for (int index = 0; index < parameters.size(); index++) {
+            JsonNode item = parameters.get(index);
+            String itemPath = path + "[" + index + "]";
+            requireText(item, "type", itemPath + ".type", issues);
+            requireText(item, "name", itemPath + ".name", issues);
+        }
+    }
+
+    private void validatePomSteps(JsonNode steps, String path, List<LlmOutputSchemaIssue> issues) {
+        if (!steps.isArray()) {
+            return;
+        }
+        for (int index = 0; index < steps.size(); index++) {
+            JsonNode item = steps.get(index);
+            String itemPath = path + "[" + index + "]";
+            String action = text(item, "action");
+            if (!POM_STEP_ACTIONS.contains(action)) {
+                issues.add(new LlmOutputSchemaIssue(itemPath + ".action", "unsupported step action: " + action));
+            }
+            requireTextual(item, "locator", itemPath + ".locator", issues);
+            requireTextual(item, "valueFrom", itemPath + ".valueFrom", issues);
+            requireTextual(item, "literalValue", itemPath + ".literalValue", issues);
+            requireTextual(item, "route", itemPath + ".route", issues);
+        }
+    }
+
+    private void validatePomAssertions(JsonNode assertions, String path, List<LlmOutputSchemaIssue> issues) {
+        if (!assertions.isArray()) {
+            return;
+        }
+        for (int index = 0; index < assertions.size(); index++) {
+            JsonNode item = assertions.get(index);
+            String itemPath = path + "[" + index + "]";
+            requireText(item, "methodName", itemPath + ".methodName", issues);
+            String returnType = text(item, "returnType");
+            if (!Set.of("boolean", "String", "List<String>").contains(returnType)) {
+                issues.add(new LlmOutputSchemaIssue(itemPath + ".returnType", "unsupported return type: " + returnType));
+            }
+            requireArray(item, "checks", itemPath + ".checks", issues);
+            String combine = text(item, "combine");
+            if (!Set.of("AND", "OR").contains(combine)) {
+                issues.add(new LlmOutputSchemaIssue(itemPath + ".combine", "must be AND or OR"));
+            }
+            JsonNode checks = item.path("checks");
+            if (checks.isArray() && checks.isEmpty()) {
+                issues.add(new LlmOutputSchemaIssue(itemPath + ".checks", "must contain at least one check"));
+            }
+            validatePomChecks(checks, itemPath + ".checks", issues);
+        }
+    }
+
+    private void validatePomChecks(JsonNode checks, String path, List<LlmOutputSchemaIssue> issues) {
+        if (!checks.isArray()) {
+            return;
+        }
+        for (int index = 0; index < checks.size(); index++) {
+            JsonNode item = checks.get(index);
+            String itemPath = path + "[" + index + "]";
+            String check = text(item, "check");
+            if (!POM_CHECK_TYPES.contains(check)) {
+                issues.add(new LlmOutputSchemaIssue(itemPath + ".check", "unsupported check type: " + check));
+            }
+            requireTextual(item, "locator", itemPath + ".locator", issues);
+            requireTextual(item, "expectedValue", itemPath + ".expectedValue", issues);
+            requireTextual(item, "valueFrom", itemPath + ".valueFrom", issues);
+            requireTextual(item, "attribute", itemPath + ".attribute", issues);
+            requireTextual(item, "route", itemPath + ".route", issues);
         }
     }
 

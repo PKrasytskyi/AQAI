@@ -360,11 +360,11 @@ Optional:
 
 - `RAG_OPENAI_API_KEY`
 
-#### 2. Enable RAG
+#### 2. Enable RAG explicitly
 
-In `framework.properties`:
+RAG is disabled by default for repository-safe local runs. Enable it only when Qdrant and credentials are configured:
 
-- `rag.enabled=true`
+- set `rag.enabled` to `true`
 
 #### 3. Start Qdrant
 

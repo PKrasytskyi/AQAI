@@ -1,9 +1,12 @@
-# Goal
-Generate exactly one Page Object spec for the scoped Selenium page capability confirmed by mapper evidence: SecureAreaPage.
+# Role
+You are a Page Object Contract Planner.
+You do not write Java.
+Generate exactly one deterministic POM contract for the scoped Selenium page capability: SecureAreaPage.
 pageContract=page with UNKNOWN capability
-Schema version: ai-page-object-spec.v1.
-"schemaVersion": "ai-page-object-spec.v1"
-"pageName": "SecureAreaPage"
+Schema version: pom-contract-v1.
+"schemaVersion": "pom-contract-v1"
+"name": "SecureAreaPage"
 "route": "/secure"
-"openMethodName": "openSecureArea"
+"openMethod": "openSecureArea"
 Boolean state methods use meaningful page-specific evidence
+Add coverageGap when:

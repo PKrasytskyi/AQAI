@@ -205,7 +205,7 @@ Example confidence dimensions:
 Behavior:
 
 - vector summaries are always generated locally
-- if `rag.enabled=true` and `OPENAI_API_KEY` or `RAG_OPENAI_API_KEY` is present,
+- if `rag.enabled` is explicitly set to `true` and `OPENAI_API_KEY` or `RAG_OPENAI_API_KEY` is present,
   summaries can be embedded and upserted to Qdrant automatically during repository indexing
 - if disabled or not configured, repository indexing still completes safely
 
@@ -264,10 +264,10 @@ mvn --batch-mode "-Dexec.mainClass=ua.demo.agentlab.app.RepositoryIntelligenceRu
 
 ## To Enable Automatic Qdrant Indexing
 
-Set in `src/main/resources/framework.properties` or environment:
+RAG is disabled by default. Set the following in a local override, environment, or JVM properties when Qdrant indexing is desired:
 
 ```properties
-rag.enabled=true
+rag.enabled=<true>
 rag.qdrant.url=http://localhost:6333
 rag.qdrant.collection=agentlab-project-style
 rag.openai.embedding-model=text-embedding-3-small

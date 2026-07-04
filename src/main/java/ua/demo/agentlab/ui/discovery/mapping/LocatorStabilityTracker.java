@@ -15,6 +15,8 @@ public class LocatorStabilityTracker {
         LocatorStrategy strategy = LocatorStrategy.from(locator.strategy());
         String value = safe(locator.value()).toLowerCase();
         return strategy == LocatorStrategy.ID
+                || strategy == LocatorStrategy.NAME && isFormField(element)
+                || strategy == LocatorStrategy.CSS && isSubmitControlLocator(value, element)
                 || value.contains("data-testid")
                 || value.contains("data-test")
                 || value.contains("data-qa")
@@ -26,7 +28,24 @@ public class LocatorStabilityTracker {
             return false;
         }
         if (locator.totalRuns() > 1) {
-            return locator.stableAcrossRuns();
+            if (locator.stableAcrossRuns()) {
+                return true;
+            }
+            LocatorStrategy strategy = LocatorStrategy.from(locator.strategy());
+            String value = safe(locator.value()).toLowerCase();
+            boolean stableAttribute = strategy == LocatorStrategy.ID
+                    || strategy == LocatorStrategy.NAME && isFormField(element)
+                    || strategy == LocatorStrategy.CSS && isSubmitControlLocator(value, element)
+                    || value.contains("data-testid")
+                    || value.contains("data-test")
+                    || value.contains("data-qa")
+                    || value.contains("aria-label")
+                    || !safe(element == null ? "" : element.ariaLabel()).isBlank();
+            int requiredRuns = Math.max(2, (int) Math.ceil(locator.totalRuns() * 0.66d));
+            if (stableAttribute && locator.observedRuns() >= requiredRuns) {
+                return true;
+            }
+            return stableAttribute && locator.observedRuns() >= 1 && isCurrentDomStableAttribute(strategy, value, element);
         }
         LocatorStrategy strategy = LocatorStrategy.from(locator.strategy());
         String value = safe(locator.value()).toLowerCase();
@@ -41,6 +60,43 @@ public class LocatorStabilityTracker {
             return true;
         }
         return reason.contains("stable") && !strategy.equals(LocatorStrategy.XPATH);
+    }
+
+    private boolean isCurrentDomStableAttribute(LocatorStrategy strategy, String value, PageElementModel element) {
+        if (element == null || !element.visible() || !element.enabled()) {
+            return false;
+        }
+        return strategy == LocatorStrategy.NAME && isFormField(element)
+                || strategy == LocatorStrategy.ID
+                || strategy == LocatorStrategy.CSS && isSubmitControlLocator(value, element);
+    }
+
+    private boolean isSubmitControlLocator(String value, PageElementModel element) {
+        String normalizedValue = safe(value).toLowerCase();
+        if (!normalizedValue.contains("[type='submit']") && !normalizedValue.contains("[type=\"submit\"]")) {
+            return false;
+        }
+        String text = safe(element == null ? "" : element.technicalType()) + " "
+                + safe(element == null ? "" : element.semanticType()) + " "
+                + safe(element == null ? "" : element.tag()) + " "
+                + safe(element == null ? "" : element.inputType());
+        return text.toLowerCase().contains("submit")
+                || text.toLowerCase().contains("button")
+                || text.toLowerCase().contains("input");
+    }
+
+    private boolean isFormField(PageElementModel element) {
+        String text = safe(element == null ? "" : element.technicalType()) + " "
+                + safe(element == null ? "" : element.tag()) + " "
+                + safe(element == null ? "" : element.inputType()) + " "
+                + safe(element == null ? "" : element.name());
+        String normalized = text.toLowerCase();
+        return normalized.contains("input")
+                || normalized.contains("field")
+                || normalized.contains("password")
+                || normalized.contains("email")
+                || normalized.contains("textarea")
+                || normalized.contains("select");
     }
 
     private String safe(String value) {

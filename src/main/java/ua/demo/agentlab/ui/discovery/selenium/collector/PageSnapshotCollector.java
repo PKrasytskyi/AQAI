@@ -30,12 +30,19 @@ public class PageSnapshotCollector {
     private final FormStructureExtractor formStructureExtractor;
     private final PageScanner pageScanner;
     private final DomParser domParser;
+    private final RuntimeLocatorCountCollector runtimeLocatorCountCollector;
 
     public PageSnapshotCollector(
             InteractiveElementExtractor interactiveElementExtractor,
             FormStructureExtractor formStructureExtractor
     ) {
-        this(interactiveElementExtractor, formStructureExtractor, new PageScanner(), new DomParser());
+        this(
+                interactiveElementExtractor,
+                formStructureExtractor,
+                new PageScanner(),
+                new DomParser(),
+                new RuntimeLocatorCountCollector()
+        );
     }
 
     public PageSnapshotCollector(
@@ -43,6 +50,16 @@ public class PageSnapshotCollector {
             FormStructureExtractor formStructureExtractor,
             PageScanner pageScanner,
             DomParser domParser
+    ) {
+        this(interactiveElementExtractor, formStructureExtractor, pageScanner, domParser, new RuntimeLocatorCountCollector());
+    }
+
+    public PageSnapshotCollector(
+            InteractiveElementExtractor interactiveElementExtractor,
+            FormStructureExtractor formStructureExtractor,
+            PageScanner pageScanner,
+            DomParser domParser,
+            RuntimeLocatorCountCollector runtimeLocatorCountCollector
     ) {
         if (interactiveElementExtractor == null) {
             throw new IllegalArgumentException("interactiveElementExtractor cannot be null");
@@ -56,15 +73,19 @@ public class PageSnapshotCollector {
         if (domParser == null) {
             throw new IllegalArgumentException("domParser cannot be null");
         }
+        if (runtimeLocatorCountCollector == null) {
+            throw new IllegalArgumentException("runtimeLocatorCountCollector cannot be null");
+        }
         this.interactiveElementExtractor = interactiveElementExtractor;
         this.formStructureExtractor = formStructureExtractor;
         this.pageScanner = pageScanner;
         this.domParser = domParser;
+        this.runtimeLocatorCountCollector = runtimeLocatorCountCollector;
     }
 
     public DiscoveredPageSnapshot collect(WebDriver driver, String pageIdHint, DiscoveredPageEvidence evidence) {
         RawPageSnapshot rawPageSnapshot = pageScanner.scan(driver, evidence);
-        List<RawElement> rawElements = domParser.parse(rawPageSnapshot);
+        List<RawElement> rawElements = runtimeLocatorCountCollector.enrich(driver, domParser.parse(rawPageSnapshot));
         String currentUrl = driver.getCurrentUrl();
         String title = driver.getTitle();
         List<String> headings = extractTexts(driver, "h1, h2, h3");

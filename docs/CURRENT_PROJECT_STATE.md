@@ -76,7 +76,7 @@ Need-review expected-result cases are written separately under `target/ai-run/ne
 Unit tests live in:
 
 ```text
-src/test/ua.demo.agentlab/unity
+src/test/unit/tests
 ```
 
 `src/test/java` is intentionally left available for future integration tests and generated-test compile fixtures.

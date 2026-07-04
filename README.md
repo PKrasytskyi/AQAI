@@ -12,7 +12,7 @@ The project reads requirements, discovers UI pages, maps page capabilities, enri
 - Scores locator quality and rejects weak or unsafe locator evidence.
 - Persists page knowledge into Neo4j and Qdrant when enabled.
 - Uses AI as an enrichment and prompt-assist layer, not as the source of truth.
-- Produces deterministic Page Object prompts for review.
+- Produces deterministic Page Object contract prompts for review.
 - Separates unresolved expected results into `target/ai-run/need-review`.
 - Generates run quality summaries and artifact diffs between runs.
 
@@ -28,7 +28,7 @@ RequirementDocument
   -> Expected Result Enrichment
   -> PageModel Enrichment
   -> AiContextPackage
-  -> Deterministic Page Object Prompts
+  -> Deterministic Page Object Contract Prompts
   -> Quality Summary / Artifact Diff
 ```
 
@@ -129,7 +129,7 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" test
 Unit tests for the platform live in:
 
 ```text
-src/test/ua.demo.agentlab/unity
+src/test/unit/tests
 ```
 
 `src/test/java` is reserved for future integration tests and generated-test compile fixtures.
@@ -160,7 +160,9 @@ AI enrichment / prompt-review run:
 mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/medium-50-requirements.md"
 ```
 
-Current AI mode records deterministic POM prompts and enrichment artifacts. Direct LLM test generation is intentionally disabled while enrichment, contracts, schemas, and quality gates are being stabilized.
+Current AI mode records deterministic POM contract prompts and enrichment artifacts. Page Object Java bodies are not written by the LLM; the platform owns Java generation through typed contracts and deterministic writers.
+
+POM prompts are compact by default: they contain the page capability contract, page-owned required actions/assertions, allowed locators, baseline API signatures, and the `pom-contract-v1` output schema. Full diagnostic prompt evidence can be enabled with `-Dai.page-object.prompt.mode=debug` or `-Dai.prompt.debug=true`.
 
 API generation is currently demo-safe by default: endpoint discovery may produce client and DTO specs for the discovered surface, but runnable RestAssured/TestNG tests are generated only for confirmed GET collection endpoints until explicit scenario data and auth/data-factory policy are available for path-parameter and mutation flows.
 
@@ -193,7 +195,7 @@ target/discovery/
 
 Key files:
 
-- `target/ai-run/page-object-spec/*-prompt.txt` - deterministic POM prompts.
+- `target/ai-run/page-object-spec/*-prompt.txt` - deterministic `pom-contract-v1` POM prompts.
 - `target/ai-run/page-object-spec/*-scope-trace.json` - page scope evidence.
 - `target/ai-run/expectations/test-case-expected-results.json` - resolved expected results.
 - `target/ai-run/need-review/expected-results-needs-review.json` - unresolved expected results for review.
@@ -244,7 +246,7 @@ This keeps GitHub focused on source code, requirements, docs, infrastructure def
 
 Before publishing a new snapshot, the expected commit boundary is:
 
-- source code under `src/main/java` and unit tests under `src/test/ua.demo.agentlab/unity`;
+- source code under `src/main/java` and unit tests under `src/test/unit/tests`;
 - curated requirements/docs/config examples;
 - infrastructure definitions such as `docker-compose.knowledge.yml`;
 - no `target/`, local DB volumes, IDE metadata, API keys, real credentials, or generated runtime artifacts.

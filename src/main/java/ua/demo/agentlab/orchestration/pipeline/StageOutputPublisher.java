@@ -23,11 +23,25 @@ import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 import ua.demo.agentlab.ui.discovery.agent.UiPageMappingOutput;
 import ua.demo.agentlab.ui.discovery.agent.UiDiscoveryOutput;
 import ua.demo.agentlab.ui.discovery.agent.UiDiscoveryArtifactPersistenceResult;
+import ua.demo.agentlab.ui.discovery.component.ComponentBoundaryDetector;
+import ua.demo.agentlab.ui.discovery.component.ComponentModelArtifactWriter;
+import ua.demo.agentlab.ui.discovery.component.model.ComponentDiscoveryModel;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.PageKnowledgeWriteResult;
 import ua.demo.agentlab.ui.discovery.pagemodel.PageModelArtifactWriter;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
+import ua.demo.agentlab.ui.discovery.runtime.RuntimeEvidenceArtifactWriter;
+import ua.demo.agentlab.ui.discovery.runtime.model.RuntimeEvidenceBundle;
+import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackAnalyzer;
+import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackArtifactWriter;
+import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackSummary;
+import ua.demo.agentlab.ui.discovery.semantic.SemanticActionModelArtifactWriter;
+import ua.demo.agentlab.ui.discovery.semantic.SemanticActionModelBuilder;
+import ua.demo.agentlab.ui.discovery.semantic.model.SemanticActionModel;
+import ua.demo.agentlab.ui.discovery.semanticgraph.SemanticGraphArtifactWriter;
+import ua.demo.agentlab.ui.discovery.semanticgraph.SemanticGraphBuilder;
+import ua.demo.agentlab.ui.discovery.semanticgraph.model.SemanticGraphModel;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 import ua.demo.agentlab.validation.GeneratedCodeValidationResult;
 import ua.demo.agentlab.validation.GeneratedUiContractValidationResult;
@@ -39,6 +53,15 @@ import java.util.stream.Collectors;
 public class StageOutputPublisher {
 
     private final AiArtifactPublisher aiArtifactPublisher = new AiArtifactPublisher();
+    private final SemanticActionModelBuilder semanticActionModelBuilder = new SemanticActionModelBuilder();
+    private final SemanticActionModelArtifactWriter semanticActionModelArtifactWriter =
+            new SemanticActionModelArtifactWriter();
+    private final SemanticGraphBuilder semanticGraphBuilder = new SemanticGraphBuilder();
+    private final SemanticGraphArtifactWriter semanticGraphArtifactWriter = new SemanticGraphArtifactWriter();
+    private final RuntimeFeedbackAnalyzer runtimeFeedbackAnalyzer = new RuntimeFeedbackAnalyzer();
+    private final RuntimeFeedbackArtifactWriter runtimeFeedbackArtifactWriter = new RuntimeFeedbackArtifactWriter();
+    private final ComponentBoundaryDetector componentBoundaryDetector = new ComponentBoundaryDetector();
+    private final ComponentModelArtifactWriter componentModelArtifactWriter = new ComponentModelArtifactWriter();
 
     public void publishRequirementDocument(RequirementDocument document, WorkflowState state) {
         if (state == null || document == null) {
@@ -125,6 +148,28 @@ public class StageOutputPublisher {
             addFinding(state, "Selenium discovery stability gate aggregated "
                     + output.seleniumDiscoveryResult().discoveryRunCount() + " run(s)");
         }
+    }
+
+    public void publishRuntimeEvidence(
+            RuntimeEvidenceBundle bundle,
+            WorkflowState state,
+            RuntimeEvidenceArtifactWriter artifactWriter
+    ) {
+        if (state == null || bundle == null) {
+            return;
+        }
+        state.setRuntimeEvidenceBundle(bundle);
+        List<String> writtenFiles = artifactWriter == null ? List.of() : artifactWriter.write(bundle);
+        putArtifact(state, "ui.runtime.network.request.count", String.valueOf(bundle.networkRequests().size()));
+        putArtifact(state, "ui.runtime.network.response.count", String.valueOf(bundle.networkResponses().size()));
+        putArtifact(state, "ui.runtime.console.log.count", String.valueOf(bundle.consoleLogs().size()));
+        putArtifact(state, "ui.runtime.semantic.network.count", String.valueOf(bundle.semanticNetworkEvidence().size()));
+        putArtifact(state, "ui.runtime.state.transition.count", String.valueOf(bundle.stateTransitions().size()));
+        putArtifact(state, "ui.runtime.artifact.files", String.join(",", writtenFiles));
+        addFinding(state, "Runtime evidence captured "
+                + bundle.networkResponses().size() + " network response(s), "
+                + bundle.semanticNetworkEvidence().size() + " semantic network fact(s), "
+                + bundle.stateTransitions().size() + " SPA/state transition(s)");
     }
 
     public void publishCanonicalTestCaseBundle(CanonicalTestCaseBundle bundle, WorkflowState state) {
@@ -217,8 +262,36 @@ public class StageOutputPublisher {
         putArtifact(state, "ui.page.model.flow.count", String.valueOf(flowCount));
         putArtifact(state, "ui.page.model.artifact.count", String.valueOf(writtenFiles.size()));
         putArtifact(state, "ui.page.model.artifact.files", String.join(",", writtenFiles));
+        writeComponentModel(state, pageModelBundle);
         addFinding(state, "PageModel prepared " + pageModelBundle.pages().size()
                 + " page(s), " + elementCount + " element(s), " + formCount + " form(s)");
+    }
+
+    private void writeComponentModel(WorkflowState state, PageModelBundle pageModelBundle) {
+        if (state == null || pageModelBundle == null) {
+            return;
+        }
+        ComponentDiscoveryModel componentModel = componentBoundaryDetector.detect(pageModelBundle);
+        List<String> writtenFiles = componentModelArtifactWriter.write(componentModel);
+        int componentCount = componentModel.pages().stream()
+                .mapToInt(page -> page.components().size())
+                .sum();
+        int scopedLocatorCount = componentModel.pages().stream()
+                .flatMap(page -> page.components().stream())
+                .mapToInt(component -> component.locators().size())
+                .sum();
+        int componentScopedUniqueCount = componentModel.pages().stream()
+                .flatMap(page -> page.components().stream())
+                .flatMap(component -> component.locators().stream())
+                .mapToInt(locator -> locator.uniqueWithinComponent() ? 1 : 0)
+                .sum();
+        putArtifact(state, "ui.component.page.count", String.valueOf(componentModel.pages().size()));
+        putArtifact(state, "ui.component.count", String.valueOf(componentCount));
+        putArtifact(state, "ui.component.scoped.locator.count", String.valueOf(scopedLocatorCount));
+        putArtifact(state, "ui.component.scoped.unique.locator.count", String.valueOf(componentScopedUniqueCount));
+        putArtifact(state, "ui.component.artifact.files", String.join(",", writtenFiles));
+        addFinding(state, "Component model prepared " + componentCount
+                + " component(s), " + scopedLocatorCount + " scoped locator candidate(s)");
     }
 
     public void publishMappedUiKnowledge(MappedUiKnowledge mappedUiKnowledge, WorkflowState state) {
@@ -231,7 +304,82 @@ public class StageOutputPublisher {
         putArtifact(state, "ui.mapped.graph.node.count", String.valueOf(mappedUiKnowledge.graphNodes().size()));
         putArtifact(state, "ui.mapped.graph.edge.count", String.valueOf(mappedUiKnowledge.graphEdges().size()));
         putArtifact(state, "ui.mapped.vector.document.count", String.valueOf(mappedUiKnowledge.vectorDocuments().size()));
+        writeSemanticActionModel(state, mappedUiKnowledge);
         addFinding(state, "Page mapper prepared " + mappedUiKnowledge.pages().size() + " mapped UI page(s)");
+    }
+
+    private void writeSemanticActionModel(WorkflowState state, MappedUiKnowledge mappedUiKnowledge) {
+        if (state == null || state.getPageModelBundle() == null || mappedUiKnowledge == null) {
+            return;
+        }
+        SemanticActionModel semanticActionModel = semanticActionModelBuilder.build(
+                state.getPageModelBundle(),
+                mappedUiKnowledge
+        );
+        List<String> writtenFiles = semanticActionModelArtifactWriter.write(semanticActionModel);
+        SemanticGraphModel semanticGraphModel = semanticGraphBuilder.build(
+                state.getPageModelBundle(),
+                mappedUiKnowledge,
+                semanticActionModel,
+                state.getRuntimeEvidenceBundle()
+        );
+        List<String> semanticGraphFiles = semanticGraphArtifactWriter.write(semanticGraphModel);
+        RuntimeFeedbackSummary runtimeFeedbackSummary = runtimeFeedbackAnalyzer.analyze(
+                state.getPageModelBundle(),
+                state.getRuntimeEvidenceBundle()
+        );
+        List<String> runtimeFeedbackFiles = runtimeFeedbackArtifactWriter.write(runtimeFeedbackSummary);
+        int actionCount = semanticActionModel.pages().stream()
+                .mapToInt(page -> page.pageActionCandidates().size())
+                .sum();
+        int intentCount = semanticActionModel.pages().stream()
+                .mapToInt(page -> page.pageBusinessIntentCandidates().size()
+                        + page.elements().stream()
+                        .mapToInt(element -> element.businessIntentCandidates().size())
+                        .sum())
+                .sum();
+        putArtifact(state, "ui.semantic.page.count", String.valueOf(semanticActionModel.pages().size()));
+        putArtifact(state, "ui.semantic.action.count", String.valueOf(actionCount));
+        putArtifact(state, "ui.semantic.intent.count", String.valueOf(intentCount));
+        putArtifact(state, "ui.semantic.artifact.files", String.join(",", writtenFiles));
+        putArtifact(state, "ui.semantic.graph.node.count", String.valueOf(semanticGraphModel.nodes().size()));
+        putArtifact(state, "ui.semantic.graph.edge.count", String.valueOf(semanticGraphModel.edges().size()));
+        putArtifact(state, "ui.semantic.graph.artifact.files", String.join(",", semanticGraphFiles));
+        putArtifact(state, "ui.runtime.feedback.locator.pass.rate",
+                String.format(java.util.Locale.ROOT, "%.2f", runtimeFeedbackSummary.locatorPassRate()));
+        putArtifact(state, "ui.runtime.feedback.flaky.risk.score",
+                String.format(java.util.Locale.ROOT, "%.2f", runtimeFeedbackSummary.flakyRiskScore()));
+        putArtifact(state, "ui.runtime.feedback.issue.count", String.valueOf(runtimeFeedbackSummary.issues().size()));
+        putArtifact(state, "ui.runtime.feedback.artifact.files", String.join(",", runtimeFeedbackFiles));
+        if (!runtimeFeedbackSummary.issues().isEmpty()) {
+            aiArtifactPublisher.writeJson(
+                    state,
+                    "need-review",
+                    "runtime-feedback-needs-review.json",
+                    runtimeFeedbackSummary.issues()
+            );
+            aiArtifactPublisher.writeJson(
+                    state,
+                    "need-review",
+                    "runtime-feedback-review-template.json",
+                    Map.of(
+                            "schemaVersion", "runtime-feedback-review-v1",
+                            "instructions", "Set decision to approved/rejected/needs-follow-up and add reviewedBy/rationale for each issue before promotion.",
+                            "issues", runtimeFeedbackSummary.issues().stream()
+                                    .map(issue -> Map.of(
+                                            "severity", issue.severity(),
+                                            "issueType", issue.issueType(),
+                                            "pageId", issue.pageId(),
+                                            "evidence", issue.evidence(),
+                                            "recommendation", issue.recommendation(),
+                                            "decision", "needs-review",
+                                            "reviewedBy", "",
+                                            "rationale", ""
+                                    ))
+                                    .toList()
+                    )
+            );
+        }
     }
 
     public void publishMappedUiKnowledge(UiPageMappingOutput output, WorkflowState state) {

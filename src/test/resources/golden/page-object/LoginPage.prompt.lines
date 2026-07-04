@@ -1,9 +1,13 @@
-# Goal
-Generate exactly one Page Object spec for the scoped Selenium page capability confirmed by mapper evidence: LoginPage.
+# Role
+You are a Page Object Contract Planner.
+You do not write Java.
+Generate exactly one deterministic POM contract for the scoped Selenium page capability: LoginPage.
 pageContract=page with UNKNOWN capability
-Schema version: ai-page-object-spec.v1.
-"schemaVersion": "ai-page-object-spec.v1"
-"pageName": "LoginPage"
+Schema version: pom-contract-v1.
+"schemaVersion": "pom-contract-v1"
+"name": "LoginPage"
 "route": "/login"
-"openMethodName": "openLogin"
-No method returns weak checks such as !getCurrentUrl().isBlank().
+"openMethod": "openLogin"
+"steps":
+"checks":
+No weak URL nonblank assertions are represented.

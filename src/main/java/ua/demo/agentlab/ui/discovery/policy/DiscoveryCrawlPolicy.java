@@ -25,7 +25,7 @@ public record DiscoveryCrawlPolicy(
         List<String> blockedActionKeywords,
         List<String> blockedRouteKeywords
 ) {
-    private static final Pattern ROUTE_PATTERN = Pattern.compile("/[a-zA-Z0-9/_\\-.]+");
+    private static final Pattern ROUTE_PATTERN = Pattern.compile("(?<![A-Za-z0-9])/[a-zA-Z0-9][a-zA-Z0-9/_\\-.]*");
 
     public DiscoveryCrawlPolicy {
         startRoutes = startRoutes == null ? List.of() : List.copyOf(startRoutes);
@@ -152,10 +152,61 @@ public record DiscoveryCrawlPolicy(
                     String.join(" ", requirement.tags()));
             Matcher matcher = ROUTE_PATTERN.matcher(text);
             while (matcher.find()) {
-                addConcreteRoute(routes, matcher.group());
+                String route = matcher.group();
+                if (isExplicitRequirementRoute(text, matcher.start(), route)) {
+                    addConcreteRoute(routes, route);
+                }
             }
         }
         return List.copyOf(routes);
+    }
+
+    private boolean isExplicitRequirementRoute(String text, int routeStart, String route) {
+        if (route == null || route.isBlank()) {
+            return false;
+        }
+        String normalizedRoute = route.trim();
+        if (normalizedRoute.equals("/") || normalizedRoute.startsWith("//")) {
+            return false;
+        }
+        String prefix = text == null || routeStart <= 0
+                ? ""
+                : text.substring(Math.max(0, routeStart - 48), routeStart).toLowerCase(Locale.ROOT);
+        boolean explicitContext = containsAny(prefix,
+                "route",
+                "url",
+                "uri",
+                "path",
+                "redirect",
+                "navigate",
+                "open",
+                "current url",
+                "url contains",
+                "route matches",
+                "target route");
+        return explicitContext || routeSegments(normalizedRoute) >= 2;
+    }
+
+    private int routeSegments(String route) {
+        String normalized = route == null ? "" : route.trim().replaceAll("^/+", "").replaceAll("/+$", "");
+        if (normalized.isBlank()) {
+            return 0;
+        }
+        return (int) java.util.Arrays.stream(normalized.split("/"))
+                .filter(segment -> !segment.isBlank())
+                .count();
+    }
+
+    private boolean containsAny(String text, String... fragments) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        for (String fragment : fragments) {
+            if (text.contains(fragment)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String normalizeUrl(String value) {

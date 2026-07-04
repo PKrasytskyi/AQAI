@@ -29,15 +29,31 @@ public class RunMetadata {
         return runId;
     }
 
+    public String getRunId() {
+        return runId;
+    }
+
     public Instant createdAt() {
         return createdAt;
+    }
+
+    public String getCreatedAt() {
+        return createdAt.toString();
     }
 
     public boolean failed() {
         return failed;
     }
 
+    public boolean isFailed() {
+        return failed;
+    }
+
     public String failureReason() {
+        return failureReason;
+    }
+
+    public String getFailureReason() {
         return failureReason;
     }
 

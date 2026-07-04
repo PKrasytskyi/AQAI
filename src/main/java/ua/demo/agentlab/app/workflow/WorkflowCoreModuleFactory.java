@@ -79,6 +79,7 @@ public class WorkflowCoreModuleFactory {
                 requirementPolicy.requirementNormalizationAgent(),
                 requirementPolicy.policyLoadingAgent(),
                 discovery.uiDiscoveryAgent(),
+                discovery.uiRuntimeEvidenceAgent(),
                 discovery.uiPageModelAgent(),
                 discovery.uiPageMappingAgent(),
                 knowledgeStore.uiPageKnowledgePersistenceAgent(),

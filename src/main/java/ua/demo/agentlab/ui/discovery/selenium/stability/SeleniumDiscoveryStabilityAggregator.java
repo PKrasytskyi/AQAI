@@ -1,6 +1,7 @@
 package ua.demo.agentlab.ui.discovery.selenium.stability;
 
 import ua.demo.agentlab.ui.LocatorHint;
+import ua.demo.agentlab.ui.discovery.selenium.auth.DiscoveryAuthenticationResult;
 import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredPageSnapshot;
 import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveryLocatorKey;
 import ua.demo.agentlab.ui.discovery.selenium.model.RawElement;
@@ -24,7 +25,9 @@ public class SeleniumDiscoveryStabilityAggregator {
         }
         SeleniumDiscoveryResult representative = successfulRuns.get(0);
         Map<String, Integer> counts = new LinkedHashMap<>();
+        List<DiscoveryAuthenticationResult> authenticationResults = new ArrayList<>();
         for (SeleniumDiscoveryResult run : successfulRuns) {
+            authenticationResults.addAll(run.authenticationResults());
             Set<String> runKeys = new LinkedHashSet<>();
             for (DiscoveredPageSnapshot page : run.pages()) {
                 collectPageKeys(page, runKeys);
@@ -38,7 +41,8 @@ public class SeleniumDiscoveryStabilityAggregator {
                 representative.pages(),
                 representative.transitions(),
                 successfulRuns.size(),
-                counts
+                counts,
+                authenticationResults
         );
     }
 
@@ -70,6 +74,7 @@ public class SeleniumDiscoveryStabilityAggregator {
         add(output, pageId, "css", rawElement.placeholder().isBlank()
                 ? ""
                 : rawElement.tag() + "[placeholder='" + escapeCssValue(rawElement.placeholder()) + "']");
+        add(output, pageId, "css", submitControlLocator(rawElement));
         if (!rawElement.text().isBlank() && ("button".equals(rawElement.tag()) || "a".equals(rawElement.tag()))) {
             add(output, pageId, "xpath", "//" + rawElement.tag()
                     + "[normalize-space()='" + escapeXpathLiteral(rawElement.text()) + "']");
@@ -105,6 +110,18 @@ public class SeleniumDiscoveryStabilityAggregator {
 
     private String escapeXpathLiteral(String value) {
         return safe(value).replace("'", "\\'");
+    }
+
+    private String submitControlLocator(RawElement rawElement) {
+        String tag = safe(rawElement.tag()).toLowerCase(java.util.Locale.ROOT);
+        String type = safe(rawElement.type()).toLowerCase(java.util.Locale.ROOT);
+        if (!"submit".equals(type)) {
+            return "";
+        }
+        if ("button".equals(tag) || "input".equals(tag)) {
+            return tag + "[type='submit']";
+        }
+        return "";
     }
 
     private String safe(String value) {

@@ -167,7 +167,10 @@ public class PageModelBuilder {
                 locator.unique(),
                 observedRuns,
                 totalRuns,
-                stable
+                stable,
+                locator.browserMatchCount(),
+                locator.browserScopedMatchCount(),
+                locator.browserScope()
         );
     }
 
@@ -223,19 +226,27 @@ public class PageModelBuilder {
         String text = normalize(String.join(" ",
                 safe(page.title()),
                 page.rawPageSnapshot() == null ? "" : page.rawPageSnapshot().visibleText(),
+                page.rawPageSnapshot() == null ? "" : page.rawPageSnapshot().currentUrl(),
                 String.join(" ", page.headings()),
                 String.join(" ", page.capabilities())));
         boolean browserErrorText = containsAny(text,
                 "this page can't be found",
                 "this site can't be reached",
                 "page can t be found",
+                "page cant be found",
+                "chrome error",
                 "404 not found",
                 "not found",
                 "reload");
+        boolean browserErrorNetwork = page.rawPageSnapshot() != null
+                && page.rawPageSnapshot().networkCalls().stream()
+                .anyMatch(call -> call.status() >= 400
+                        && "Document".equalsIgnoreCase(call.resourceType()));
         boolean reloadOnly = page.rawElements() != null
                 && page.rawElements().size() == 1
                 && normalize(page.rawElements().get(0).text()).equals("reload");
-        return browserErrorText && (reloadOnly || containsAny(text, "can't be found", "not found"));
+        return (browserErrorText || browserErrorNetwork)
+                && (reloadOnly || containsAny(text, "can't be found", "can t be found", "cant be found", "not found"));
     }
 
     private void addRawElements(
@@ -475,13 +486,15 @@ public class PageModelBuilder {
                     formName + "Submit"
             ));
             String elementId = uniqueElementId(elements, pageId, semanticName);
-            List<PageLocatorModel> locators = buildLocatorCandidates(
+            List<PageLocatorModel> locators = new ArrayList<>(buildLocatorCandidates(
                     submit.locatorHint(),
                     submit.id(),
                     submit.name(),
                     submit.href(),
                     submit.visibleText()
-            );
+            ));
+            addLocator(locators, "css", "button[type='submit']", 0.82d, "submit control candidate");
+            locators = deduplicateLocators(locators);
             PageElementModel submitElement = new PageElementModel(
                     elementId,
                     "SUBMIT_BUTTON",
@@ -652,20 +665,21 @@ public class PageModelBuilder {
 
     private List<PageLocatorModel> buildRawLocatorCandidates(RawElement rawElement) {
         List<PageLocatorModel> locators = new ArrayList<>();
-        addLocator(locators, "css", dataAttributeLocator(rawElement), 0.95d, "stable data-test attribute");
-        addLocator(locators, "css", rawElement.ariaLabel().isBlank()
+        addRuntimeLocator(locators, rawElement, "css", dataAttributeLocator(rawElement), 0.95d, "stable data-test attribute");
+        addRuntimeLocator(locators, rawElement, "css", rawElement.ariaLabel().isBlank()
                 ? ""
                 : rawElement.tag() + "[aria-label='" + escapeCssValue(rawElement.ariaLabel()) + "']", 0.88d, "aria-label attribute");
-        addLocator(locators, "id", rawElement.id(), 0.90d, "stable id candidate");
-        addLocator(locators, "name", rawElement.name(), 0.84d, "name attribute candidate");
-        addLocator(locators, "css", rawElement.href().isBlank() || isAbsoluteHttpUrl(rawElement.href())
+        addRuntimeLocator(locators, rawElement, "id", rawElement.id(), 0.90d, "stable id candidate");
+        addRuntimeLocator(locators, rawElement, "name", rawElement.name(), 0.84d, "name attribute candidate");
+        addRuntimeLocator(locators, rawElement, "css", rawElement.href().isBlank() || isAbsoluteHttpUrl(rawElement.href())
                 ? ""
                 : rawElement.tag() + "[href='" + escapeCssValue(rawElement.href()) + "']", 0.78d, "href attribute");
-        addLocator(locators, "css", rawElement.placeholder().isBlank()
+        addRuntimeLocator(locators, rawElement, "css", rawElement.placeholder().isBlank()
                 ? ""
                 : rawElement.tag() + "[placeholder='" + escapeCssValue(rawElement.placeholder()) + "']", 0.72d, "placeholder attribute");
+        addRuntimeLocator(locators, rawElement, "css", submitControlLocator(rawElement), 0.82d, "submit control candidate");
         if (!rawElement.text().isBlank() && ("button".equals(rawElement.tag()) || "a".equals(rawElement.tag()))) {
-            addLocator(locators, "xpath", "//" + rawElement.tag() + "[normalize-space()='" + escapeXpathLiteral(rawElement.text()) + "']", 0.62d, "button/link text fallback");
+            addRuntimeLocator(locators, rawElement, "xpath", "//" + rawElement.tag() + "[normalize-space()='" + escapeXpathLiteral(rawElement.text()) + "']", 0.62d, "button/link text fallback");
         }
         return locators.stream()
                 .filter(locator -> !locator.value().isBlank())
@@ -694,6 +708,34 @@ public class PageModelBuilder {
         }
         if (rawElement.attributes().containsKey("data-qa")) {
             return "[data-qa='" + escapeCssValue(rawElement.dataTestId()) + "']";
+        }
+        return "";
+    }
+
+    private List<PageLocatorModel> deduplicateLocators(List<PageLocatorModel> locators) {
+        return locators.stream()
+                .filter(locator -> !locator.value().isBlank())
+                .filter(locator -> !containsAbsoluteHttpUrl(locator.value()))
+                .collect(Collectors.toMap(
+                        locator -> locator.strategy() + "::" + locator.value(),
+                        locator -> locator,
+                        (left, right) -> left.score() >= right.score() ? left : right,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .sorted(Comparator.comparingDouble(PageLocatorModel::score).reversed())
+                .toList();
+    }
+
+    private String submitControlLocator(RawElement rawElement) {
+        String tag = safe(rawElement.tag()).toLowerCase(Locale.ROOT);
+        String type = safe(rawElement.type()).toLowerCase(Locale.ROOT);
+        if (!"submit".equals(type)) {
+            return "";
+        }
+        if ("button".equals(tag) || "input".equals(tag)) {
+            return tag + "[type='submit']";
         }
         return "";
     }
@@ -833,6 +875,40 @@ public class PageModelBuilder {
             return;
         }
         locators.add(new PageLocatorModel(strategy, value, score, reason, false));
+    }
+
+    private void addRuntimeLocator(
+            List<PageLocatorModel> locators,
+            RawElement rawElement,
+            String strategy,
+            String value,
+            double score,
+            String reason
+    ) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        String key = locatorRuntimeKey(strategy, value);
+        int browserMatchCount = rawElement.locatorMatchCounts().getOrDefault(key, -1);
+        int browserScopedMatchCount = rawElement.locatorScopedMatchCounts().getOrDefault(key, -1);
+        boolean browserUnique = browserMatchCount == 1 || browserScopedMatchCount == 1;
+        locators.add(new PageLocatorModel(
+                strategy,
+                value,
+                score,
+                reason,
+                browserUnique,
+                1,
+                1,
+                true,
+                browserMatchCount,
+                browserScopedMatchCount,
+                rawElement.locatorScopes().getOrDefault(key, "")
+        ));
+    }
+
+    private String locatorRuntimeKey(String strategy, String value) {
+        return safe(strategy).toLowerCase(Locale.ROOT) + "::" + safe(value);
     }
 
     private String inferInteractiveSemanticType(DiscoveredInteractiveElement element, String technicalType) {
@@ -1069,7 +1145,11 @@ public class PageModelBuilder {
     }
 
     private String normalize(String value) {
-        return safe(value).toLowerCase(Locale.ROOT);
+        return safe(value)
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private String safe(String value) {

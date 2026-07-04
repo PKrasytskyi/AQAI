@@ -39,7 +39,9 @@ public class AiPageObjectPromptBuildStage {
     private Map<String, Object> buildPromptMetadata(AiPageObjectPromptScope scope) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         List<UiTestScenario> pageScenarios = scope.pageScenarios();
-        metadata.put("schemaVersion", LlmOutputSchemaVersion.AI_PAGE_OBJECT_SPEC);
+        metadata.put("schemaVersion", LlmOutputSchemaVersion.POM_CONTRACT);
+        metadata.put("compatibilityOutput", LlmOutputSchemaVersion.AI_PAGE_OBJECT_SPEC);
+        metadata.put("promptMode", promptBuilder.promptMode().name().toLowerCase(java.util.Locale.ROOT));
         metadata.put("pageName", scope.pageName());
         metadata.put("scopedScenarioCount", pageScenarios.size());
         metadata.put("scopedScenarioIds", pageScenarios.stream().map(UiTestScenario::id).toList());

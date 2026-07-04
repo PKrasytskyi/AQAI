@@ -25,9 +25,9 @@ public class PromptQualityLinter {
     );
     private static final Pattern WEAK_URL_ASSERTION = Pattern.compile("!\\s*getCurrentUrl\\s*\\(\\s*\\)\\.isBlank\\s*\\(");
     private static final Pattern STALE_LOCATOR = Pattern.compile(
-            "(pASSWORD|(?i:id\\s*=\\s*login\\b[^\\n]*(password|passwordInput)"
+            "(?i:id\\s*=\\s*login\\b[^\\n]*(password|passwordInput)"
                     + "|(password|passwordInput)[^\\n]*(id\\s*=\\s*login\\b|strategy=id,\\s*value=login\\b)"
-                    + "|strategy=id,\\s*value=login\\b[^\\n]*(password|passwordInput)))"
+                    + "|strategy=id,\\s*value=login\\b[^\\n]*(password|passwordInput))"
     );
 
     public PromptQualityReport validate(
@@ -53,8 +53,11 @@ public class PromptQualityLinter {
                 "TARGET_ROUTE_PRESENT", "Prompt must identify the target route", targetRoute);
         require(issues, !requirementIds.isEmpty() && requirementIds.stream().allMatch(safePrompt::contains),
                 "REQUIREMENT_IDS_PRESENT", "Prompt must include all scoped requirement ids", String.join(", ", requirementIds));
-        require(issues, safePrompt.contains("Defined test cases:") && !requirementIds.isEmpty(),
-                "CANONICAL_TEST_CASES_PRESENT", "Prompt must include canonical/defined test cases", "Defined test cases");
+        require(issues, containsAny(safePrompt, "Required POM contract:", "Defined test cases:")
+                        && !requirementIds.isEmpty(),
+                "SCOPED_TEST_CASE_CONTRACT_PRESENT",
+                "Prompt must include scoped requirement contract or diagnostic defined test cases",
+                "Required POM contract/Defined test cases");
         require(issues, containsAny(safePrompt, "expectedValue=", "expectedValues:", "expected: [")
                         && !safePrompt.contains("expectedValue=null"),
                 "EXPECTED_VALUES_PRESENT", "Prompt must include concrete expected values", "expectedValue/expectedValues");
@@ -66,7 +69,12 @@ public class PromptQualityLinter {
                 "Prompt UI evidence");
         require(issues, safePrompt.contains("forbiddenMethods="),
                 "FORBIDDEN_METHODS_PRESENT", "Prompt must include forbidden methods", "forbiddenMethods");
-        require(issues, containsAny(safePrompt, "Baseline page object spec:", "Available inherited public BasePage methods"),
+        require(issues, containsAny(
+                        safePrompt,
+                        "Baseline page object spec:",
+                        "Baseline page object API:",
+                        "Available inherited public BasePage methods"
+                ),
                 "BASELINE_API_PRESENT", "Prompt must include baseline API or inherited BasePage API", "baseline/BasePage API");
 
         forbid(issues, EXTERNAL_LOCATOR, safePrompt,

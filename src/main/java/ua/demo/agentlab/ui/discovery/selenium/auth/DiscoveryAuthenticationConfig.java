@@ -63,7 +63,7 @@ public class DiscoveryAuthenticationConfig {
     }
 
     public boolean hasCredentials() {
-        return !username().isBlank() && !password().isBlank();
+        return usableSecret(username()) && usableSecret(password());
     }
 
     private String readValue(String key, String fallback) {
@@ -100,11 +100,18 @@ public class DiscoveryAuthenticationConfig {
             String key = resolved.substring(start + 2, end);
             String replacement = readRawValue(key);
             if (replacement == null) {
-                return resolved;
+                replacement = "";
             }
             resolved = resolved.substring(0, start) + replacement + resolved.substring(end + 1);
         }
         return resolved;
+    }
+
+    private boolean usableSecret(String value) {
+        return value != null
+                && !value.isBlank()
+                && !value.contains("${")
+                && !value.contains("}");
     }
 
     private String readRawValue(String key) {

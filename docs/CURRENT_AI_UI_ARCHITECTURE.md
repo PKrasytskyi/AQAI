@@ -20,8 +20,10 @@ flowchart TD
     A[Requirement file or URL] --> B[RequirementReaderAgent]
     B --> C[RequirementNormalizationAgent]
     C --> D[UiDiscoveryAgent]
+    D --> RE[UiRuntimeEvidenceAgent]
     D --> E[UiPageModelAgent]
-    E --> F[UiPageMappingAgent]
+    RE --> F[UiPageMappingAgent]
+    E --> F
     F --> G[FlowScopedKnowledgeAgent]
     G --> H[RequirementToTestCaseAgent]
     H --> I[TestCaseExpectationEnrichmentAgent]
@@ -31,6 +33,11 @@ flowchart TD
     L --> M[UiPageKnowledgePersistenceAgent]
     M --> N[FlowScopedKnowledgeRefreshAgent]
     N --> O[AiContextAssemblyAgent]
+    E --> SE[SemanticActionModelBuilder]
+    E --> CM[ComponentBoundaryDetector]
+    F --> SE
+    CM --> O
+    SE --> O
     O --> P[AiPageObjectSpecAgent]
     P --> S[Scoped POM prompts and traces]
 
@@ -84,10 +91,17 @@ The AI branch deliberately stops after `AiPageObjectSpecAgent`. It does not invo
 | Class / package | Responsibility |
 |---|---|
 | `ui.discovery.agent.UiDiscoveryAgent` | Runs discovery and builds canonical page-flow data. |
+| `ui.discovery.agent.UiRuntimeEvidenceAgent` | Converts Selenium runtime logs/transitions into `RuntimeEvidenceBundle` before mapping. |
 | `ui.discovery.selenium.SeleniumUiDiscoveryService` | Uses Selenium to collect pages, links, elements, forms, and transitions. |
 | `ui.discovery.selenium.crawler.SafeNavigationCrawler` | Enforces crawl policy and authentication bridge while navigating the application. |
 | `ui.discovery.pagemodel.PageModelBuilder` | Converts raw discovery into structured `PageModel` records. |
 | `ui.discovery.agent.UiPageModelAgent` | Typed `PipelineAgent<UiPageModelInput, PageModelBundle>`. |
+| `ui.discovery.component.ComponentBoundaryDetector` | Builds SPA-friendly component boundaries from `PageModel`: forms, search blocks, navigation, tables, and content fallback components. |
+| `ui.discovery.component.ScopedLocatorValidationService` | Validates locator uniqueness globally and inside the detected component scope. |
+| `ui.discovery.semantic.SemanticElementClassifier` | Converts PageModel elements into semantic element types such as `BUTTON`, `INPUT`, `PASSWORD_INPUT`, `LINK`, `SELECT`, and `COLLECTION`. |
+| `ui.discovery.semantic.ActionCandidateClassifier` | Produces deterministic action candidates such as `CLICK`, `TYPE`, `SUBMIT_FORM`, `SEARCH`, `LOGOUT`, `READ`, and `UPLOAD`. |
+| `ui.discovery.semantic.BusinessIntentResolver` | Resolves business-intent candidates from page context, related elements, and action evidence. |
+| `ui.discovery.semantic.SemanticActionModelBuilder` | Builds `SemanticActionModel` from `PageModelBundle` and mapped page identity before prompt evidence is assembled. |
 | `ui.discovery.mapping.RuleBasedPageMapper` | Converts PageModel evidence into `MappedUiKnowledge`. |
 | `ui.discovery.agent.UiPageMappingAgent` | Typed `PipelineAgent<UiPageMappingInput, MappedUiKnowledge>`. |
 | `ui.catalog.ConfirmedPageSourceResolver` | Resolves confirmed page candidates from explicit profile routes, requirement routes, discovery snapshots, and stable page cache records. |
@@ -100,6 +114,12 @@ Key mapper contracts:
 | Model | Meaning |
 |---|---|
 | `PageModel` | Discovered page, elements, forms, locator candidates, page flows, and feature guess. |
+| `SemanticComponentModel` | Component-level view of a page with component type, element ownership, scoped locator candidates, confidence, risks, and trace. |
+| `ScopedLocatorCandidate` | Locator candidate evaluated globally and within its component, with uniqueness/stability/readability/semantic score breakdown. |
+| `SemanticElementModel` | PageModel element reinterpreted as a semantic UI element with locator candidates, possible actions, business intents, and confidence. |
+| `ActionCandidate` | Deterministic possible operation for an element, for example `CLICK`, `TYPE`, `SUBMIT_FORM`, `SEARCH`, or `LOGOUT`. |
+| `BusinessIntentCandidate` | Business meaning inferred from element/page context, for example `AUTHENTICATE`, `NAVIGATE`, `SEARCH`, `LOGOUT`, or `INSPECT_COLLECTION`. |
+| `SemanticActionModel` | Prompt-facing semantic bridge between raw/mapped UI knowledge and `PromptUiEvidence`. |
 | `MappedPage` | Semantic page identity, route, actions, assertion hints, elements, and forms. |
 | `MappedUiKnowledge` | Full mapper output: pages, transitions, graph nodes/edges, and Qdrant documents. |
 | `LocatorCandidate` | Quality-gated Selenium locator with strategy, value, stability score, origin metadata, accessibility/text evidence, uniqueness/stability flags, and risk tags. |
@@ -114,6 +134,156 @@ Page naming is now evidence-driven. A confirmed capability may use its generic d
 ```
 
 This prevents a second application from inheriting stale names such as `ListingPage`, `DetailsPage`, or `CartPage` unless those names are actually confirmed by profile, requirements, discovery, or stable cache.
+
+### Semantic action layer
+
+The mapper now has an explicit semantic bridge before prompt evidence:
+
+```mermaid
+flowchart TD
+    A[DOM / Selenium discovery] --> B[PageModel]
+    A --> R[RuntimeEvidenceBundle]
+    R --> RN[SemanticNetworkEvidence]
+    R --> RS[RuntimeStateTransition]
+    B --> BC[SemanticComponentModel]
+    B --> C[SemanticElementModel]
+    BC --> SC[ScopedLocatorCandidate]
+    C --> D[Locator candidates]
+    C --> E[ActionCandidate]
+    C --> F[BusinessIntentCandidate]
+    SC --> G
+    RN --> G
+    RS --> G
+    D --> G[SemanticActionModel]
+    E --> G
+    F --> G
+    G --> H[PromptUiEvidence]
+    H --> I[pom-contract-v1 prompt]
+```
+
+This layer answers a higher-level question than the raw mapper: not only "which locator identifies this element?", but "what can this element do, and what business operation might it represent?" The implementation is deterministic and rule-based today:
+
+| Class | Responsibility |
+|---|---|
+| `SemanticElementClassifier` | Classifies element role/type from tag, input type, accessibility metadata, text, and PageModel semantic hints. |
+| `ActionCandidateClassifier` | Combines PageModel action hints with semantic rules to produce possible actions. |
+| `BusinessIntentResolver` | Uses page context and related elements to identify candidate business intents. |
+| `SemanticActionModelBuilder` | Builds page-scoped semantic actions and intents that can be consumed by `PromptUiEvidenceBuilder`. |
+| `SemanticActionModelArtifactWriter` | Writes `target/discovery/semantic-action-model.json` for review before prompt generation. |
+
+The LLM is still not the source of truth for actions or locators. Later AI enrichment may review or label semantic candidates, but Java validators decide which candidates can become prompt evidence or POM contract methods.
+
+### Runtime evidence and BiDi-ready layer
+
+Runtime evidence is now an explicit stage between Selenium discovery and UI mapping:
+
+```mermaid
+flowchart TD
+    A[Selenium discovery result] --> B[UiRuntimeEvidenceAgent]
+    B --> C[RuntimeEvidenceBundle]
+    C --> D[NetworkRequestEvent / NetworkResponseEvent]
+    C --> E[ConsoleLogEvent]
+    C --> F[NavigationEvent]
+    D --> G[NetworkSemanticEnricher]
+    F --> H[SpaStateTransitionDetector]
+    G --> I[SemanticNetworkEvidence]
+    H --> J[RuntimeStateTransition]
+    I --> K[RuntimeEvidencePageModelMerger]
+    J --> K
+    K --> L[UiPageMappingAgent]
+    L --> M[SemanticGraphBuilder]
+    M --> N[semantic-graph.json]
+    M --> O[Curated graph/vector evidence]
+    O --> P[(Neo4j / Qdrant)]
+    M --> Q[RuntimeFeedbackSummary]
+    Q --> R[need-review feedback template]
+```
+
+The current production-safe implementation uses a fallback collector:
+
+| Class / package | Responsibility |
+|---|---|
+| `ui.discovery.runtime.SeleniumLogRuntimeEvidenceCollector` | Builds runtime evidence from existing Selenium performance/network logs, browser console logs, and discovered transitions. |
+| `ui.discovery.runtime.NetworkSemanticEnricher` | Converts relevant network responses into semantic facts such as `AUTHENTICATE`, `LOAD_DATA`, `CREATE_DATA`, `UPDATE_DATA`, and `DELETE_DATA`. |
+| `ui.discovery.runtime.SpaStateTransitionDetector` | Classifies route/state transitions as `SPA_ROUTE_CHANGE`, `DOCUMENT_NAVIGATION`, or `STATE_REFRESH`. |
+| `ui.discovery.runtime.RuntimeEvidencePageModelMerger` | Adds semantic runtime API relations to matching `PageModel` records before mapping. |
+| `ui.discovery.runtime.RuntimeEvidenceArtifactWriter` | Writes `target/discovery/runtime/runtime-evidence.json`, `runtime-network-evidence.json`, and `spa-state-transitions.json`. |
+| `ui.discovery.semanticgraph.SemanticGraphBuilder` | Builds a reviewable semantic graph from PageModel, SemanticActionModel, component model, and runtime evidence. |
+| `ui.discovery.semanticgraph.SemanticGraphArtifactWriter` | Writes `target/discovery/semantic-graph.json`. |
+| `ui.discovery.semanticgraph.SemanticGraphMappedKnowledgeEnricher` | Adds semantic graph nodes, edges, and vector summaries to `MappedUiKnowledge` before persistence. |
+| `ui.discovery.runtime.feedback.RuntimeFeedbackAnalyzer` | Produces locator/runtime health signals: locator pass rate, flaky risk, network failures, console errors, and review issues. |
+| `ui.discovery.runtime.feedback.RuntimeFeedbackArtifactWriter` | Writes `target/discovery/runtime/runtime-feedback-summary.json` and issue artifacts. |
+
+BiDi is introduced as an integration boundary, not yet as the only source of truth:
+
+| Class / package | Responsibility |
+|---|---|
+| `ui.discovery.runtime.bidi.BiDiDiscoveryConfig` | Feature flags and buffer limits for future Selenium WebDriver BiDi collection. |
+| `ui.discovery.runtime.bidi.BiDiSessionManager` | Safe session boundary for future driver event subscriptions. It is no-op while disabled. |
+| `ui.discovery.runtime.bidi.BiDiEventBuffer` | Bounded event buffer for network/log/DOM events. |
+| `ui.discovery.runtime.bidi.BiDiEventNormalizer` | Converts buffered BiDi events into the same `RuntimeEvidenceBundle` contract used by the fallback collector. |
+
+This keeps the mapper independent of the transport. Today it consumes Selenium log evidence; later the collector can switch to WebDriver BiDi network/log/DOM events without changing `PromptUiEvidence`, PageModel merge logic, or mapper contracts.
+
+The second runtime/BiDi phase promotes runtime evidence into the knowledge layer:
+
+| Phase | Result |
+|---|---|
+| 6 | `SemanticGraphBuilder` creates a typed graph across pages, components, semantic actions, business intents, runtime network facts, and SPA transitions. |
+| 7 | `semantic-graph.json` is written for review before prompt generation. |
+| 8 | Semantic graph nodes and edges are merged into curated `MappedUiKnowledge`, so Neo4j receives runtime/component/action evidence through the existing persistence flow. |
+| 9 | Semantic graph summaries are added as Qdrant vector documents for page, component, action, intent, network, and transition retrieval. |
+| 10 | Runtime feedback is written to discovery artifacts and `target/ai-run/need-review`, giving human reviewers a structured place to approve, reject, or follow up on weak runtime evidence. |
+
+### SPA discovery MVP and component model
+
+SPA support is implemented as a universal discovery layer, not as a separate workflow. Classical multi-page sites still pass through the same layer; they usually produce simple components such as a login form or content block. SPA-like pages produce richer component evidence for navigation, search, tables, widgets, and protected content.
+
+```mermaid
+flowchart TD
+    A[DOM snapshot] --> B[PageModel]
+    B --> C[ComponentBoundaryDetector]
+    C --> D[SemanticComponentModel]
+    D --> E[ScopedLocatorCandidate]
+    E --> F[global uniqueness]
+    E --> G[component-scoped uniqueness]
+    D --> H[SemanticActionModel]
+    H --> I[PromptUiEvidence]
+```
+
+The first SPA MVP adds the following contracts and artifacts:
+
+| Class / artifact | Responsibility |
+|---|---|
+| `ui.discovery.component.ComponentBoundaryDetector` | Groups PageModel elements into deterministic component boundaries: `FORM`, `SEARCH`, `NAVIGATION`, `TABLE`, and `CONTENT`. |
+| `ui.discovery.component.ScopedLocatorValidationService` | Computes `globalMatchCount`, `scopedMatchCount`, `uniqueOnPage`, `uniqueWithinComponent`, and score breakdown for each scoped locator. |
+| `ui.discovery.component.model.SemanticComponentModel` | Stores component type, owned element IDs, root locator fallback, scoped locators, confidence, risks, and source trace. |
+| `ui.discovery.component.model.ScopedLocatorCandidate` | Stores locator strategy/value plus uniqueness, stability, readability, semantic, and final scores. |
+| `ui.discovery.component.ComponentModelArtifactWriter` | Writes `target/discovery/component-model.json`. |
+| `ui.discovery.selenium.collector.RuntimeLocatorCountCollector` | Verifies candidate locators in the browser with `driver.findElements(...)` and stores global and nearest-component counts on raw elements. |
+
+This is intentionally artifact-first. The component model does not yet force generated Java component classes. It gives the mapper and prompt layers better evidence so later stages can decide whether a component should stay internal to a page or become a reusable `SidebarComponent`, `LoginFormComponent`, `SearchComponent`, or `TableComponent`.
+
+SPA-specific locator risks are now classified before promotion:
+
+| Risk | Meaning |
+|---|---|
+| `dynamic-css-hash` | Selector appears to depend on generated CSS/hash class names. |
+| `nth-child-selector` | Selector depends on volatile DOM position. |
+| `absolute-dom-path` | XPath starts from document/root hierarchy. |
+| `deep-dom-chain` | CSS selector depends on deep anonymous DOM nesting. |
+| `framework-generated-class` | Selector appears tied to framework/library-generated classes such as MUI/Chakra/Ant/CSS hashes. |
+| `not-component-unique` | Candidate is not unique even inside its component boundary. |
+
+Runtime validation now uses browser evidence when Selenium discovery is available. `RuntimeLocatorCountCollector` counts each candidate locator globally with `driver.findElements(...)`, then finds the nearest stable scope root with browser-side `closest(...)` and counts the same locator inside that scope. The counts are carried through `RawElement -> PageLocatorModel -> ScopedLocatorCandidate`:
+
+```text
+browserMatchCount       -> globalMatchCount
+browserScopedMatchCount -> scopedMatchCount
+browserScope            -> component/browser scope hint
+```
+
+If a run does not have Selenium/browser evidence, the component layer falls back to PageModel locator observations and marks the scoped locator with `browser-global-count-missing` or `browser-scoped-count-missing`.
 
 ### Flow, test cases, and expected-result enrichment
 
@@ -224,7 +394,7 @@ This provenance lets later prompt slicing remove facts from other requirements e
 | `ai.context.UiKnowledgeRetrievalService` | Retrieves route-scoped Qdrant and Neo4j evidence from `UiKnowledgeRetrievalRequest`; the `WorkflowState` overload is now a compatibility adapter. |
 | `ai.ui.prompt.AiPromptContextFormatter` | Formats defined test cases, expected values, enrichment facts, and compact DB evidence. |
 | `ai.ui.prompt.PageObjectCapabilityContractFormatter` | Computes source-page actions, target-page assertions, required locators, forbidden methods, and reusable baseline methods. |
-| `ai.ui.prompt.AiPageObjectPromptBuilder` | Builds the final `# Goal` / `# Context` / `# Constraints` / `# Input` / `# Expected Output` POM prompt. |
+| `ai.ui.prompt.AiPageObjectPromptBuilder` | Builds the final POM contract-planner prompt. The LLM is asked for `pom-contract-v1`, not Java method bodies. |
 | `ai.ui.agent.AiPageObjectSpecAgent` | Writes prompt files and scope traces; does not generate Java source. |
 
 ## 4. Agent Order in AI Mode
@@ -239,6 +409,10 @@ RequirementNormalizationAgent
 UiPageMappingAgent
   requires: UiDiscoverySnapshot, PageModelBundle
   produces: MappedUiKnowledge
+
+SemanticActionModelBuilder
+  requires: PageModelBundle, MappedUiKnowledge, target MappedPage
+  produces: page-scoped SemanticActionModel consumed by PromptUiEvidenceBuilder
 
 AiContextAssemblyAgent
   requires:
@@ -255,13 +429,15 @@ Runtime execution is dependency-based, not numeric-order based. The orchestrator
 RequirementDocument
   -> NormalizedRequirementBundle
   -> UiDiscoverySnapshot + PageModelBundle
+  -> SemanticComponentModel + ScopedLocatorCandidate
+  -> SemanticElementModel + ActionCandidate + BusinessIntentCandidate
   -> MappedUiKnowledge
   -> CanonicalTestCaseBundle
   -> AssertionContracts + UiTestPlan
   -> PageModelEnrichmentRecords + EnrichedMappedUiKnowledge
   -> UiKnowledgePersisted
   -> RefreshedFlowScopedKnowledgePackage
-  -> AiContextPackage
+  -> AiContextPackage + page-scoped PromptUiEvidence
   -> AiPageObjectSpecs
 ```
 
@@ -303,7 +479,7 @@ The following domain services now also expose typed entry points:
 | `FlowScopedKnowledgeService` | `FlowScopedKnowledgeInput` | Builds route/requirement-scoped knowledge packages. |
 | `UiKnowledgeRetrievalService` | `UiKnowledgeRetrievalRequest` | Retrieves namespace-filtered current-run or stable-cache evidence. |
 | `AiRunQualitySummaryService` | `AiRunQualitySummaryInput` | Computes run-level quality score. |
-| `AiPageObjectSpecGenerator` | `AiPageObjectGenerationRequest` | Coordinates typed POM prompt generation stages. |
+| `AiPageObjectSpecGenerator` | `AiPageObjectGenerationRequest` | Coordinates typed POM contract prompt generation stages. |
 
 `AiPageObjectSpecAgent` invokes the typed page-object generation path directly. The prompt-side workflow is split into typed services:
 
@@ -317,6 +493,106 @@ The following domain services now also expose typed entry points:
 | `AiRunArtifactDiffWriter` | Writes the artifact diff report for the current quality summary. |
 
 Blocking prompt-quality issues are enforced after prompt artifacts are written, so failed runs still leave enough evidence for review.
+
+### POM contract planning layer
+
+The Page Object prompt no longer asks the LLM to write Java method bodies. The LLM role is now a **Page Object Contract Planner**:
+
+```text
+SemanticActionModel
+  -> PromptUiEvidence
+  -> pom-contract-v1 JSON
+  -> PomContractQualityGate
+  -> DeterministicPomJavaWriter
+  -> compatibility AiPageObjectSpec / generated Java source
+```
+
+The new contract model is:
+
+| Contract | Responsibility |
+|---|---|
+| `PomContractSpec` | Root contract with schema version, page metadata, locators, actions, assertions, gaps, and rejected suggestions. |
+| `PomComponentSpec` | Reusable or complex scoped UI region such as sidebar, header, search, table, modal, widget, or form. |
+| `PomActionSpec` | Public action method plus deterministic `PomStepSpec` list. |
+| `PomAssertionSpec` | Public assertion/query method plus deterministic `PomCheckSpec` list. |
+| `PomStepSpec` | Structured action such as `CLICK`, `CLEAR_AND_TYPE`, `SEND_KEYS`, `SELECT_BY_VISIBLE_TEXT`, `UPLOAD_FILE`, or `OPEN_ROUTE`. |
+| `PomCheckSpec` | Structured check such as `VISIBLE`, `TEXT_CONTAINS`, `URL_CONTAINS`, `ATTRIBUTE_EQUALS`, or `LIST_TEXTS`. |
+| `PomContractQualityGate` | Validates schema intent: locator ids exist, method contracts are complete, route checks have routes, and unsupported evidence becomes a gap. |
+| `DeterministicPomJavaWriter` | Owns Java body generation from the typed contract, including reusable component classes when `components` are present. |
+| `PomContractCompatibilityAdapter` | Keeps the old `AiPageObjectSpec` path available while the platform migrates. |
+
+This removes the most fragile generation surface: raw Java statements from LLM output. The LLM can choose semantic steps and checks, but it cannot call `elements.type(...)`, inline `By.cssSelector(...)`, expose `WebElement`, or invent unsupported helper APIs.
+
+`PromptUiEvidenceBuilder` now uses the semantic action layer before falling back to canonical/mapped action text. As a result, prompts can carry compact, page-owned signals such as:
+
+```text
+semantic-business-intent: AUTHENTICATION
+semantic-element-intent: loginButton:AUTHENTICATE
+semantic-action: CLICK / TYPE / SUBMIT_FORM
+```
+
+The prompt still receives only curated evidence. Raw DOM nodes, rejected locators, and full discovery dumps stay in debug artifacts.
+
+When semantic actions are present, `PageObjectCapabilityContractFormatter` gives them priority over canonical prose actions. Canonical test cases still provide coverage and assertion ownership, but public POM action candidates are derived first from `BusinessIntentCandidate` and `ActionCandidate`. For example, a login page with username/password inputs and a submit button is converted into contract-friendly actions such as:
+
+```text
+enterUsername(String username)
+enterPassword(String password)
+clickLoginButton()
+login(String username, String password)
+```
+
+instead of passing prose like `Authenticate using the configured credentials` into the POM contract.
+
+Protected pages are handled differently from authentication pages. A protected page such as `DashboardPage` may declare `LoginPage` as a prerequisite, but it must not own `enterUsername`, `enterPassword`, `clickLoginButton`, or `login` methods. Authentication is a setup/precondition flow owned by the authentication page; the protected page owns only its own controls and assertions.
+
+### Reusable component POM generation
+
+`pom-contract-v1` now supports reusable components:
+
+```json
+{
+  "components": [
+    {
+      "name": "SidebarComponent",
+      "type": "NAVIGATION",
+      "rootLocatorId": "sidebarRoot",
+      "locators": [
+        {
+          "id": "adminLink",
+          "elementName": "admin link",
+          "strategy": "css",
+          "value": "a[href*='/admin']",
+          "role": "link",
+          "stabilityScore": 0.84
+        }
+      ],
+      "actions": [],
+      "assertions": [],
+      "reusable": true
+    }
+  ]
+}
+```
+
+When a component contract is present, `DeterministicPomJavaWriter` emits the page object plus component classes:
+
+```text
+DashboardPage
+  -> SidebarComponent
+  -> SearchComponent
+  -> TableComponent
+```
+
+The generated page object receives accessor methods such as:
+
+```java
+public SidebarComponent sidebarComponent() {
+    return new SidebarComponent(driver, runtimeConfig, sidebarRoot);
+}
+```
+
+The component class receives its own scoped locators and methods. Component methods resolve children from the component root instead of forcing every locator to be globally unique. This is the main SPA-specific improvement: repeated links, buttons, and inputs can be stable inside `SidebarComponent`, `SearchComponent`, or `TableComponent` even when they are not globally unique across the full page.
 
 ## 5. Exact Scope and Safety Rules
 
@@ -376,23 +652,54 @@ The remaining limitation is XPath text locators for outbound links: an XPath suc
 
 ## 6. Prompt Contract
 
-Each generated POM prompt has this stable shape:
+Each generated POM contract prompt uses compact mode by default:
 
 ```text
+# Role
 # Goal
 # Context
+# Input Authority Order
 # Constraints
 # Input
   - Page capability contract
-  - PageModel enrichment facts
-  - Compact Neo4j/Qdrant evidence
-  - Deterministic baseline POM spec
+  - Required POM contract
+  - Allowed locators
+  - Baseline page object API
 # Expected Output
 # Success Criteria
-# Notes
+# Coverage Gap Rules
 ```
 
-The final prompt intentionally does **not** include a separate `Page object discovery facts` section. Discovery evidence reaches the prompt through the PageModel/mapper contract and PageModel enrichment, avoiding duplicated noisy blocks.
+The final prompt intentionally does **not** include raw `Defined test cases`, `Page object discovery facts`, full PageModel enrichment records, raw Neo4j/Qdrant retrieval dumps, or excluded evidence. Discovery, enrichment, and database retrieval still run before prompt assembly, but their output is curated into `PromptUiEvidence`: page-owned required actions, page-owned assertions with expected values, and mapper-approved allowed locators.
+
+Full diagnostic prompts can still be enabled for troubleshooting with:
+
+```properties
+ai.page-object.prompt.mode=debug
+```
+
+or:
+
+```properties
+ai.prompt.debug=true
+```
+
+Debug mode preserves the wider evidence dump for investigation. Compact mode is the default runtime path for LLM review and prompt quality checks.
+
+Allowed locators are now component-grouped when component evidence exists:
+
+```text
+Allowed locators:
+component: LoginFormComponent | type=FORM
+- usernameInput | strategy=name | value=username | uniqueWithinComponent=true | globalCount=1 | scopedCount=1
+- passwordInput | strategy=name | value=password | uniqueWithinComponent=true | globalCount=1 | scopedCount=1
+- loginButton | strategy=css | value=button[type='submit'] | uniqueWithinComponent=true | globalCount=1 | scopedCount=1
+
+component: NavigationComponent | type=NAVIGATION
+- adminLink | strategy=css | value=a[href*='/admin'] | uniqueWithinComponent=true | globalCount=1 | scopedCount=1
+```
+
+This keeps the prompt compact while giving the POM contract planner enough structure to avoid treating every SPA link or button as a page-owned business method. Navigation/sidebar/search/table components can be represented as scoped evidence first and promoted to reusable Java components later only when the writer supports that contract.
 
 The Page Object prompt contract includes the confirmed capability:
 
@@ -406,9 +713,11 @@ This wording is deliberate. The LLM should reason from the capability and scoped
 Prompt constraints enforce:
 
 - JSON only for the target schema;
-- one Page Object for one scoped page;
-- declared locator fields must be reused in method bodies;
-- `elements.type(...)` is forbidden; use the available BasePage helper API;
+- one POM contract for one scoped page;
+- no Java method bodies in LLM output;
+- structured action steps and assertion checks only;
+- declared locator ids must be reused by steps/checks;
+- `elements.type(...)` is impossible in contract output because Java is generated deterministically;
 - no raw driver, waits, locators, or `WebElement` exposure to tests;
 - result pages expose assertions, while source pages own actions;
 - no weak `!getCurrentUrl().isBlank()` state check;
@@ -569,6 +878,8 @@ The artifacts show the expected-result mechanism is operating, but they also exp
 | `target/ai-run/enrichment/page-model-enrichments.json` | Page intent, safe locator facts, risks, traceability, and requirement provenance. |
 | `target/ai-run/enrichment/page-model-enrichment-report.json` | Number of OpenAI records and page-level fallback failures. |
 | `target/ai-run/flow-scoped-knowledge/flow-scoped-knowledge-package.json` | Requirement-scoped mapper/retrieval context. |
+| `target/discovery/component-model.json` | Component boundaries and global/component-scoped locator validation for SPA-heavy pages. |
+| `target/discovery/semantic-action-model.json` | Deterministic semantic elements, action candidates, and business-intent candidates before POM prompt generation. |
 | `target/ai-run/context/ai-context-package.json` | Full prompt-ready state before per-page slicing. |
 | `target/ai-run/page-object-spec/<Page>-scope-trace.json` | Accepted/rejected scenarios, matched pages, PageModels, and route collisions. |
 | `target/ai-run/page-object-spec/<Page>-prompt.txt` | Exact POM prompt for LLM quality review. |

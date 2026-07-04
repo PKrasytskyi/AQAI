@@ -6,12 +6,16 @@ import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBu
 import ua.demo.agentlab.ui.discovery.evidence.PageEvidenceCaptureService;
 import ua.demo.agentlab.ui.discovery.evidence.model.DiscoveredPageEvidence;
 import ua.demo.agentlab.ui.discovery.policy.DiscoveryCrawlPolicy;
+import ua.demo.agentlab.ui.discovery.selenium.auth.DiscoveryAuthenticationResult;
 import ua.demo.agentlab.ui.discovery.selenium.auth.DiscoveryAuthenticationService;
 import ua.demo.agentlab.ui.discovery.selenium.collector.PageSnapshotCollector;
 import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredInteractiveElement;
 import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredPageSnapshot;
 import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredTransition;
 import ua.demo.agentlab.ui.discovery.selenium.model.SeleniumDiscoveryResult;
+import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessRule;
+import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessRuleResolver;
+import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessWaiter;
 
 import java.net.URI;
 import java.util.ArrayDeque;
@@ -30,6 +34,8 @@ public class SafeNavigationCrawler {
     private final DiscoveryCrawlPolicy crawlPolicy;
     private final PageEvidenceCaptureService pageEvidenceCaptureService;
     private final DiscoveryAuthenticationService authenticationService;
+    private final PageReadinessRuleResolver pageReadinessRuleResolver;
+    private final PageReadinessWaiter pageReadinessWaiter;
 
     public SafeNavigationCrawler(
             PageSnapshotCollector pageSnapshotCollector,
@@ -45,6 +51,18 @@ public class SafeNavigationCrawler {
             PageEvidenceCaptureService pageEvidenceCaptureService,
             DiscoveryAuthenticationService authenticationService
     ) {
+        this(pageSnapshotCollector, crawlPolicy, pageEvidenceCaptureService, authenticationService,
+                new PageReadinessRuleResolver(), new PageReadinessWaiter());
+    }
+
+    public SafeNavigationCrawler(
+            PageSnapshotCollector pageSnapshotCollector,
+            DiscoveryCrawlPolicy crawlPolicy,
+            PageEvidenceCaptureService pageEvidenceCaptureService,
+            DiscoveryAuthenticationService authenticationService,
+            PageReadinessRuleResolver pageReadinessRuleResolver,
+            PageReadinessWaiter pageReadinessWaiter
+    ) {
         if (pageSnapshotCollector == null) {
             throw new IllegalArgumentException("pageSnapshotCollector cannot be null");
         }
@@ -58,6 +76,12 @@ public class SafeNavigationCrawler {
         this.crawlPolicy = crawlPolicy;
         this.pageEvidenceCaptureService = pageEvidenceCaptureService;
         this.authenticationService = authenticationService;
+        this.pageReadinessRuleResolver = pageReadinessRuleResolver == null
+                ? new PageReadinessRuleResolver()
+                : pageReadinessRuleResolver;
+        this.pageReadinessWaiter = pageReadinessWaiter == null
+                ? new PageReadinessWaiter()
+                : pageReadinessWaiter;
     }
 
     public SeleniumDiscoveryResult crawl(WebDriver driver, ProjectProfile projectProfile) {
@@ -71,6 +95,7 @@ public class SafeNavigationCrawler {
     ) {
         Map<String, DiscoveredPageSnapshot> pagesById = new LinkedHashMap<>();
         List<DiscoveredTransition> transitions = new ArrayList<>();
+        List<DiscoveryAuthenticationResult> authenticationResults = new ArrayList<>();
         Set<String> visitedUrls = new LinkedHashSet<>();
         ArrayDeque<NavigationTarget> queue = new ArrayDeque<>();
 
@@ -88,10 +113,29 @@ public class SafeNavigationCrawler {
                 continue;
             }
 
+            DiscoveryAuthenticationResult authenticationResult =
+                    DiscoveryAuthenticationResult.skipped(false, false, target.targetUrl(), "authentication not attempted");
+            boolean authenticated = false;
             if (crawlPolicy.allowAuthentication() && authenticationService != null) {
-                authenticationService.authenticateIfNeeded(driver, projectProfile, target.targetUrl());
+                authenticationResult = authenticationService.authenticate(driver, projectProfile, target.targetUrl());
+                if (authenticationResult.protectedTarget()) {
+                    authenticationResults.add(authenticationResult);
+                }
+                authenticated = authenticationResult.success();
             }
-            driver.navigate().to(target.targetUrl());
+            if (!authenticated || !currentPageMatchesTarget(driver, projectProfile, target.targetUrl())) {
+                driver.navigate().to(target.targetUrl());
+            }
+            PageReadinessRule readinessRule = pageReadinessRuleResolver.resolve(
+                    projectProfile,
+                    requirementBundle,
+                    target.targetUrl()
+            );
+            pageReadinessWaiter.waitUntilReady(driver, readinessRule);
+            if (shouldSkipRedirectedProtectedPage(driver, projectProfile, authenticationResult)) {
+                visitedUrls.add(normalizedUrl);
+                continue;
+            }
             String pageIdHint = buildPageIdHint(driver.getCurrentUrl());
             DiscoveredPageEvidence evidence = pageEvidenceCaptureService.capture(driver, pageIdHint);
             DiscoveredPageSnapshot snapshot = pageSnapshotCollector.collect(
@@ -130,7 +174,10 @@ public class SafeNavigationCrawler {
         return new SeleniumDiscoveryResult(
                 projectProfile.baseUrl(),
                 new ArrayList<>(pagesById.values()),
-                transitions
+                transitions,
+                1,
+                Map.of(),
+                authenticationResults
         );
     }
 
@@ -199,6 +246,42 @@ public class SafeNavigationCrawler {
         } catch (Exception exception) {
             return value;
         }
+    }
+
+    private boolean currentPageMatchesTarget(WebDriver driver, ProjectProfile projectProfile, String targetUrl) {
+        if (driver == null || projectProfile == null || targetUrl == null || targetUrl.isBlank()) {
+            return false;
+        }
+        String currentRoute = ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer.canonicalize(driver.getCurrentUrl());
+        String targetRoute = ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer.canonicalize(targetUrl);
+        String authenticatedRoute = ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer.canonicalize(projectProfile.authenticatedRoute());
+        String securityRoute = ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer.canonicalize(projectProfile.securityRoute());
+        return routeMatches(currentRoute, targetRoute)
+                || routeMatches(currentRoute, authenticatedRoute)
+                && routeMatches(targetRoute, authenticatedRoute)
+                || routeMatches(currentRoute, securityRoute)
+                && routeMatches(targetRoute, securityRoute);
+    }
+
+    private boolean shouldSkipRedirectedProtectedPage(
+            WebDriver driver,
+            ProjectProfile projectProfile,
+            DiscoveryAuthenticationResult authenticationResult
+    ) {
+        if (driver == null || projectProfile == null || authenticationResult == null
+                || !authenticationResult.protectedTarget() || authenticationResult.success()) {
+            return false;
+        }
+        String currentRoute = ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer.canonicalize(driver.getCurrentUrl());
+        String loginRoute = ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer.canonicalize(projectProfile.loginRoute());
+        return routeMatches(currentRoute, loginRoute);
+    }
+
+    private boolean routeMatches(String left, String right) {
+        if (left == null || right == null || left.isBlank() || right.isBlank()) {
+            return false;
+        }
+        return ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer.routeEqualsOrSuffix(left, right);
     }
 
     private record NavigationTarget(

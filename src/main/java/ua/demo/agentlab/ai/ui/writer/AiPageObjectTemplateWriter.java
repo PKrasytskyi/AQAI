@@ -30,6 +30,10 @@ public class AiPageObjectTemplateWriter {
         this.pagePackage = pagePackage.trim();
     }
 
+    public String pagePackage() {
+        return pagePackage;
+    }
+
     public List<GeneratedSourceFile> write(List<AiPageObjectSpec> specs) {
         List<GeneratedSourceFile> files = new ArrayList<>();
         for (AiPageObjectSpec spec : specs) {

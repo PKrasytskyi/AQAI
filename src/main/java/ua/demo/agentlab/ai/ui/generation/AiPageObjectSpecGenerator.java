@@ -22,6 +22,7 @@ public class AiPageObjectSpecGenerator {
     private final AiPageObjectPromptLintStage promptLintStage;
     private final AiPageObjectPromptArtifactWriter promptArtifactWriter;
     private final AiRunQualitySummaryWriter qualitySummaryWriter;
+    private final PromptPageEligibilityEvaluator promptPageEligibilityEvaluator;
 
     public AiPageObjectSpecGenerator(OpenAiRuntimeConfig runtimeConfig) {
         this(
@@ -30,7 +31,8 @@ public class AiPageObjectSpecGenerator {
                 new AiPageObjectPromptBuildStage(),
                 new AiPageObjectPromptLintStage(),
                 new AiPageObjectPromptArtifactWriter(),
-                new AiRunQualitySummaryWriter()
+                new AiRunQualitySummaryWriter(),
+                new PromptPageEligibilityEvaluator()
         );
     }
 
@@ -40,13 +42,14 @@ public class AiPageObjectSpecGenerator {
             AiPageObjectPromptBuildStage promptBuildStage,
             AiPageObjectPromptLintStage promptLintStage,
             AiPageObjectPromptArtifactWriter promptArtifactWriter,
-            AiRunQualitySummaryWriter qualitySummaryWriter
+            AiRunQualitySummaryWriter qualitySummaryWriter,
+            PromptPageEligibilityEvaluator promptPageEligibilityEvaluator
     ) {
         if (runtimeConfig == null) {
             throw new IllegalArgumentException("runtime config cannot be null");
         }
         if (scopeResolverStage == null || promptBuildStage == null || promptLintStage == null
-                || promptArtifactWriter == null || qualitySummaryWriter == null) {
+                || promptArtifactWriter == null || qualitySummaryWriter == null || promptPageEligibilityEvaluator == null) {
             throw new IllegalArgumentException("page object generation stages cannot be null");
         }
         this.runtimeConfig = runtimeConfig;
@@ -55,6 +58,7 @@ public class AiPageObjectSpecGenerator {
         this.promptLintStage = promptLintStage;
         this.promptArtifactWriter = promptArtifactWriter;
         this.qualitySummaryWriter = qualitySummaryWriter;
+        this.promptPageEligibilityEvaluator = promptPageEligibilityEvaluator;
     }
 
     public AiPageObjectGenerationResult generate(AiPageObjectGenerationRequest request) {
@@ -70,6 +74,28 @@ public class AiPageObjectSpecGenerator {
         try {
             for (AiPageObjectPromptScope scope : scopeResolverStage.resolve(request)) {
                 findings.addAll(promptLintStage.scopeFindings(scope));
+                PromptPage promptPage = promptPageEligibilityEvaluator.evaluate(scope);
+                artifacts.put(
+                        "ai.page.object.prompt." + scope.fileStem() + ".eligible",
+                        String.valueOf(promptPage.eligible())
+                );
+                if (!promptPage.eligible()) {
+                    artifactFiles.add(promptArtifactWriter.writeJson(
+                            scope.fileStem() + "-prompt-page-eligibility.json",
+                            promptPage
+                    ));
+                    artifacts.put(
+                            "ai.page.object.prompt." + scope.fileStem() + ".skipped",
+                            "true"
+                    );
+                    artifacts.put(
+                            "ai.page.object.prompt." + scope.fileStem() + ".skipReason",
+                            String.join("; ", promptPage.reasons())
+                    );
+                    findings.add("Skipped page object prompt for " + scope.pageName() + ": "
+                            + String.join("; ", promptPage.reasons()));
+                    continue;
+                }
                 AiPageObjectPromptDraft draft = promptBuildStage.build(scope);
                 PromptQualityReport qualityReport = promptLintStage.validate(draft);
                 AiPageObjectPromptArtifactResult artifactResult = promptArtifactWriter.write(draft, qualityReport);

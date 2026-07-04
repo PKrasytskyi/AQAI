@@ -22,6 +22,7 @@ import ua.demo.agentlab.ui.discovery.knowledge.model.MappedUiKnowledgeRaw;
 import ua.demo.agentlab.ai.context.PromptUiEvidence;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
+import ua.demo.agentlab.ui.discovery.runtime.model.RuntimeEvidenceBundle;
 import ua.demo.agentlab.ui.discovery.selenium.model.SeleniumDiscoveryResult;
 import ua.demo.agentlab.ui.flow.model.CanonicalPageFlowModel;
 import ua.demo.agentlab.ui.UiTestPlan;
@@ -56,6 +57,7 @@ public class WorkflowState {
     private MappedUiKnowledgeRaw mappedUiKnowledgeRaw;
     private MappedUiKnowledgeCurated mappedUiKnowledgeCurated;
     private SeleniumDiscoveryResult seleniumDiscoveryResult;
+    private RuntimeEvidenceBundle runtimeEvidenceBundle;
     private PageModelBundle pageModelBundle;
     private MappedUiKnowledge enrichedMappedUiKnowledge;
     private PageKnowledgeCacheLookupResult pageKnowledgeCacheLookupResult;
@@ -264,6 +266,14 @@ public class WorkflowState {
 
     public void setSeleniumDiscoveryResult(SeleniumDiscoveryResult seleniumDiscoveryResult) {
         this.seleniumDiscoveryResult = seleniumDiscoveryResult;
+    }
+
+    public RuntimeEvidenceBundle getRuntimeEvidenceBundle() {
+        return runtimeEvidenceBundle;
+    }
+
+    public void setRuntimeEvidenceBundle(RuntimeEvidenceBundle runtimeEvidenceBundle) {
+        this.runtimeEvidenceBundle = runtimeEvidenceBundle;
     }
 
     public PageModelBundle getPageModelBundle() {

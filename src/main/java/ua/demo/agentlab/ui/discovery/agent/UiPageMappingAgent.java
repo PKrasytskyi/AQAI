@@ -16,6 +16,9 @@ import ua.demo.agentlab.ui.discovery.mapping.PageMapper;
 import ua.demo.agentlab.ui.discovery.mapping.MappedUiKnowledgeRouteFilter;
 import ua.demo.agentlab.ui.discovery.mapping.MappedUiKnowledgeRouteCollisionPolicy;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
+import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
+import ua.demo.agentlab.ui.discovery.runtime.RuntimeEvidencePageModelMerger;
+import ua.demo.agentlab.ui.discovery.semanticgraph.SemanticGraphMappedKnowledgeEnricher;
 
 import java.util.List;
 import java.util.Set;
@@ -28,6 +31,9 @@ public class UiPageMappingAgent implements WorkflowAgent,
     private final MappedUiKnowledgeRouteFilter routeFilter = new MappedUiKnowledgeRouteFilter();
     private final MappedUiKnowledgeRouteCollisionPolicy routeCollisionPolicy = new MappedUiKnowledgeRouteCollisionPolicy();
     private final MappedUiKnowledgeCurator knowledgeCurator = new MappedUiKnowledgeCurator();
+    private final RuntimeEvidencePageModelMerger runtimeEvidencePageModelMerger = new RuntimeEvidencePageModelMerger();
+    private final SemanticGraphMappedKnowledgeEnricher semanticGraphMappedKnowledgeEnricher =
+            new SemanticGraphMappedKnowledgeEnricher();
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
 
     public UiPageMappingAgent(PageMapper pageMapper) {
@@ -44,7 +50,11 @@ public class UiPageMappingAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.UI_DISCOVERY_SNAPSHOT, WorkflowArtifact.PAGE_MODEL_BUNDLE);
+        return Set.of(
+                WorkflowArtifact.UI_DISCOVERY_SNAPSHOT,
+                WorkflowArtifact.PAGE_MODEL_BUNDLE,
+                WorkflowArtifact.UI_RUNTIME_EVIDENCE
+        );
     }
 
     @Override
@@ -72,7 +82,8 @@ public class UiPageMappingAgent implements WorkflowAgent,
                 state.getNormalizedRequirementBundle(),
                 state.getUiDiscoverySnapshot(),
                 state.getSeleniumDiscoveryResult(),
-                state.getPageModelBundle()
+                state.getPageModelBundle(),
+                state.getRuntimeEvidenceBundle()
         );
     }
 
@@ -86,10 +97,19 @@ public class UiPageMappingAgent implements WorkflowAgent,
         if (input == null || input.discoverySnapshot() == null || input.pageModelBundle() == null) {
             throw new IllegalArgumentException("UI discovery snapshot and PageModel bundle are required");
         }
+        PageModelBundle pageModelBundle = runtimeEvidencePageModelMerger.merge(
+                input.pageModelBundle(),
+                input.runtimeEvidenceBundle()
+        );
         MappedUiKnowledge mappedKnowledge = pageMapper.map(
                 input.discoverySnapshot(),
                 input.seleniumDiscoveryResult(),
-                input.pageModelBundle()
+                pageModelBundle
+        );
+        mappedKnowledge = semanticGraphMappedKnowledgeEnricher.enrich(
+                pageModelBundle,
+                mappedKnowledge,
+                input.runtimeEvidenceBundle()
         );
         var confirmedPages = confirmedPageSourceResolver.resolve(
                 input.projectProfile(),

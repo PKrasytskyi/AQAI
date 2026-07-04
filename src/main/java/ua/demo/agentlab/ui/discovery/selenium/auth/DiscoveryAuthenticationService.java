@@ -1,12 +1,15 @@
 package ua.demo.agentlab.ui.discovery.selenium.auth;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer;
 
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -19,64 +22,131 @@ public class DiscoveryAuthenticationService {
     }
 
     public boolean authenticateIfNeeded(WebDriver driver, ProjectProfile projectProfile, String targetUrl) {
-        if (driver == null || projectProfile == null || !config.enabled() || !config.hasCredentials()) {
-            return false;
+        return authenticate(driver, projectProfile, targetUrl).success();
+    }
+
+    public DiscoveryAuthenticationResult authenticate(WebDriver driver, ProjectProfile projectProfile, String targetUrl) {
+        boolean protectedTarget = projectProfile != null && isProtectedTarget(projectProfile, targetUrl);
+        boolean credentialsPresent = config.hasCredentials();
+        if (driver == null || projectProfile == null || !config.enabled() || !credentialsPresent) {
+            return DiscoveryAuthenticationResult.skipped(
+                    protectedTarget,
+                    credentialsPresent,
+                    targetUrl,
+                    !config.enabled() ? "authentication disabled" : "credentials missing"
+            );
         }
-        if (!isProtectedTarget(projectProfile, targetUrl)) {
-            return false;
+        if (!protectedTarget) {
+            return DiscoveryAuthenticationResult.skipped(false, true, targetUrl, "target is not protected");
         }
 
+        String loginUrl = toAbsoluteUrl(projectProfile.baseUrl(), projectProfile.loginRoute());
         try {
-            driver.navigate().to(toAbsoluteUrl(projectProfile.baseUrl(), projectProfile.loginRoute()));
-            WebElement username = firstVisible(driver, By.cssSelector(config.usernameSelector()));
-            WebElement password = firstVisible(driver, By.cssSelector(config.passwordSelector()));
+            driver.navigate().to(loginUrl);
+            waitForAnyVisible(driver, config.usernameSelector(), config.passwordSelector());
+            WebElement username = firstVisible(driver, config.usernameSelector());
+            WebElement password = firstVisible(driver, config.passwordSelector());
             if (username == null || password == null) {
-                return false;
+                return new DiscoveryAuthenticationResult(
+                        true,
+                        true,
+                        true,
+                        false,
+                        loginUrl,
+                        targetUrl,
+                        safeCurrentUrl(driver),
+                        "login form fields were not visible"
+                );
             }
             username.clear();
             username.sendKeys(config.username());
             password.clear();
             password.sendKeys(config.password());
 
-            WebElement submit = firstVisible(driver, By.cssSelector(config.submitSelector()));
+            WebElement submit = firstVisible(driver, config.submitSelector());
             if (submit != null) {
                 submit.click();
             } else {
-                password.submit();
+                password.sendKeys(Keys.ENTER);
             }
 
-            waitForNavigationAwayFromLogin(driver, projectProfile);
-            return true;
+            boolean success = waitForAuthenticatedState(driver, projectProfile);
+            return new DiscoveryAuthenticationResult(
+                    true,
+                    true,
+                    true,
+                    success,
+                    loginUrl,
+                    targetUrl,
+                    safeCurrentUrl(driver),
+                    success ? "authenticated" : "login did not reach authenticated state"
+            );
         } catch (Exception exception) {
+            return new DiscoveryAuthenticationResult(
+                    true,
+                    true,
+                    true,
+                    false,
+                    loginUrl,
+                    targetUrl,
+                    safeCurrentUrl(driver),
+                    exception.getClass().getSimpleName() + ": " + safe(exception.getMessage())
+            );
+        }
+    }
+
+    private boolean waitForAuthenticatedState(WebDriver driver, ProjectProfile projectProfile) {
+        String loginPath = normalizeRoute(projectProfile.loginRoute());
+        try {
+            return Boolean.TRUE.equals(new WebDriverWait(driver, config.timeout()).until(webDriver -> {
+                String currentPath = normalizeRoute(webDriver.getCurrentUrl());
+                String pageSource = webDriver.getPageSource().toLowerCase(Locale.ROOT);
+                return !currentPath.equals(loginPath)
+                        || routeMatches(currentPath, projectProfile.authenticatedRoute())
+                        || routeMatches(currentPath, projectProfile.securityRoute())
+                        || pageSource.contains("logout")
+                        || pageSource.contains("log out")
+                        || pageSource.contains("sign out");
+            }));
+        } catch (Exception ignored) {
             return false;
         }
     }
 
-    private void waitForNavigationAwayFromLogin(WebDriver driver, ProjectProfile projectProfile) {
-        String loginPath = normalizeRoute(projectProfile.loginRoute());
+    private void waitForAnyVisible(WebDriver driver, String... selectorLists) {
         try {
-            new WebDriverWait(driver, config.timeout()).until(webDriver -> {
-                String currentPath = normalizeRoute(webDriver.getCurrentUrl());
-                return !currentPath.equals(loginPath)
-                        || webDriver.getPageSource().toLowerCase(Locale.ROOT).contains("logout");
-            });
+            new WebDriverWait(driver, Duration.ofMillis(Math.min(config.timeout().toMillis(), 5_000L)))
+                    .until(currentDriver -> Arrays.stream(selectorLists)
+                            .anyMatch(selectorList -> firstVisible(currentDriver, selectorList) != null));
         } catch (Exception ignored) {
-            // Discovery should continue even when an application keeps the user on the login page.
+            // A later field-specific lookup will produce the final auth result.
         }
     }
 
-    private WebElement firstVisible(WebDriver driver, By locator) {
-        List<WebElement> elements = driver.findElements(locator);
-        for (WebElement element : elements) {
+    private WebElement firstVisible(WebDriver driver, String selectorList) {
+        for (String selector : selectors(selectorList)) {
             try {
-                if (element.isDisplayed() && element.isEnabled()) {
-                    return element;
+                List<WebElement> elements = driver.findElements(By.cssSelector(selector));
+                for (WebElement element : elements) {
+                    if (element.isDisplayed() && element.isEnabled()) {
+                        return element;
+                    }
                 }
             } catch (Exception ignored) {
-                // Keep trying other candidates.
+                // Keep trying other selectors. One invalid selector must not break auth discovery.
             }
         }
         return null;
+    }
+
+    private List<String> selectors(String selectorList) {
+        if (selectorList == null || selectorList.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(selectorList.split(","))
+                .map(String::trim)
+                .filter(selector -> !selector.isBlank())
+                .toList();
     }
 
     private boolean isProtectedTarget(ProjectProfile projectProfile, String targetUrl) {
@@ -114,5 +184,17 @@ public class DiscoveryAuthenticationService {
 
     private String normalizeRoute(String value) {
         return RouteCanonicalizer.canonicalize(value);
+    }
+
+    private String safeCurrentUrl(WebDriver driver) {
+        try {
+            return driver == null ? "" : safe(driver.getCurrentUrl());
+        } catch (Exception exception) {
+            return "";
+        }
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value.trim();
     }
 }

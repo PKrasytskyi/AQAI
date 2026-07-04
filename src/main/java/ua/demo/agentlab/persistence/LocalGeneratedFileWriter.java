@@ -13,6 +13,9 @@ public class LocalGeneratedFileWriter implements GeneratedFileWriter {
         try {
             Path path = Path.of(file.relativePath());
             Files.createDirectories(path.getParent());
+            if (Files.exists(path) && Files.readString(path).equals(file.content())) {
+                return;
+            }
             Files.writeString(path, file.content());
         } catch (IOException e) {
             throw new IllegalStateException("Cannot write generated file: " + file.relativePath(), e);

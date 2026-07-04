@@ -30,6 +30,10 @@ public class Findings {
         return entries;
     }
 
+    public List<String> getEntries() {
+        return List.copyOf(entries);
+    }
+
     public Findings snapshot() {
         return new Findings(new ArrayList<>(entries));
     }

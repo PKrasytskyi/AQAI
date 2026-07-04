@@ -33,15 +33,23 @@ public class PageObjectCapabilityContractFormatter {
 
         String capability = resolveCapability(context, pageName);
         Contract contract = new Contract(pageName, route, openMethod, capability);
+        boolean hasSemanticActions = hasSemanticActionEvidence(context);
+        addPromptEvidence(contract, context);
         if (context != null && context.canonicalTestCaseBundle() != null) {
             for (CanonicalTestCase testCase : context.canonicalTestCaseBundle().testCases()) {
-                addTestCaseOwnership(contract, testCase, pageName);
+                addTestCaseOwnership(contract, testCase, pageName, !hasSemanticActions);
             }
         }
-        addPromptEvidence(contract, context);
         addBaselineMethods(contract, baselineSpec);
         addForbiddenMethods(contract);
         return contract.render();
+    }
+
+    private boolean hasSemanticActionEvidence(AiContextPackage context) {
+        return context != null
+                && context.promptUiEvidence() != null
+                && context.promptUiEvidence().requiredActions().stream()
+                .anyMatch(action -> action.type().startsWith("semantic-"));
     }
 
     private void addPromptEvidence(Contract contract, AiContextPackage context) {
@@ -51,7 +59,7 @@ public class PageObjectCapabilityContractFormatter {
         context.promptUiEvidence().requirementIds().forEach(contract.coveredTestCases::add);
         context.promptUiEvidence().requiredActions().forEach(action -> {
             if (!action.name().isBlank()) {
-                contract.ownedActions.add(action.name());
+                addPromptAction(contract, action.name(), action.type());
             }
         });
         context.promptUiEvidence().requiredAssertions().forEach(assertion -> {
@@ -67,7 +75,146 @@ public class PageObjectCapabilityContractFormatter {
         });
     }
 
-    private void addTestCaseOwnership(Contract contract, CanonicalTestCase testCase, String requestedPageName) {
+    private void addPromptAction(Contract contract, String actionName, String actionType) {
+        if (actionType != null && actionType.startsWith("semantic-")) {
+            addSemanticOwnedAction(contract, actionName, actionType);
+            return;
+        }
+        contract.ownedActions.add(actionName);
+    }
+
+    private void addSemanticOwnedAction(Contract contract, String actionName, String actionType) {
+        String normalized = normalizeActionName(actionName);
+        if (normalized.isBlank()) {
+            return;
+        }
+        if (containsAny(normalized, "authentication", "authenticate")) {
+            if (!isAuthenticationContractPage(contract)) {
+                contract.prerequisitePages.add("LoginPage");
+                return;
+            }
+            addAuthenticationContract(contract);
+            return;
+        }
+        if (containsAny(normalized, "logout", "signout")) {
+            contract.ownedActions.add("logout()");
+            contract.requiredLocators.add("logoutLink");
+            return;
+        }
+        if (containsAny(normalized, "search")) {
+            contract.ownedActions.add("search(String query)");
+            contract.requiredLocators.add("searchInputOrButton");
+            return;
+        }
+        if (normalized.endsWith(":type")) {
+            if (!isAuthenticationContractPage(contract) && containsAny(normalized, "username", "password")) {
+                return;
+            }
+            String element = normalized.substring(0, normalized.length() - ":type".length());
+            if (containsAny(element, "username", "email", "user")) {
+                contract.ownedActions.add("enterUsername(String username)");
+                contract.requiredLocators.add("usernameInput");
+            } else if (containsAny(element, "password", "pass")) {
+                contract.ownedActions.add("enterPassword(String password)");
+                contract.requiredLocators.add("passwordInput");
+            } else if (!element.isBlank()) {
+                contract.ownedActions.add("enter" + methodSuffix(element) + "(String value)");
+                contract.requiredLocators.add(element + "Input");
+            }
+            return;
+        }
+        if (normalized.endsWith(":click")) {
+            String element = normalized.substring(0, normalized.length() - ":click".length());
+            if (containsAny(element, "login", "submit", "signin")) {
+                if (!isAuthenticationContractPage(contract)) {
+                    return;
+                }
+                contract.ownedActions.add("clickLoginButton()");
+                contract.requiredLocators.add("loginButton");
+            } else if (!element.isBlank()) {
+                contract.ownedActions.add("click" + methodSuffix(element) + "()");
+                contract.requiredLocators.add(element + "Control");
+            }
+            return;
+        }
+        if (normalized.endsWith(":submitform")
+                || normalized.endsWith(":submit-form")
+                || normalized.endsWith(":submit_form")) {
+            if (isLoginPage(contract.pageName) || contract.capability.equals("AUTHENTICATION")) {
+                addAuthenticationContract(contract);
+            } else {
+                contract.ownedActions.add("submitForm()");
+            }
+            return;
+        }
+        if (containsAny(normalized, "navigate")) {
+            contract.ownedActions.add("openNavigationTarget()");
+        }
+    }
+
+    private void addAuthenticationContract(Contract contract) {
+        if (!isAuthenticationContractPage(contract)) {
+            contract.prerequisitePages.add("LoginPage");
+            return;
+        }
+        contract.ownedActions.add("enterUsername(String username)");
+        contract.ownedActions.add("enterPassword(String password)");
+        contract.ownedActions.add("clickLoginButton()");
+        contract.ownedActions.add("login(String username, String password)");
+        contract.requiredLocators.add("usernameInput");
+        contract.requiredLocators.add("passwordInput");
+        contract.requiredLocators.add("loginButton");
+    }
+
+    private boolean isAuthenticationContractPage(Contract contract) {
+        return contract != null
+                && (isLoginPage(contract.pageName)
+                || "AUTHENTICATION".equals(contract.capability)
+                || containsAny(contract.route, "login", "auth/login"));
+    }
+
+    private String methodSuffix(String value) {
+        String normalized = value == null ? "" : value.replaceAll("[^A-Za-z0-9]+", " ").trim();
+        if (normalized.isBlank()) {
+            return "Element";
+        }
+        String[] parts = normalized.split("\\s+");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+            builder.append(part.substring(0, 1).toUpperCase(Locale.ROOT));
+            if (part.length() > 1) {
+                builder.append(part.substring(1));
+            }
+        }
+        return builder.isEmpty() ? "Element" : builder.toString();
+    }
+
+    private String normalizeActionName(String value) {
+        return value == null ? "" : value.trim()
+                .replace('_', '-')
+                .toLowerCase(Locale.ROOT)
+                .replace(" ", "");
+    }
+
+    private boolean containsAny(String value, String... fragments) {
+        String normalized = value == null ? "" : value.toLowerCase(Locale.ROOT);
+        for (String fragment : fragments) {
+            if (normalized.contains(fragment)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void addTestCaseOwnership(
+            Contract contract,
+            CanonicalTestCase testCase,
+            String requestedPageName,
+            boolean includeCanonicalActions
+    ) {
         boolean sourcePage = PageReferenceMatcher.matchesScenarioPage(
                 testCase.sourcePageName(),
                 testCase.sourceRoute(),
@@ -85,8 +232,10 @@ public class PageObjectCapabilityContractFormatter {
         contract.coveredTestCases.add(testCase.id());
         if (sourcePage) {
             contract.ownedActionTestCases.add(testCase.id());
-            testCase.operationIntents().forEach(intent -> addOwnedAction(contract, intent, testCase));
-            addTextDrivenSourceActions(contract, testCase);
+            if (includeCanonicalActions) {
+                testCase.operationIntents().forEach(intent -> addOwnedAction(contract, intent, testCase));
+                addTextDrivenSourceActions(contract, testCase);
+            }
         }
         if (targetPage) {
             contract.ownedAssertionTestCases.add(testCase.id());
@@ -101,12 +250,7 @@ public class PageObjectCapabilityContractFormatter {
             return;
         }
         switch (intent.kind()) {
-            case AUTHENTICATE -> {
-                contract.ownedActions.add("login(String username, String password)");
-                contract.requiredLocators.add("usernameInput");
-                contract.requiredLocators.add("passwordInput");
-                contract.requiredLocators.add("loginButton");
-            }
+            case AUTHENTICATE -> addAuthenticationContract(contract);
             case SUBMIT_FORM -> contract.ownedActions.add("submitForm()");
             case OPEN_DETAILS -> contract.ownedActions.add("openEntityDetails(String entityKey)");
             case OPEN_TARGET_CONTAINER, OPEN_DESTINATION_CONTAINER -> contract.ownedActions.add("openTargetContainer()");

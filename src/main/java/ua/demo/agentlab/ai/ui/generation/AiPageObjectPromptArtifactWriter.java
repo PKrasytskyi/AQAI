@@ -62,6 +62,14 @@ public class AiPageObjectPromptArtifactWriter {
                 "ai.page.object.prompt.quality." + draft.scope().fileStem() + ".warnings",
                 String.valueOf(qualityReport.warningIssueCount())
         );
+        artifacts.put(
+                "ai.page.object.prompt." + draft.scope().fileStem() + ".pageName",
+                draft.scope().pageName()
+        );
+        artifacts.put(
+                "ai.page.object.prompt." + draft.scope().fileStem() + ".allowedLocators",
+                String.valueOf(draft.metadata().getOrDefault("promptAllowedLocatorCount", 0))
+        );
         return new AiPageObjectPromptArtifactResult(files, artifacts);
     }
 

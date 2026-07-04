@@ -7,6 +7,7 @@ import ua.demo.agentlab.ui.discovery.agent.UiDiscoveryAgent;
 import ua.demo.agentlab.ui.discovery.agent.UiDiscoveryArtifactPersistenceAgent;
 import ua.demo.agentlab.ui.discovery.agent.UiPageMappingAgent;
 import ua.demo.agentlab.ui.discovery.agent.UiPageModelAgent;
+import ua.demo.agentlab.ui.discovery.agent.UiRuntimeEvidenceAgent;
 import ua.demo.agentlab.ui.discovery.classification.RuleBasedPageClassificationService;
 import ua.demo.agentlab.ui.discovery.enrichment.UiDiscoveryEnricher;
 import ua.demo.agentlab.ui.discovery.mapping.RuleBasedPageMapper;
@@ -43,6 +44,7 @@ public class DiscoveryModuleFactory {
                         ),
                         new RuleBasedCanonicalPageFlowMapper()
                 ),
+                new UiRuntimeEvidenceAgent(),
                 new UiDiscoveryArtifactPersistenceAgent(new LocalDiscoveryArtifactWriter()),
                 new UiPageModelAgent(new PageModelBuilder(), new PageModelArtifactWriter()),
                 new UiPageMappingAgent(new RuleBasedPageMapper())

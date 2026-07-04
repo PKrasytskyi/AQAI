@@ -52,6 +52,7 @@ public class LocalDiscoveryArtifactWriter implements DiscoveryArtifactWriter {
                 writtenFiles.add(writeJson("pages.json", seleniumDiscoveryResult.pages()));
                 writtenFiles.add(writeJson("transitions.json", seleniumDiscoveryResult.transitions()));
                 writtenFiles.add(writeJson("selenium-discovery.json", seleniumDiscoveryResult));
+                writtenFiles.addAll(writeAuthenticationReport(seleniumDiscoveryResult));
                 writtenFiles.addAll(writePageMetadataFiles(seleniumDiscoveryResult));
             } else {
                 writtenFiles.add(writeJson("pages.json", snapshot.pages()));
@@ -93,6 +94,17 @@ public class LocalDiscoveryArtifactWriter implements DiscoveryArtifactWriter {
         }
 
         return writtenFiles;
+    }
+
+    private List<String> writeAuthenticationReport(SeleniumDiscoveryResult seleniumDiscoveryResult) throws IOException {
+        if (seleniumDiscoveryResult.authenticationResults().isEmpty()) {
+            return List.of();
+        }
+        Path authDirectory = outputDirectory.resolve("auth");
+        Files.createDirectories(authDirectory);
+        Path outputFile = authDirectory.resolve("authentication-report.json");
+        objectMapper.writeValue(outputFile.toFile(), seleniumDiscoveryResult.authenticationResults());
+        return List.of(outputFile.toString());
     }
 
     private List<String> writeMappedPageFiles(List<MappedPage> mappedPages) throws IOException {
