@@ -15,4 +15,12 @@ public interface OpenAiRuntimeConfig {
     boolean assistiveOnly();
 
     int maxOutputTokens();
+
+    default boolean pageObjectLlmEnabled() {
+        return false;
+    }
+
+    default boolean uiTestLlmEnabled() {
+        return false;
+    }
 }

@@ -7,6 +7,7 @@ import ua.demo.agentlab.ui.discovery.mapping.model.MappedField;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedForm;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -50,6 +51,7 @@ public class AiRunQualitySummaryService {
         int mappedPages = mappedKnowledge == null ? 0 : mappedKnowledge.pages().size();
         int pageObjectPrompts = pageObjectPromptCount(input);
         int promptPagesWithoutAllowedLocators = promptPagesWithoutAllowedLocators(input);
+        int weakPromptLocatorCoverage = weakPromptLocatorCoverage(input);
         int routeCollisions = routeCollisions(mappedKnowledge);
         int externalEvidenceRejected = (int) locatorCandidates.stream()
                 .filter(this::isExternalEvidence)
@@ -58,11 +60,16 @@ public class AiRunQualitySummaryService {
                 .filter(locator -> locator.stabilityScore() < LOW_CONFIDENCE_LOCATOR_THRESHOLD
                         || locator.risks().stream().anyMatch(this::isUnstableRisk))
                 .count();
+        int confirmedLocators = evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CONFIRMED_LOCATOR);
+        int candidateLocators = evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CANDIDATE_LOCATOR);
+        int fallbackLocators = evidenceTypeCount(locatorCandidates, LocatorEvidenceType.FALLBACK_LOCATOR);
         int promptBlockingIssues = promptBlockingIssues(input);
         int promptAllowedLocators = intArtifact(input, "prompt.ui.evidence.locator.count", 0);
         int runtimeFeedbackIssues = intArtifact(input, "ui.runtime.feedback.issue.count", 0);
         double runtimeLocatorPassRate = doubleArtifact(input, "ui.runtime.feedback.locator.pass.rate", 1.0d);
         double runtimeFlakyRiskScore = doubleArtifact(input, "ui.runtime.feedback.flaky.risk.score", 0.0d);
+        int componentPageCount = intArtifact(input, "ui.component.page.count", 0);
+        int componentScopedLocatorCount = intArtifact(input, "ui.component.scoped.locator.count", 0);
         double averageLocatorScore = averageLocatorScore(locatorCandidates);
         int qualityScore = qualityScore(
                 canonicalTestCases,
@@ -70,9 +77,17 @@ public class AiRunQualitySummaryService {
                 locatorCandidates.size(),
                 promptAllowedLocators,
                 lowConfidenceLocators,
+                confirmedLocators,
+                candidateLocators,
+                fallbackLocators,
                 routeCollisions,
                 externalEvidenceRejected,
                 promptBlockingIssues,
+                pageObjectPrompts,
+                weakPromptLocatorCoverage,
+                mappedPages,
+                componentPageCount,
+                componentScopedLocatorCount,
                 averageLocatorScore,
                 runtimeFeedbackIssues,
                 runtimeLocatorPassRate,
@@ -90,6 +105,9 @@ public class AiRunQualitySummaryService {
                 routeCollisions,
                 externalEvidenceRejected,
                 lowConfidenceLocators,
+                confirmedLocators,
+                candidateLocators,
+                fallbackLocators,
                 promptBlockingIssues,
                 round2(averageLocatorScore),
                 qualityScore
@@ -99,6 +117,9 @@ public class AiRunQualitySummaryService {
     private AiRunQualitySummary emptySummary() {
         return new AiRunQualitySummary(
                 Instant.now().toString(),
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -213,6 +234,15 @@ public class AiRunQualitySummaryService {
                 .sum();
     }
 
+    private int evidenceTypeCount(List<LocatorCandidate> candidates, LocatorEvidenceType type) {
+        if (candidates == null || candidates.isEmpty()) {
+            return 0;
+        }
+        return (int) candidates.stream()
+                .filter(locator -> locator != null && locator.evidenceType() == type)
+                .count();
+    }
+
     private int pageObjectPromptCount(AiRunQualitySummaryInput input) {
         int scopedRequests = intArtifact(input, "openai.page.object.scoped.requests", -1);
         if (scopedRequests >= 0) {
@@ -229,6 +259,15 @@ public class AiRunQualitySummaryService {
                 .filter(entry -> entry.getKey().startsWith("ai.page.object.prompt.")
                         && entry.getKey().endsWith(".allowedLocators"))
                 .filter(entry -> parseInt(entry.getValue(), 0) == 0)
+                .count();
+    }
+
+    private int weakPromptLocatorCoverage(AiRunQualitySummaryInput input) {
+        return (int) input.artifacts().entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith("ai.page.object.prompt.")
+                        && entry.getKey().endsWith(".allowedLocators"))
+                .filter(entry -> parseInt(entry.getValue(), 0) > 0)
+                .filter(entry -> parseInt(entry.getValue(), 0) < 3)
                 .count();
     }
 
@@ -265,9 +304,17 @@ public class AiRunQualitySummaryService {
             int locatorCount,
             int promptAllowedLocators,
             int lowConfidenceLocators,
+            int confirmedLocators,
+            int candidateLocators,
+            int fallbackLocators,
             int routeCollisions,
             int externalEvidenceRejected,
             int promptBlockingIssues,
+            int pageObjectPrompts,
+            int weakPromptLocatorCoverage,
+            int mappedPages,
+            int componentPageCount,
+            int componentScopedLocatorCount,
             double averageLocatorScore,
             int runtimeFeedbackIssues,
             double runtimeLocatorPassRate,
@@ -284,6 +331,22 @@ public class AiRunQualitySummaryService {
         }
         if (promptAllowedLocators <= 0 && canonicalTestCases > 0) {
             score -= 25.0d;
+        }
+        if (locatorCount > 0 && confirmedLocators <= 0) {
+            score -= 20.0d;
+        }
+        if (locatorCount > 0) {
+            score -= Math.min(12.0d, 12.0d * fallbackLocators / locatorCount);
+            score -= Math.min(6.0d, 6.0d * candidateLocators / locatorCount);
+        }
+        if (pageObjectPrompts > 0) {
+            score -= Math.min(20.0d, weakPromptLocatorCoverage * 10.0d);
+        }
+        if (mappedPages > 0 && componentPageCount < mappedPages) {
+            score -= 10.0d;
+        }
+        if (mappedPages > 0 && componentScopedLocatorCount <= 0) {
+            score -= 10.0d;
         }
         score -= Math.min(20.0d, promptBlockingIssues * 25.0d);
         score -= Math.min(15.0d, routeCollisions * 10.0d);

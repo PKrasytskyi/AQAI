@@ -114,5 +114,9 @@ public class PageObjectCapabilityContractFormatterTest {
         Assert.assertFalse(contract.contains("login(String username, String password)"));
         Assert.assertTrue(contract.contains("prerequisitePages=[LoginPage]"));
         Assert.assertTrue(contract.contains("forbiddenMethods=[login, enterUsername, enterPassword, submitLogin"));
+        Assert.assertTrue(contract.contains("openTargetContainer"));
+        Assert.assertFalse(contract.contains("openCart"));
+        Assert.assertFalse(contract.contains("addToCart"));
+        Assert.assertFalse(contract.contains("removeFromCart"));
     }
 }

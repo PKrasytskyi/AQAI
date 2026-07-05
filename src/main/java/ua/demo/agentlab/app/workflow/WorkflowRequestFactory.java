@@ -11,7 +11,7 @@ import java.util.Arrays;
 
 public class WorkflowRequestFactory {
 
-    private static final String DEFAULT_REQUIREMENT_LOCATION = "requirements/valid-author.md";
+    private static final String DEFAULT_REQUIREMENT_LOCATION = "requirements/valid-login-requirement.md";
 
     private final ProjectProfileLoader projectProfileLoader;
     private final WorkflowModeResolver modeResolver;

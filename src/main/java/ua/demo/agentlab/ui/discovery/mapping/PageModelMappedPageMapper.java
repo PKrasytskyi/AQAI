@@ -139,7 +139,11 @@ public class PageModelMappedPageMapper {
 
     private PageStateHints buildStateHints(PageModel page, List<MappedForm> forms) {
         String text = normalize(page.featureGuess() + " " + page.visibleText() + " " + page.route());
-        boolean authenticated = text.contains("authenticated") || text.contains("secure") || text.contains("logout");
+        boolean authenticated = text.contains("authenticated")
+                || text.contains("secure")
+                || text.contains("logout")
+                || text.contains("dashboard")
+                || text.contains("/dashboard");
         return new PageStateHints(
                 !authenticated,
                 authenticated,

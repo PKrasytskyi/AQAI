@@ -29,7 +29,7 @@ Implemented today:
 - API demo mode via `--api`, including controlled full CRUD flow generation when the endpoint set supports it;
 - unit tests under `src/test/unit/tests`.
 
-Current AI mode intentionally stops after deterministic POM contract prompt generation. Direct LLM-backed Java writing is not used for Page Objects; Java method bodies are owned by the deterministic writer path.
+Current AI mode can continue from deterministic POM contract prompt generation to validated `pom-contract-v1` and deterministic Page Object Java output. Direct LLM-backed Java writing is not used for Page Objects; Java method bodies are owned by the deterministic writer path.
 
 ## 3. Main Workflows
 
@@ -56,8 +56,9 @@ flowchart TD
     S --> N
     N --> O["AiPageObjectSpecAgent"]
     O --> P["pom-contract-v1 prompts / traces / quality reports"]
-    P -.-> Q["PomContractQualityGate"]
-    Q -.-> R["DeterministicPomJavaWriter"]
+    P --> Q["pom-contract-v1 JSON"]
+    Q --> R["PomContractQualityGate"]
+    R --> S["DeterministicPomJavaWriter"]
 ```
 
 ### API MVP Workflow
@@ -120,6 +121,7 @@ Useful UI run artifacts:
 
 - `target/discovery/semantic-action-model.json` - deterministic semantic elements, action candidates, and business-intent candidates before POM prompt generation.
 - `target/ai-run/page-object-spec/<Page>-prompt.txt` - final compact/debug POM contract prompt.
+- `target/ai-run/page-object-spec/<Page>-pom-contract.json` - parsed POM contract consumed by the deterministic Java writer.
 - `target/ai-run/page-object-spec/<Page>-scope-trace.json` - page, route, and requirement scoping diagnostics.
 
 Local secrets should be supplied by environment variables or JVM properties. `framework.properties` uses placeholders such as `${API_AUTH_TOKEN}` and `${TEST_VALID_USERNAME}` rather than real credentials.

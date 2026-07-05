@@ -46,7 +46,19 @@ public class LocatorQualityEvaluatorTest {
                 "",
                 ""
         );
-        PageLocatorModel locator = new PageLocatorModel("name", "username", 0.84d, "name attribute candidate", true);
+        PageLocatorModel locator = new PageLocatorModel(
+                "name",
+                "username",
+                0.84d,
+                "name attribute candidate",
+                true,
+                3,
+                3,
+                true,
+                1,
+                1,
+                "LoginForm"
+        );
 
         LocatorCandidate candidate = new LocatorQualityEvaluator()
                 .evaluate("https://example.test/login", username, locator);

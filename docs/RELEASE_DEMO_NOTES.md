@@ -8,15 +8,17 @@ Highlights:
 
 - typed/DAG workflow orchestration;
 - deterministic UI Page Object prompt generation;
+- `pom-contract-v1` Page Object contract planning;
+- deterministic Page Object Java writer from validated contracts;
 - mapper knowledge split into raw, curated, and prompt-ready evidence;
 - environment-based secret configuration;
 - dedicated unit-test source root: `src/test/unit/tests`;
 - API MVP with endpoint evidence, client/DTO/test specs, quality gates, and RestAssured/TestNG writer;
 - API CRUD demo mode.
 
-## UI Prompt Run
+## UI / POM Contract Demo Run
 
-Use this run when you want to inspect deterministic POM prompts and AI enrichment artifacts.
+Use this run when you want to inspect LoginPage golden-slice discovery, deterministic POM prompts, `pom-contract-v1`, AI enrichment artifacts, and deterministic Page Object Java output.
 
 ```powershell
 $env:OPENAI_API_KEY="..."
@@ -24,7 +26,7 @@ $env:TEST_VALID_USERNAME="..."
 $env:TEST_VALID_PASSWORD="..."
 $env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD="local-neo4j-password"
 
-mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-author.md"
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md"
 ```
 
 Main artifacts:
@@ -36,6 +38,12 @@ target/ai-run/enrichment/
 target/ai-run/quality/
 target/ai-run/need-review/
 ```
+
+Expected current behavior:
+
+- `LoginPage` should use confirmed username/password/login-button locators.
+- `LoginPage` should be eligible for Neo4j page knowledge cache reuse after a stable run.
+- `DashboardPage` should be discovered, but welcome/logout evidence may still appear as coverage gaps until authenticated-area evidence is strengthened.
 
 ## API CRUD Demo Run
 

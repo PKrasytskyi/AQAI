@@ -27,10 +27,16 @@ public class CanonicalOperationClassifier {
         score(scores, UiOperationKind.INSPECT_COLLECTION, text, 0.35d, "listing", "grid", "catalog", "results", "overview", "table", "collection");
         score(scores, UiOperationKind.INSPECT_ENTITY_SUMMARY, text, 0.34d, "card", "row", "record", "entry", "summary", "tile");
         score(scores, UiOperationKind.REVIEW_ENTITY_CONTENT, text, 0.34d, "information", "content", "field", "price", "name", "description");
-        score(scores, UiOperationKind.OPEN_DETAILS, text, 0.42d, "details", "detail", "view", "profile", "preview");
+        score(scores, UiOperationKind.OPEN_RECORD, text, 0.46d, "details", "detail", "view", "profile", "preview", "record");
+        score(scores, UiOperationKind.CREATE_RECORD, text, 0.46d, "create", "add", "new record", "new item");
+        score(scores, UiOperationKind.EDIT_RECORD, text, 0.46d, "edit", "update", "modify");
+        score(scores, UiOperationKind.DELETE_RECORD, text, 0.46d, "delete", "remove");
+        score(scores, UiOperationKind.OPEN_MODAL, text, 0.44d, "modal", "dialog", "popup");
+        score(scores, UiOperationKind.CONFIRM_ACTION, text, 0.44d, "confirm", "approve", "ok", "yes");
         score(scores, UiOperationKind.SEARCH, text, 0.45d, "search", "find", "lookup", "query");
         score(scores, UiOperationKind.FILTER, text, 0.42d, "filter", "refine");
-        score(scores, UiOperationKind.SORT, text, 0.42d, "sort", "order");
+        score(scores, UiOperationKind.SORT_COLLECTION, text, 0.42d, "sort", "order");
+        score(scores, UiOperationKind.PAGINATE, text, 0.42d, "paginate", "next page", "previous page", "page next", "page previous");
         score(scores, UiOperationKind.AUTHENTICATE, text, 0.48d, "login", "signin", "auth", "password", "username");
         score(scores, UiOperationKind.SUBMIT_FORM, text, 0.44d, "submit", "save", "create", "update", "send");
         score(scores, UiOperationKind.UPLOAD_FILE, text, 0.50d, "upload", "attach", "import");
@@ -47,7 +53,7 @@ public class CanonicalOperationClassifier {
             score(scores, UiOperationKind.REMOVE_ENTITY_FROM_CONTAINER, 0.70d);
         }
         if (aliasDictionary.matchesDetails(evidence)) {
-            score(scores, UiOperationKind.OPEN_DETAILS, 0.20d);
+            score(scores, UiOperationKind.OPEN_RECORD, 0.20d);
         }
         if (aliasDictionary.matchesCollection(evidence)) {
             score(scores, UiOperationKind.INSPECT_COLLECTION, 0.12d);
@@ -76,7 +82,7 @@ public class CanonicalOperationClassifier {
                 score(scores, UiOperationKind.AUTHENTICATE, 0.18d);
             }
             if (normalized.contains("/details") || normalized.contains("/item") || normalized.contains("/product")) {
-                score(scores, UiOperationKind.OPEN_DETAILS, 0.18d);
+                score(scores, UiOperationKind.OPEN_RECORD, 0.18d);
             }
             if (normalized.contains("/cart") || normalized.contains("/basket") || normalized.contains("/wishlist")) {
                 score(scores, UiOperationKind.OPEN_TARGET_CONTAINER, 0.18d);
@@ -140,7 +146,12 @@ public class CanonicalOperationClassifier {
             case INSPECT_COLLECTION -> "inspectCollection";
             case INSPECT_ENTITY_SUMMARY -> "inspectEntitySummary";
             case REVIEW_ENTITY_CONTENT, REVIEW_ITEM_CONTENT -> "reviewEntityContent";
-            case OPEN_DETAILS -> "openDetails";
+            case OPEN_RECORD, OPEN_DETAILS -> "openRecord";
+            case CREATE_RECORD -> "createRecord";
+            case EDIT_RECORD -> "editRecord";
+            case DELETE_RECORD -> "deleteRecord";
+            case OPEN_MODAL -> "openModal";
+            case CONFIRM_ACTION -> "confirmAction";
             case OPEN_TARGET_CONTAINER, OPEN_DESTINATION_CONTAINER -> "openTargetContainer";
             case ADD_ENTITY_TO_CONTAINER, ADD_ITEM_TO_CONTAINER -> "addEntityToContainer";
             case REMOVE_ENTITY_FROM_CONTAINER, REMOVE_ITEM_FROM_CONTAINER -> "removeEntityFromContainer";
@@ -148,7 +159,8 @@ public class CanonicalOperationClassifier {
             case SUBMIT_FORM -> "submitForm";
             case SEARCH -> "search";
             case FILTER -> "applyFilter";
-            case SORT -> "applySort";
+            case SORT_COLLECTION, SORT -> "sortCollection";
+            case PAGINATE -> "paginate";
             case LOGOUT -> "logout";
             case UPLOAD_FILE -> "uploadFile";
             case DOWNLOAD_FILE -> "downloadFile";

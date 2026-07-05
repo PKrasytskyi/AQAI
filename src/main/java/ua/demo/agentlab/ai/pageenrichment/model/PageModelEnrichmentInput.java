@@ -19,7 +19,11 @@ public record PageModelEnrichmentInput(
         Map<String, List<String>> postconditionsByRequirement,
         List<String> testCaseIds,
         List<String> requirementRefs,
-        List<String> preconditions
+        List<String> preconditions,
+        String capability,
+        List<String> semanticComponents,
+        List<String> runtimeEvidence,
+        List<String> knownGaps
 ) {
     public PageModelEnrichmentInput {
         pageId = safe(pageId);
@@ -38,6 +42,10 @@ public record PageModelEnrichmentInput(
         testCaseIds = copy(testCaseIds);
         requirementRefs = copy(requirementRefs);
         preconditions = copy(preconditions);
+        capability = safe(capability);
+        semanticComponents = copy(semanticComponents);
+        runtimeEvidence = copy(runtimeEvidence);
+        knownGaps = copy(knownGaps);
     }
 
     private static String safe(String value) {

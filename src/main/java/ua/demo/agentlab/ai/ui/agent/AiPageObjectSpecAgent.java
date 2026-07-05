@@ -55,7 +55,10 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.AI_PAGE_OBJECT_SPECS);
+        return Set.of(
+                WorkflowArtifact.AI_PAGE_OBJECT_SPECS,
+                WorkflowArtifact.POM_CONTRACT_SPECS
+        );
     }
 
     @Override

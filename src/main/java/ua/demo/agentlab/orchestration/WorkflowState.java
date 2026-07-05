@@ -5,6 +5,7 @@ import ua.demo.agentlab.ai.assertions.model.AssertionContract;
 import ua.demo.agentlab.ai.flow.FlowScopedKnowledgePackage;
 import ua.demo.agentlab.ai.pageenrichment.cache.PageKnowledgeCacheLookupResult;
 import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentRecord;
+import ua.demo.agentlab.ai.ui.contract.PomContractSpec;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
 import ua.demo.agentlab.ai.ui.model.AiUiTestSpec;
 import ua.demo.agentlab.config.ProjectProfile;
@@ -14,6 +15,7 @@ import ua.demo.agentlab.requirements.model.RequirementDocument;
 import ua.demo.agentlab.requirements.model.RequirementInput;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
 import ua.demo.agentlab.review.GeneratedCodeReviewReport;
+import ua.demo.agentlab.testcase.governance.RequirementGovernanceBundle;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 import ua.demo.agentlab.ui.discovery.model.UiDiscoverySnapshot;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
@@ -50,6 +52,7 @@ public class WorkflowState {
     private GeneratedCodeReviewReport generatedCodeReviewReport;
     private NormalizedRequirementBundle normalizedRequirementBundle;
     private CanonicalTestCaseBundle canonicalTestCaseBundle;
+    private RequirementGovernanceBundle requirementGovernanceBundle;
     private GenerationPolicy generationPolicy;
     private ProjectProfile projectProfile;
     private UiDiscoverySnapshot uiDiscoverySnapshot;
@@ -69,6 +72,7 @@ public class WorkflowState {
     private List<String> discoveryArtifactFiles = new ArrayList<>();
     private AiContextPackage aiContextPackage;
     private PromptUiEvidence promptUiEvidence;
+    private List<PomContractSpec> pomContractSpecs = new ArrayList<>();
     private List<AiPageObjectSpec> aiPageObjectSpecs = new ArrayList<>();
     private List<AiUiTestSpec> aiUiTestSpecs = new ArrayList<>();
     private List<String> aiArtifactFiles = new ArrayList<>();
@@ -218,6 +222,14 @@ public class WorkflowState {
 
     public void setCanonicalTestCaseBundle(CanonicalTestCaseBundle canonicalTestCaseBundle) {
         this.canonicalTestCaseBundle = canonicalTestCaseBundle;
+    }
+
+    public RequirementGovernanceBundle getRequirementGovernanceBundle() {
+        return requirementGovernanceBundle;
+    }
+
+    public void setRequirementGovernanceBundle(RequirementGovernanceBundle requirementGovernanceBundle) {
+        this.requirementGovernanceBundle = requirementGovernanceBundle;
     }
 
     public GenerationPolicy getGenerationPolicy() {
@@ -374,6 +386,14 @@ public class WorkflowState {
 
     public List<AiPageObjectSpec> getAiPageObjectSpecs() {
         return aiPageObjectSpecs;
+    }
+
+    public List<PomContractSpec> getPomContractSpecs() {
+        return pomContractSpecs;
+    }
+
+    public void setPomContractSpecs(List<PomContractSpec> pomContractSpecs) {
+        this.pomContractSpecs = pomContractSpecs == null ? new ArrayList<>() : new ArrayList<>(pomContractSpecs);
     }
 
     public void setAiPageObjectSpecs(List<AiPageObjectSpec> aiPageObjectSpecs) {

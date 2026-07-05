@@ -7,9 +7,11 @@ import java.util.List;
 
 public record UiKnowledgePersistenceOutput(
         List<PageKnowledgeWriteResult> results,
-        KnowledgeRunMetadata runMetadata
+        KnowledgeRunMetadata runMetadata,
+        String phase
 ) {
     public UiKnowledgePersistenceOutput {
         results = results == null ? List.of() : List.copyOf(results);
+        phase = phase == null || phase.isBlank() ? "unknown" : phase.trim();
     }
 }

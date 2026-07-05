@@ -26,6 +26,7 @@ import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.PageKnowledgeFingerprintCalculator;
 import ua.demo.agentlab.ui.UiTestScenario;
+import ua.demo.agentlab.ui.contract.UiOperationKind;
 
 import java.util.ArrayList;
 import java.net.URI;
@@ -365,6 +366,7 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
             PageRequirementEvidence evidence,
             String applicationHost
     ) {
+        String capability = pageCapability(page, model);
         List<String> actions = page.actions().stream()
                 .map(action -> action.actionName().isBlank() ? action.description() : action.actionName())
                 .filter(value -> value != null && !value.isBlank())
@@ -374,15 +376,104 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         List<String> forms = model == null ? List.of() : model.forms().stream()
                 .map(form -> form.formName() + " fields=" + form.fieldElementIds() + " submit=" + form.submitElementIds())
                 .toList();
-        List<String> assertions = page.assertionHints().stream().map(Object::toString).limit(5).toList();
+        List<String> assertions = page.assertionHints().stream()
+                .map(Object::toString)
+                .filter(assertion -> assertionBelongsToPage(page, assertion))
+                .limit(5)
+                .toList();
+        List<String> knownGaps = knownGaps(locators, evidence, capability);
         return new PageModelEnrichmentInput(
                 page.pageId(), page.pageName(), page.urlPattern(), page.title(),
-                model == null ? page.pageType() : model.featureGuess(),
+                capability,
                 actions, locators, forms, assertions,
                 evidence.actions(), evidence.assertions(), evidence.actionsByRequirement(),
                 evidence.postconditionsByRequirement(), evidence.testCaseIds(),
-                evidence.requirementRefs(), evidence.preconditions()
+                evidence.requirementRefs(), pagePreconditions(inputPreconditions(evidence), capability),
+                capability, semanticComponents(page, model), runtimeEvidence(page, capability), knownGaps
         );
+    }
+
+    private List<String> inputPreconditions(PageRequirementEvidence evidence) {
+        return evidence == null ? List.of() : evidence.preconditions();
+    }
+
+    private List<String> pagePreconditions(List<String> source, String capability) {
+        List<String> values = new ArrayList<>();
+        values.add("Application is available");
+        if (source != null) {
+            values.addAll(source);
+        }
+        if (isAuthenticatedCapability(capability)) {
+            values.add("User is authenticated");
+        }
+        return values.stream().filter(value -> value != null && !value.isBlank()).distinct().toList();
+    }
+
+    private List<String> knownGaps(List<String> locators, PageRequirementEvidence evidence, String capability) {
+        List<String> gaps = new ArrayList<>();
+        if (locators == null || locators.isEmpty()) {
+            gaps.add("No mapper-approved stable locator evidence for this page");
+        }
+        if (evidence == null || evidence.requirementRefs().isEmpty()) {
+            gaps.add("No page-owned requirement evidence selected for this page");
+        }
+        if (isAuthenticatedCapability(capability) && (locators == null || locators.stream()
+                .noneMatch(locator -> normalize(locator).contains("logout") || normalize(locator).contains("dashboard")))) {
+            gaps.add("Authenticated page has no confirmed dashboard/logout locator evidence");
+        }
+        return gaps.stream().distinct().toList();
+    }
+
+    private List<String> runtimeEvidence(MappedPage page, String capability) {
+        List<String> evidence = new ArrayList<>();
+        if (page != null && !page.urlPattern().isBlank()) {
+            evidence.add("ROUTE_CONFIRMED " + page.urlPattern());
+        }
+        if (isAuthenticatedCapability(capability)) {
+            evidence.add("AUTHENTICATED_PAGE_REQUIRES_LOGIN_FLOW");
+        }
+        return evidence.stream().distinct().toList();
+    }
+
+    private List<String> semanticComponents(MappedPage page, PageModel model) {
+        List<String> components = new ArrayList<>();
+        if (page != null) {
+            page.sections().stream()
+                    .map(section -> firstNonBlank(section.sectionName(), section.sectionType(), section.sectionId())
+                            + " actions=" + section.elementIds().size())
+                    .filter(value -> !value.isBlank())
+                    .limit(6)
+                    .forEach(components::add);
+        }
+        if (model != null) {
+            model.forms().stream()
+                    .map(form -> firstNonBlank(form.formName(), "FormComponent") + " actions=[SUBMIT_FORM]")
+                    .limit(3)
+                    .forEach(components::add);
+        }
+        return components.stream().filter(value -> value != null && !value.isBlank()).distinct().limit(8).toList();
+    }
+
+    private String pageCapability(MappedPage page, PageModel model) {
+        String evidence = normalize((page == null ? "" : page.pageName() + " " + page.pageType() + " " + page.urlPattern())
+                + " " + (model == null ? "" : model.featureGuess() + " " + model.title()));
+        if (evidence.contains("login") || evidence.contains("auth/login") || evidence.contains("authentication")) {
+            return "AUTHENTICATION";
+        }
+        if (evidence.contains("dashboard") || evidence.contains("secure") || evidence.contains("authenticated")) {
+            return "AUTHENTICATED_AREA";
+        }
+        if (page != null && page.canonicalPageType() != null) {
+            return page.canonicalPageType().name();
+        }
+        return firstNonBlank(page == null ? "" : page.pageType(), model == null ? "" : model.featureGuess(), "GENERIC")
+                .toUpperCase(java.util.Locale.ROOT)
+                .replace('-', '_');
+    }
+
+    private boolean isAuthenticatedCapability(String capability) {
+        String normalized = normalize(capability);
+        return normalized.contains("authenticated") || normalized.contains("dashboard") || normalized.contains("secure");
     }
 
     private List<String> selectedLocatorFacts(
@@ -517,6 +608,18 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         return value.length() > 80 ? value.substring(0, 80) : value;
     }
 
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
+    }
+
     private String applicationHost(PageModelEnrichmentInputBundle input) {
         if (input.projectProfile() == null || input.projectProfile().baseUrl() == null) {
             return "";
@@ -562,36 +665,57 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         }
         List<CanonicalTestCase> actionCases = input.canonicalTestCaseBundle().testCases().stream()
                 .filter(testCase -> ownsRequirementAction(page, testCase))
+                .filter(testCase -> ownsPrimaryActionRequirement(page, testCase))
                 .toList();
         List<CanonicalTestCase> assertionCases = input.canonicalTestCaseBundle().testCases().stream()
                 .filter(testCase -> ownsRequirementAssertion(page, testCase))
                 .toList();
-        List<CanonicalTestCase> ownedCases = java.util.stream.Stream.concat(actionCases.stream(), assertionCases.stream())
-                .collect(java.util.stream.Collectors.toMap(
-                        CanonicalTestCase::id,
-                        testCase -> testCase,
-                        (first, ignored) -> first,
-                        java.util.LinkedHashMap::new
-                ))
-                .values().stream()
+        Map<String, List<String>> actionFacts = factsByRequirement(
+                actionCases,
+                CanonicalTestCase::actions,
+                value -> actionBelongsToPage(page, value)
+        );
+        Map<String, List<String>> assertionFacts = factsByRequirement(
+                assertionCases,
+                CanonicalTestCase::assertions,
+                value -> assertionBelongsToPage(page, value)
+        );
+        Set<String> ownedRequirementIds = java.util.stream.Stream
+                .concat(actionFacts.keySet().stream(), assertionFacts.keySet().stream())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        List<String> ownedTestCaseIds = java.util.stream.Stream.concat(actionCases.stream(), assertionCases.stream())
+                .filter(testCase -> testCase.requirementRefs().stream().anyMatch(ownedRequirementIds::contains))
+                .map(CanonicalTestCase::id)
+                .distinct()
+                .toList();
+        List<String> preconditions = java.util.stream.Stream.concat(actionCases.stream(), assertionCases.stream())
+                .filter(testCase -> testCase.requirementRefs().stream().anyMatch(ownedRequirementIds::contains))
+                .map(CanonicalTestCase::precondition)
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
                 .toList();
         return new PageRequirementEvidence(
-                factsByRequirement(actionCases, CanonicalTestCase::actions),
-                factsByRequirement(assertionCases, CanonicalTestCase::assertions),
-                ownedCases.stream().map(CanonicalTestCase::id).toList(),
-                ownedCases.stream().flatMap(testCase -> testCase.requirementRefs().stream()).distinct().toList(),
-                ownedCases.stream().map(CanonicalTestCase::precondition)
-                        .filter(value -> value != null && !value.isBlank()).distinct().toList()
+                actionFacts,
+                assertionFacts,
+                ownedTestCaseIds,
+                List.copyOf(ownedRequirementIds),
+                preconditions
         );
     }
 
     private Map<String, List<String>> factsByRequirement(
             List<CanonicalTestCase> testCases,
-            java.util.function.Function<CanonicalTestCase, List<String>> factsExtractor
+            java.util.function.Function<CanonicalTestCase, List<String>> factsExtractor,
+            java.util.function.Predicate<String> factFilter
     ) {
         Map<String, List<String>> facts = new java.util.LinkedHashMap<>();
         for (CanonicalTestCase testCase : testCases) {
-            List<String> values = factsExtractor.apply(testCase);
+            List<String> values = factsExtractor.apply(testCase).stream()
+                    .filter(value -> factFilter == null || factFilter.test(value))
+                    .toList();
+            if (values.isEmpty()) {
+                continue;
+            }
             for (String requirementId : testCase.requirementRefs()) {
                 facts.merge(requirementId, values, (current, incoming) -> java.util.stream.Stream
                         .concat(current.stream(), incoming.stream())
@@ -603,8 +727,83 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         return Map.copyOf(facts);
     }
 
+    private boolean actionBelongsToPage(MappedPage page, String action) {
+        if (page == null || action == null || action.isBlank()) {
+            return false;
+        }
+        String normalized = normalize(action);
+        String capability = pageCapability(page, null);
+        if ("AUTHENTICATION".equals(capability)) {
+            return containsAny(normalized, "username", "password", "credential", "login", "submit", "auth");
+        }
+        if (isAuthenticatedCapability(capability)) {
+            return containsAny(normalized, "dashboard", "authenticated", "logout", "welcome", "user menu", "navigation");
+        }
+        return routeOrPageMentioned(page, normalized) || !containsAny(normalized, "username", "password", "login", "logout");
+    }
+
+    private boolean assertionBelongsToPage(MappedPage page, String assertion) {
+        if (page == null || assertion == null || assertion.isBlank()) {
+            return false;
+        }
+        String normalized = normalize(assertion);
+        String route = normalize(page.urlPattern());
+        String capability = pageCapability(page, null);
+        if (!route.isBlank() && normalized.contains(route)) {
+            return true;
+        }
+        if ("AUTHENTICATION".equals(capability)) {
+            return containsAny(normalized, "username", "password", "login button", "login page", "login route", "auth/login")
+                    && !containsAny(normalized, "dashboard", "authenticated area", "logout", "welcome");
+        }
+        if (isAuthenticatedCapability(capability)) {
+            return containsAny(normalized, "dashboard", "authenticated area", "authenticated route", "logout", "welcome", "successful login")
+                    && !containsAny(normalized, "username field", "password field", "login button", "login page route", "/auth/login");
+        }
+        return routeOrPageMentioned(page, normalized);
+    }
+
+    private boolean routeOrPageMentioned(MappedPage page, String normalizedText) {
+        String route = normalize(page.urlPattern());
+        String pageName = normalize(page.pageName()).replace("page", "").trim();
+        return (!route.isBlank() && normalizedText.contains(route))
+                || (!pageName.isBlank() && normalizedText.contains(pageName));
+    }
+
+    private boolean containsAny(String value, String... needles) {
+        String normalized = normalize(value);
+        for (String needle : needles) {
+            if (!normalize(needle).isBlank() && normalized.contains(normalize(needle))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean ownsRequirementAction(MappedPage page, CanonicalTestCase testCase) {
         return matchesOwnedPage(page, testCase.sourcePageName(), testCase.sourceRoute());
+    }
+
+    private boolean ownsPrimaryActionRequirement(MappedPage page, CanonicalTestCase testCase) {
+        if (matchesOwnedPage(page, testCase.pageName(), testCase.route())) {
+            return true;
+        }
+        String capability = pageCapability(page, null);
+        if (!"AUTHENTICATION".equals(capability)) {
+            return false;
+        }
+        String text = normalize(testCase.title() + " "
+                + String.join(" ", testCase.actions()) + " "
+                + String.join(" ", testCase.assertions()));
+        if (containsAny(text, "authenticated area route", "welcome message", "logout action is visible",
+                "authenticated route matches", "authenticated area displays")) {
+            return false;
+        }
+        boolean hasLoginOperation = testCase.operationIntents().stream()
+                .anyMatch(intent -> intent.kind() == UiOperationKind.AUTHENTICATE
+                        || intent.kind() == UiOperationKind.SUBMIT_FORM);
+        return hasLoginOperation && containsAny(text, "valid credentials", "redirected", "submit the login form",
+                "submit the target form", "login form");
     }
 
     private boolean ownsRequirementAssertion(MappedPage page, CanonicalTestCase testCase) {

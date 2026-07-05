@@ -14,6 +14,10 @@ import ua.demo.agentlab.ui.discovery.mapping.RuleBasedPageMapper;
 import ua.demo.agentlab.ui.discovery.pagemodel.PageModelArtifactWriter;
 import ua.demo.agentlab.ui.discovery.pagemodel.PageModelBuilder;
 import ua.demo.agentlab.ui.discovery.persistence.LocalDiscoveryArtifactWriter;
+import ua.demo.agentlab.ui.discovery.runtime.RuntimeEvidenceArtifactWriter;
+import ua.demo.agentlab.ui.discovery.runtime.RuntimeEvidenceCollectorFactory;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiDiscoveryConfig;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiEventBuffer;
 import ua.demo.agentlab.ui.flow.RuleBasedCanonicalPageFlowMapper;
 
 public class DiscoveryModuleFactory {
@@ -35,16 +39,21 @@ public class DiscoveryModuleFactory {
         if (projectProfile == null) {
             throw new IllegalArgumentException("projectProfile cannot be null");
         }
+        BiDiDiscoveryConfig biDiConfig = BiDiDiscoveryConfig.fromRuntime();
+        BiDiEventBuffer biDiEventBuffer = new BiDiEventBuffer(biDiConfig.maxBufferedEvents());
         return new DiscoveryModule(
                 new UiDiscoveryAgent(
                         new CompositeUiDiscoveryService(
                                 new RuleBasedUiDiscoveryService(),
-                                seleniumDiscoveryServiceFactory.create(projectProfile),
+                                seleniumDiscoveryServiceFactory.create(projectProfile, biDiEventBuffer),
                                 new UiDiscoveryEnricher(new RuleBasedPageClassificationService())
                         ),
                         new RuleBasedCanonicalPageFlowMapper()
                 ),
-                new UiRuntimeEvidenceAgent(),
+                new UiRuntimeEvidenceAgent(
+                        RuntimeEvidenceCollectorFactory.fromRuntime(biDiEventBuffer),
+                        new RuntimeEvidenceArtifactWriter()
+                ),
                 new UiDiscoveryArtifactPersistenceAgent(new LocalDiscoveryArtifactWriter()),
                 new UiPageModelAgent(new PageModelBuilder(), new PageModelArtifactWriter()),
                 new UiPageMappingAgent(new RuleBasedPageMapper())

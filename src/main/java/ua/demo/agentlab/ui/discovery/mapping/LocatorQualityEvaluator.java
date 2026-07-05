@@ -3,6 +3,7 @@ package ua.demo.agentlab.ui.discovery.mapping;
 import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageElementModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageLocatorModel;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceClassifier;
 
 import java.util.List;
 import java.util.Locale;
@@ -12,9 +13,11 @@ public class LocatorQualityEvaluator {
     private final LocatorOriginResolver originResolver;
     private final LocatorStabilityTracker stabilityTracker;
     private final LocatorRiskClassifier riskClassifier;
+    private final LocatorEvidenceClassifier evidenceClassifier;
 
     public LocatorQualityEvaluator() {
-        this(new LocatorOriginResolver(), new LocatorStabilityTracker(), new LocatorRiskClassifier());
+        this(new LocatorOriginResolver(), new LocatorStabilityTracker(), new LocatorRiskClassifier(),
+                new LocatorEvidenceClassifier());
     }
 
     public LocatorQualityEvaluator(
@@ -22,9 +25,19 @@ public class LocatorQualityEvaluator {
             LocatorStabilityTracker stabilityTracker,
             LocatorRiskClassifier riskClassifier
     ) {
+        this(originResolver, stabilityTracker, riskClassifier, new LocatorEvidenceClassifier());
+    }
+
+    public LocatorQualityEvaluator(
+            LocatorOriginResolver originResolver,
+            LocatorStabilityTracker stabilityTracker,
+            LocatorRiskClassifier riskClassifier,
+            LocatorEvidenceClassifier evidenceClassifier
+    ) {
         this.originResolver = originResolver == null ? new LocatorOriginResolver() : originResolver;
         this.stabilityTracker = stabilityTracker == null ? new LocatorStabilityTracker() : stabilityTracker;
         this.riskClassifier = riskClassifier == null ? new LocatorRiskClassifier() : riskClassifier;
+        this.evidenceClassifier = evidenceClassifier == null ? new LocatorEvidenceClassifier() : evidenceClassifier;
     }
 
     public LocatorCandidate evaluate(String pageUrl, PageElementModel element, PageLocatorModel locator) {
@@ -34,7 +47,7 @@ public class LocatorQualityEvaluator {
         boolean stableAcrossRuns = stabilityTracker.stableAcrossRuns(locator, element);
         List<String> risks = riskClassifier.classify(locator, element, origin, uniqueOnPage, stableAcrossRuns);
         double score = score(strategy, locator, element, origin, uniqueOnPage, stableAcrossRuns, risks);
-        return new LocatorCandidate(
+        LocatorCandidate candidate = new LocatorCandidate(
                 strategy,
                 locator == null ? "" : locator.value(),
                 score,
@@ -48,6 +61,22 @@ public class LocatorQualityEvaluator {
                 uniqueOnPage,
                 stableAcrossRuns,
                 risks
+        );
+        return new LocatorCandidate(
+                candidate.strategy(),
+                candidate.value(),
+                candidate.stabilityScore(),
+                candidate.evidenceSource(),
+                candidate.elementRole(),
+                candidate.accessibleName(),
+                candidate.visibleText(),
+                candidate.href(),
+                candidate.originHost(),
+                candidate.sameOrigin(),
+                candidate.uniqueOnPage(),
+                candidate.stableAcrossRuns(),
+                candidate.risks(),
+                evidenceClassifier.classify(candidate)
         );
     }
 
@@ -82,6 +111,8 @@ public class LocatorQualityEvaluator {
         } else if (strategy == LocatorStrategy.CSS && normalized.contains("[type='submit']")
                 && isSubmitControl(element)) {
             base = 0.78d;
+        } else if (strategy == LocatorStrategy.CSS && sameOriginRouteHref(normalized, element, origin)) {
+            base = 0.78d;
         } else if (strategy == LocatorStrategy.CSS && shortStableCss(normalized)) {
             base = 0.60d;
         } else if (strategy == LocatorStrategy.XPATH && risks.contains("external-link-text-xpath")) {
@@ -102,6 +133,9 @@ public class LocatorQualityEvaluator {
         }
         if (risks.contains("hidden-or-invisible-element") || risks.contains("security-token-field")) {
             base = Math.min(base, 0.05d);
+        }
+        if (locator != null && (locator.browserMatchCount() < 0 || locator.browserScopedMatchCount() < 0)) {
+            base = Math.min(base, 0.69d);
         }
         if (risks.contains("generated-locator-token")) {
             base = Math.min(base, 0.35d);
@@ -176,6 +210,20 @@ public class LocatorQualityEvaluator {
                 + safe(element == null ? "" : element.tag()) + " "
                 + safe(element == null ? "" : element.inputType());
         return containsAny(text.toLowerCase(Locale.ROOT), "button", "submit", "input");
+    }
+
+    private boolean sameOriginRouteHref(
+            String locatorValue,
+            PageElementModel element,
+            LocatorOriginResolver.LocatorOrigin origin
+    ) {
+        String href = safe(element == null ? "" : element.href()).toLowerCase(Locale.ROOT);
+        String type = safe(element == null ? "" : element.technicalType()).toLowerCase(Locale.ROOT);
+        return locatorValue.contains("[href=")
+                && origin != null
+                && origin.sameOrigin()
+                && type.contains("link")
+                && (href.startsWith("/") || href.startsWith("./") || href.startsWith("../"));
     }
 
     private boolean containsAny(String text, String... fragments) {

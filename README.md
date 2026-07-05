@@ -12,7 +12,7 @@ The project reads requirements, discovers UI pages, maps page capabilities, enri
 - Scores locator quality and rejects weak or unsafe locator evidence.
 - Persists page knowledge into Neo4j and Qdrant when enabled.
 - Uses AI as an enrichment and prompt-assist layer, not as the source of truth.
-- Produces deterministic Page Object contract prompts for review.
+- Produces deterministic Page Object contract prompts and validated POM contracts for review.
 - Separates unresolved expected results into `target/ai-run/need-review`.
 - Generates run quality summaries and artifact diffs between runs.
 
@@ -28,7 +28,9 @@ RequirementDocument
   -> Expected Result Enrichment
   -> PageModel Enrichment
   -> AiContextPackage
-  -> Deterministic Page Object Contract Prompts
+  -> POM Contract Prompts
+  -> pom-contract-v1 Validation
+  -> Deterministic Page Object Java Writer
   -> Quality Summary / Artifact Diff
 ```
 
@@ -151,16 +153,18 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java
 Run with a requirement file:
 
 ```powershell
-mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=requirements/medium-50-requirements.md"
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=requirements/valid-login-requirement.md"
 ```
 
 AI enrichment / prompt-review run:
 
 ```powershell
-mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/medium-50-requirements.md"
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md"
 ```
 
-Current AI mode records deterministic POM contract prompts and enrichment artifacts. Page Object Java bodies are not written by the LLM; the platform owns Java generation through typed contracts and deterministic writers.
+Current AI mode records deterministic POM contract prompts and enrichment artifacts. When `ai.page-object.llm.enabled=true`, the LLM returns only `pom-contract-v1` JSON. It does not write Java bodies. Java Page Objects are produced by `DeterministicPomJavaWriter` from the validated contract.
+
+The current golden UI slice is `requirements/valid-login-requirement.md`: LoginPage discovery, confirmed username/password/login-button locators, Neo4j/Qdrant knowledge use, `pom-contract-v1`, and deterministic LoginPage POM generation. DashboardPage is discovered and prompted, but authenticated-area welcome/logout evidence is still a known improvement area.
 
 POM prompts are compact by default: they contain the page capability contract, page-owned required actions/assertions, allowed locators, baseline API signatures, and the `pom-contract-v1` output schema. Full diagnostic prompt evidence can be enabled with `-Dai.page-object.prompt.mode=debug` or `-Dai.prompt.debug=true`.
 
@@ -196,6 +200,7 @@ target/discovery/
 Key files:
 
 - `target/ai-run/page-object-spec/*-prompt.txt` - deterministic `pom-contract-v1` POM prompts.
+- `target/ai-run/page-object-spec/*-pom-contract.json` - validated POM contracts returned by the LLM when POM LLM mode is enabled.
 - `target/ai-run/page-object-spec/*-scope-trace.json` - page scope evidence.
 - `target/ai-run/expectations/test-case-expected-results.json` - resolved expected results.
 - `target/ai-run/need-review/expected-results-needs-review.json` - unresolved expected results for review.

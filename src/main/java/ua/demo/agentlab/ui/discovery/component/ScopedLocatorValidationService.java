@@ -1,6 +1,7 @@
 package ua.demo.agentlab.ui.discovery.component;
 
 import ua.demo.agentlab.ui.discovery.component.model.ScopedLocatorCandidate;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceClassifier;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageElementModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageLocatorModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModel;
@@ -13,6 +14,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class ScopedLocatorValidationService {
+
+    private final LocatorEvidenceClassifier evidenceClassifier = new LocatorEvidenceClassifier();
 
     public List<ScopedLocatorCandidate> validate(
             PageModel page,
@@ -74,10 +77,16 @@ public class ScopedLocatorValidationService {
         if (!locator.stableAcrossRuns()) {
             finalScore -= 0.10d;
         }
+        if (risks.contains("browser-global-count-missing") || risks.contains("browser-scoped-count-missing")) {
+            finalScore = Math.min(finalScore, 0.69d);
+        }
+        if (risks.contains("hidden-or-invisible-element") || risks.contains("security-token-field")) {
+            finalScore = Math.min(finalScore, 0.05d);
+        }
         if (hasForbiddenSpaRisk(risks)) {
             finalScore = Math.min(finalScore, 0.40d);
         }
-        return new ScopedLocatorCandidate(
+        ScopedLocatorCandidate candidate = new ScopedLocatorCandidate(
                 page.pageId(),
                 componentId,
                 element.elementId(),
@@ -93,6 +102,24 @@ public class ScopedLocatorValidationService {
                 semanticScore,
                 finalScore,
                 risks
+        );
+        return new ScopedLocatorCandidate(
+                candidate.pageId(),
+                candidate.componentId(),
+                candidate.elementId(),
+                candidate.strategy(),
+                candidate.value(),
+                candidate.globalMatchCount(),
+                candidate.scopedMatchCount(),
+                candidate.uniqueOnPage(),
+                candidate.uniqueWithinComponent(),
+                candidate.uniquenessScore(),
+                candidate.stabilityScore(),
+                candidate.readabilityScore(),
+                candidate.semanticScore(),
+                candidate.finalScore(),
+                candidate.risks(),
+                evidenceClassifier.classify(candidate)
         );
     }
 
@@ -177,6 +204,14 @@ public class ScopedLocatorValidationService {
         if (locator.browserScopedMatchCount() < 0) {
             risks.add("browser-scoped-count-missing");
         }
+        if (!element.visible() || "hidden".equalsIgnoreCase(element.inputType())
+                || element.attributes().containsKey("hidden")
+                || "true".equalsIgnoreCase(element.attributes().get("aria-hidden"))) {
+            risks.add("hidden-or-invisible-element");
+        }
+        if (containsAny(normalized + " " + evidence(element), "_token", "csrf", "xsrf", "authenticity_token")) {
+            risks.add("security-token-field");
+        }
         if (dynamicCssHash(normalized)) {
             risks.add("dynamic-css-hash");
         }
@@ -195,6 +230,22 @@ public class ScopedLocatorValidationService {
             risks.add("text-only-duplicate-risk");
         }
         return risks.stream().distinct().toList();
+    }
+
+    private String evidence(PageElementModel element) {
+        return String.join(" ",
+                safe(element.elementId()),
+                safe(element.technicalType()),
+                safe(element.semanticType()),
+                safe(element.tag()),
+                safe(element.inputType()),
+                safe(element.name()),
+                safe(element.id()),
+                safe(element.placeholder()),
+                safe(element.ariaLabel()),
+                safe(element.role()),
+                safe(element.text()),
+                String.join(" ", element.attributes().values()));
     }
 
     private boolean hasForbiddenSpaRisk(List<String> risks) {

@@ -45,6 +45,7 @@ public class AiPromptWorkflowFactory {
                 ai.flowScopedKnowledgeRefreshAgent(),
                 ai.aiContextAssemblyAgent(),
                 ai.aiPageObjectSpecAgent(),
+                ai.pomContractPageObjectWriterAgent(),
                 core.filePersistenceAgent()
         );
         return new WorkflowDefinition(initialState, agents);

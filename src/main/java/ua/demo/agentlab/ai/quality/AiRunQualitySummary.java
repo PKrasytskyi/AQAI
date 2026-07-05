@@ -12,6 +12,9 @@ public record AiRunQualitySummary(
         int routeCollisions,
         int externalEvidenceRejected,
         int lowConfidenceLocators,
+        int confirmedLocators,
+        int candidateLocators,
+        int fallbackLocators,
         int promptBlockingIssues,
         double averageLocatorScore,
         int qualityScore
@@ -28,6 +31,9 @@ public record AiRunQualitySummary(
         routeCollisions = Math.max(0, routeCollisions);
         externalEvidenceRejected = Math.max(0, externalEvidenceRejected);
         lowConfidenceLocators = Math.max(0, lowConfidenceLocators);
+        confirmedLocators = Math.max(0, confirmedLocators);
+        candidateLocators = Math.max(0, candidateLocators);
+        fallbackLocators = Math.max(0, fallbackLocators);
         promptBlockingIssues = Math.max(0, promptBlockingIssues);
         averageLocatorScore = Double.isFinite(averageLocatorScore)
                 ? Math.max(0.0d, Math.min(1.0d, averageLocatorScore))

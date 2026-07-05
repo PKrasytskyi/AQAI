@@ -4,6 +4,7 @@ import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedAction;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedElement;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
+import ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -93,13 +94,38 @@ public class InteractionEvidenceExtractor {
         if (text == null || text.isBlank()) {
             return;
         }
+        if (looksLikeDirectRoute(text)) {
+            String canonical = RouteCanonicalizer.canonicalize(text);
+            if (validExtractedRoute(canonical)) {
+                routes.add(canonical);
+            }
+        }
         Matcher matcher = ROUTE_PATTERN.matcher(text);
         while (matcher.find()) {
-            String route = matcher.group();
-            if (route.length() > 1) {
+            String route = RouteCanonicalizer.canonicalize(matcher.group());
+            if (validExtractedRoute(route)) {
                 routes.add(route);
             }
         }
+    }
+
+    private boolean validExtractedRoute(String route) {
+        if (route == null || route.isBlank() || "/".equals(route)) {
+            return false;
+        }
+        String normalized = route.toLowerCase(Locale.ROOT);
+        return !normalized.contains(" ")
+                && !normalized.startsWith("//")
+                && !normalized.contains(".com")
+                && !normalized.contains(".org")
+                && !normalized.contains(".net");
+    }
+
+    private boolean looksLikeDirectRoute(String text) {
+        String normalized = text.trim().toLowerCase(Locale.ROOT);
+        return normalized.startsWith("http://")
+                || normalized.startsWith("https://")
+                || normalized.startsWith("/");
     }
 
     private void addTokens(Set<String> tokens, String text) {

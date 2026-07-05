@@ -3,6 +3,7 @@ package ua.demo.agentlab.ai.ui.prompt.quality;
 import ua.demo.agentlab.ai.context.AiContextPackage;
 import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentRecord;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 import ua.demo.agentlab.ui.UiTestScenario;
 import ua.demo.agentlab.ui.discovery.identity.PageReferenceMatcher;
 
@@ -73,11 +74,12 @@ public class PromptQualityLinter {
                         safePrompt,
                         "Baseline page object spec:",
                         "Baseline page object API:",
+                        "Baseline API signatures (naming hints only):",
                         "Available inherited public BasePage methods"
                 ),
                 "BASELINE_API_PRESENT", "Prompt must include baseline API or inherited BasePage API", "baseline/BasePage API");
 
-        forbid(issues, EXTERNAL_LOCATOR, safePrompt,
+        forbid(issues, EXTERNAL_LOCATOR, allowedLocatorEvidence(safePrompt, baselineSpec),
                 "NO_EXTERNAL_ORIGIN_NAVIGATION", "Prompt must not include external-origin locator/navigation evidence");
         forbid(issues, RAW_WEBDRIVER_USAGE, safePrompt,
                 "NO_RAW_WEBDRIVER_USAGE", "Prompt must not include raw WebDriver usage");
@@ -90,6 +92,7 @@ public class PromptQualityLinter {
 
         issues.addAll(validateContext(targetPage, targetRoute, scopedContext));
         issues.addAll(validatePromptEvidence(scopedContext));
+        issues.addAll(validatePromptContractConsistency(safePrompt, targetPage));
 
         return new PromptQualityReport(
                 "page-object-spec",
@@ -122,8 +125,91 @@ public class PromptQualityLinter {
                         locator.elementName() + " score=" + locator.stabilityScore()
                 ));
             }
+            if (locator.evidenceType() != LocatorEvidenceType.CONFIRMED_LOCATOR) {
+                issues.add(new PromptQualityIssue(
+                        PromptQualitySeverity.BLOCKER,
+                        "ONLY_CONFIRMED_PROMPT_LOCATORS",
+                        "PromptUiEvidence allowed locators must be confirmed locator evidence",
+                        locator.elementName() + " evidenceType=" + locator.evidenceType()
+                ));
+            }
         });
         return issues;
+    }
+
+    private List<PromptQualityIssue> validatePromptContractConsistency(String prompt, String targetPage) {
+        List<PromptQualityIssue> issues = new ArrayList<>();
+        String safePrompt = prompt == null ? "" : prompt;
+        String lower = safePrompt.toLowerCase();
+        String pageOwnedAssertions = section(
+                safePrompt,
+                "Page-owned assertions:",
+                "Allowed locators:",
+                "Baseline API signatures",
+                "# Output Schema"
+        ).toLowerCase();
+        if (lower.contains("ownedactions=[")
+                && lower.contains("login(string username, string password)")
+                && lower.contains("page-owned actions:")
+                && (lower.contains("page-owned actions:\r\n- none")
+                || lower.contains("page-owned actions:\n- none"))) {
+            issues.add(new PromptQualityIssue(
+                    PromptQualitySeverity.BLOCKER,
+                    "NO_OWNED_ACTION_CONTRACT_CONFLICT",
+                    "Page capability contract and Required POM contract must not disagree about owned actions",
+                    "ownedActions contains login but Page-owned actions is none"
+            ));
+        }
+        if (isLoginPage(targetPage) && !pageOwnedAssertions.isBlank()) {
+            if (pageOwnedAssertions.contains("text_visible | expectedvalue=login page route contains")
+                    || pageOwnedAssertions.contains("text_visible | expectedvalue=username field is visible")
+                    || pageOwnedAssertions.contains("text_visible | expectedvalue=password field is visible")) {
+                issues.add(new PromptQualityIssue(
+                        PromptQualitySeverity.BLOCKER,
+                        "NO_REQUIREMENT_SENTENCE_TEXT_ASSERTIONS",
+                        "Requirement sentences must be normalized to typed assertions before prompt generation",
+                        "LoginPage contains requirement prose as TEXT_VISIBLE"
+                ));
+            }
+            if (pageOwnedAssertions.contains("logged with valid credentials")
+                    || pageOwnedAssertions.contains("authenticated area route")
+                    || pageOwnedAssertions.contains("logout action is visible")) {
+                issues.add(new PromptQualityIssue(
+                        PromptQualitySeverity.BLOCKER,
+                        "NO_CROSS_PAGE_LOGIN_ASSERTIONS",
+                        "Post-login assertions belong to the authenticated area page, not LoginPage",
+                        "LoginPage prompt contains authenticated-area assertion"
+                ));
+            }
+        }
+        return issues;
+    }
+
+    private String section(String prompt, String startMarker, String... endMarkers) {
+        if (prompt == null || prompt.isBlank() || startMarker == null || startMarker.isBlank()) {
+            return "";
+        }
+        String lower = prompt.toLowerCase();
+        int start = lower.indexOf(startMarker.toLowerCase());
+        if (start < 0) {
+            return "";
+        }
+        int contentStart = start + startMarker.length();
+        int end = prompt.length();
+        for (String marker : endMarkers) {
+            if (marker == null || marker.isBlank()) {
+                continue;
+            }
+            int candidate = lower.indexOf(marker.toLowerCase(), contentStart);
+            if (candidate >= 0 && candidate < end) {
+                end = candidate;
+            }
+        }
+        return prompt.substring(contentStart, end);
+    }
+
+    private boolean isLoginPage(String pageName) {
+        return pageName != null && pageName.toLowerCase().contains("login");
     }
 
     private List<PromptQualityIssue> validateContext(String targetPage, String targetRoute, AiContextPackage scopedContext) {

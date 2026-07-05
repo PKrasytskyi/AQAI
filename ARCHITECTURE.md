@@ -24,6 +24,8 @@ flowchart TD
     F --> I["AiContextPackage"]
     H --> I
     I --> J["Deterministic POM prompts"]
+    J --> M["pom-contract-v1"]
+    M --> N["Deterministic POM Java"]
     D --> K["Debug artifacts"]
     E --> L["Neo4j / Qdrant"]
 ```
@@ -86,14 +88,15 @@ Page names are a consequence of route, capability, and evidence. Generic names s
 
 AI is used as enrichment and prompt-assist, not as the source of truth.
 
-Current AI prompt mode:
+Current AI contract mode:
 
 - enriches expected-result and PageModel metadata;
 - builds deterministic POM prompts;
+- accepts only typed `pom-contract-v1` JSON from the LLM;
+- writes Page Object Java through `DeterministicPomJavaWriter`;
 - writes prompt/context/quality artifacts;
-- stops before writing Java source from LLM output.
 
-LLM-backed Java generation remains disabled until schema validation, compile gate, review gate, and controlled source persistence are consistently green.
+Direct LLM-backed Java generation remains disabled. LLMs may plan typed contracts, but Java source is owned by deterministic writers and quality gates.
 
 ## API Layer
 
@@ -153,7 +156,7 @@ Do not add new platform implementation code to root packages.
 Current unit tests live in:
 
 ```text
-src/test/ua.demo.agentlab/unity
+src/test/unit/tests
 ```
 
 `src/test/java` is reserved for future integration tests and generated-test compile fixtures.

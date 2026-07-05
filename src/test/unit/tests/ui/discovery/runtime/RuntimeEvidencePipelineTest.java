@@ -13,6 +13,8 @@ import ua.demo.agentlab.ui.discovery.runtime.NetworkSemanticEnricher;
 import ua.demo.agentlab.ui.discovery.runtime.RuntimeEvidencePageModelMerger;
 import ua.demo.agentlab.ui.discovery.runtime.SeleniumLogRuntimeEvidenceCollector;
 import ua.demo.agentlab.ui.discovery.runtime.SpaStateTransitionDetector;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiEventNormalizer;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiRuntimeEvent;
 import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackAnalyzer;
 import ua.demo.agentlab.ui.discovery.runtime.model.NavigationEvent;
 import ua.demo.agentlab.ui.discovery.runtime.model.NetworkResponseEvent;
@@ -88,6 +90,53 @@ public class RuntimeEvidencePipelineTest {
         Assert.assertEquals(bundle.semanticNetworkEvidence().size(), 1);
         Assert.assertEquals(bundle.stateTransitions().size(), 1);
         Assert.assertTrue(bundle.sourceTrace().stream().anyMatch(trace -> trace.contains("selenium-log-runtime-evidence")));
+    }
+
+    @Test
+    public void bidiNormalizerBuildsRuntimeEvidenceFromLiveBufferedEvents() {
+        List<BiDiRuntimeEvent> events = List.of(
+                new BiDiRuntimeEvent(
+                        "network.requestWillBeSent",
+                        "auth-login",
+                        "https://app.test/auth/login",
+                        Map.of("method", "POST", "url", "https://app.test/api/login", "resourceType", "xhr"),
+                        1L
+                ),
+                new BiDiRuntimeEvent(
+                        "network.responseCompleted",
+                        "auth-login",
+                        "https://app.test/auth/login",
+                        Map.of("method", "POST", "url", "https://app.test/api/login", "status", "200", "resourceType", "xhr"),
+                        2L
+                ),
+                new BiDiRuntimeEvent(
+                        "browsingContext.navigationStarted",
+                        "dashboard-index",
+                        "https://app.test/dashboard/index",
+                        Map.of(
+                                "fromUrl", "https://app.test/auth/login",
+                                "url", "https://app.test/dashboard/index",
+                                "trigger", "history.pushState"
+                        ),
+                        3L
+                ),
+                new BiDiRuntimeEvent(
+                        "dom.mutation",
+                        "dashboard-index",
+                        "https://app.test/dashboard/index",
+                        Map.of("mutationType", "childListOrAttributes", "target", "document", "count", "4"),
+                        4L
+                )
+        );
+
+        RuntimeEvidenceBundle bundle = new BiDiEventNormalizer().normalize(events);
+
+        Assert.assertEquals(bundle.networkRequests().size(), 1);
+        Assert.assertEquals(bundle.networkResponses().size(), 1);
+        Assert.assertEquals(bundle.navigationEvents().size(), 1);
+        Assert.assertEquals(bundle.domMutations().size(), 1);
+        Assert.assertEquals(bundle.stateTransitions().size(), 1);
+        Assert.assertEquals(bundle.stateTransitions().get(0).transitionType(), "SPA_ROUTE_CHANGE");
     }
 
     @Test

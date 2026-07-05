@@ -9,8 +9,8 @@ public class SeleniumTemplateRegistry {
         validatePolicy(policy);
 
         String supportPackage = "ua.demo.agentlab.core.ui";
-        String generatedPagesPackage = "ua.demo.agentlab.ui.generated.pages";
-        String generatedTestPackage = "ua.demo.agentlab.ui.generated.tests";
+        String generatedPagesPackage = "pages";
+        String generatedTestPackage = "tests.ui";
 
         return new SeleniumTemplateBundle(
                 "selenium-default-bundle",

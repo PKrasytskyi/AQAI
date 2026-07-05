@@ -43,6 +43,7 @@ public class PageKnowledgeArtifactBuilder {
                             Map.of(
                                     "value", locator.value(),
                                     "stabilityScore", String.valueOf(locator.stabilityScore()),
+                                    "evidenceType", locator.evidenceType().name(),
                                     "sameOrigin", String.valueOf(locator.sameOrigin()),
                                     "originHost", locator.originHost(),
                                     "risks", String.join(",", locator.risks())
@@ -135,6 +136,10 @@ public class PageKnowledgeArtifactBuilder {
                         element.elementId(),
                         "Element " + element.semanticName() + " type=" + element.elementType()
                                 + " text=" + element.text()
+                                + " locatorEvidence=" + element.locatorCandidates().stream()
+                                .map(locator -> locator.evidenceType().name())
+                                .distinct()
+                                .collect(Collectors.joining(", "))
                                 + " actions=" + String.join(", ", element.supportedActions()),
                         keywords(page.pageName(), element.semanticName(), element.elementType(), element.text())
                 ));

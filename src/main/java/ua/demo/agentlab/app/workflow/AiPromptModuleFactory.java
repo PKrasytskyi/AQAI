@@ -22,7 +22,11 @@ import ua.demo.agentlab.ai.rag.config.PropertiesRagRuntimeConfig;
 import ua.demo.agentlab.ai.rag.config.RagRuntimeConfig;
 import ua.demo.agentlab.ai.ui.agent.AiContextAssemblyAgent;
 import ua.demo.agentlab.ai.ui.agent.AiPageObjectSpecAgent;
+import ua.demo.agentlab.ai.ui.agent.AiUiTestSpecAgent;
+import ua.demo.agentlab.ai.ui.agent.PomContractPageObjectWriterAgent;
+import ua.demo.agentlab.ai.ui.contract.DeterministicPomJavaWriter;
 import ua.demo.agentlab.ai.ui.generation.AiPageObjectSpecGenerator;
+import ua.demo.agentlab.ai.ui.generation.AiUiTestSpecGenerator;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesKnowledgeVectorRuntimeConfig;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4jRuntimeConfig;
@@ -53,9 +57,13 @@ public class AiPromptModuleFactory {
                 flowScopedKnowledgeRefreshAgent(core, uiKnowledgeRetrievalService),
                 new AiContextAssemblyAgent(aiContextAssembler),
                 new AiPageObjectSpecAgent(
-                        new AiPageObjectSpecGenerator(openAiRuntimeConfig),
+                        new AiPageObjectSpecGenerator(openAiRuntimeConfig, core.seleniumWriter().pagePackage()),
                         currentState -> core.seleniumWriter().buildAiBaselinePageObjectSpecs(currentState.getUiTestPlan())
-                )
+                ),
+                new PomContractPageObjectWriterAgent(new DeterministicPomJavaWriter(
+                        core.seleniumWriter().pagePackage()
+                )),
+                new AiUiTestSpecAgent(new AiUiTestSpecGenerator(openAiRuntimeConfig))
         );
     }
 

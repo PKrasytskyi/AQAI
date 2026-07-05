@@ -19,6 +19,8 @@ import ua.demo.agentlab.policy.model.GenerationPolicy;
 import ua.demo.agentlab.review.GeneratedCodeReviewReport;
 import ua.demo.agentlab.requirements.model.RequirementDocument;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
+import ua.demo.agentlab.testcase.agent.RequirementToTestCaseOutput;
+import ua.demo.agentlab.testcase.governance.RequirementGovernanceBundle;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 import ua.demo.agentlab.ui.discovery.agent.UiPageMappingOutput;
 import ua.demo.agentlab.ui.discovery.agent.UiDiscoveryOutput;
@@ -183,6 +185,49 @@ public class StageOutputPublisher {
         addFinding(state, "Canonical test case bundle created with " + bundle.testCases().size() + " test case(s)");
     }
 
+    public void publishRequirementToTestCaseOutput(RequirementToTestCaseOutput output, WorkflowState state) {
+        if (state == null || output == null) {
+            return;
+        }
+        publishCanonicalTestCaseBundle(output.canonicalTestCaseBundle(), state);
+        RequirementGovernanceBundle governance = output.governanceBundle();
+        state.setRequirementGovernanceBundle(governance);
+        putArtifact(state, "requirement.governance.total.count", String.valueOf(governance.totalRequirements()));
+        putArtifact(
+                state,
+                "requirement.governance.test.case.eligible.count",
+                String.valueOf(governance.canonicalTestCaseRequirements())
+        );
+        putArtifact(
+                state,
+                "requirement.governance.non.test.case.count",
+                String.valueOf(governance.governanceRequirements().size())
+        );
+        aiArtifactPublisher.writeJson(
+                state,
+                "requirements",
+                "requirement-governance-bundle.json",
+                governance
+        );
+        aiArtifactPublisher.writeJson(
+                state,
+                "requirements",
+                "canonical-test-case-requirements.json",
+                governance.testCaseRequirements()
+        );
+        aiArtifactPublisher.writeJson(
+                state,
+                "requirements",
+                "requirement-governance-items.json",
+                governance.governanceRequirements()
+        );
+        addFinding(state, "Requirement governance classified "
+                + governance.canonicalTestCaseRequirements()
+                + " executable requirement(s) and "
+                + governance.governanceRequirements().size()
+                + " governance/context requirement(s)");
+    }
+
     public void publishExpectationEnrichment(TestCaseExpectationEnrichmentOutput output, WorkflowState state) {
         if (state == null || output == null || output.bundle() == null) {
             return;
@@ -312,6 +357,7 @@ public class StageOutputPublisher {
         if (state == null || state.getPageModelBundle() == null || mappedUiKnowledge == null) {
             return;
         }
+        writeComponentModel(state, state.getPageModelBundle());
         SemanticActionModel semanticActionModel = semanticActionModelBuilder.build(
                 state.getPageModelBundle(),
                 mappedUiKnowledge
@@ -570,6 +616,12 @@ public class StageOutputPublisher {
         putArtifact(state, "ai.context.ready", "true");
         putArtifact(state, "prompt.ui.evidence.locator.count",
                 String.valueOf(contextPackage.promptUiEvidence().requiredLocators().size()));
+        putArtifact(state, "prompt.ui.evidence.confirmed.locator.count",
+                String.valueOf(contextPackage.promptUiEvidence().requiredLocators().size()));
+        putArtifact(state, "prompt.ui.evidence.candidate.locator.count",
+                String.valueOf(contextPackage.promptUiEvidence().candidateLocators().size()));
+        putArtifact(state, "prompt.ui.evidence.fallback.locator.count",
+                String.valueOf(contextPackage.promptUiEvidence().fallbackLocators().size()));
         putArtifact(state, "prompt.ui.evidence.excluded.count",
                 String.valueOf(contextPackage.promptUiEvidence().excludedEvidence().size()));
         putArtifact(state, 
@@ -605,10 +657,12 @@ public class StageOutputPublisher {
         if (state == null || result == null) {
             return;
         }
+        state.setPomContractSpecs(result.contracts());
         state.setAiPageObjectSpecs(result.specs());
         result.artifactFiles().forEach(file -> aiArtifactPublisher.register(state, file));
         putArtifacts(state, result.artifacts());
         result.findings().forEach(finding -> addFinding(state, finding));
+        putArtifact(state, "pom.contract.spec.count", String.valueOf(result.contracts().size()));
         putArtifact(state, "ai.page.object.spec.count", String.valueOf(result.specs().size()));
     }
 

@@ -62,9 +62,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["methodName", "parameters", "steps"],
+        "required": ["methodName", "kind", "parameters", "steps"],
         "properties": {
           "methodName": { "type": "string", "minLength": 1 },
+          "kind": { "const": "ACTION" },
           "parameters": {
             "type": "array",
             "items": {

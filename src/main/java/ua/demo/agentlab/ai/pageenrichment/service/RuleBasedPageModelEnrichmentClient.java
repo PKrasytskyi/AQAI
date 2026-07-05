@@ -24,14 +24,16 @@ public class RuleBasedPageModelEnrichmentClient implements PageModelEnrichmentCl
         List<String> risks = input.stableLocators().isEmpty()
                 ? List.of("No stable locator evidence was mapped for this page")
                 : List.of();
-        List<String> coverageGaps = input.testCaseIds().isEmpty()
-                ? List.of("No canonical test case is mapped to this page")
-                : List.of();
+        List<String> coverageGaps = input.knownGaps().isEmpty()
+                ? input.testCaseIds().isEmpty()
+                    ? List.of("No canonical test case is mapped to this page")
+                    : List.of()
+                : input.knownGaps();
         return new PageModelEnrichmentRecord(
                 input.pageId(),
                 input.pageName(),
                 input.route(),
-                input.featureGuess().isBlank() ? "Support the required user workflow on this page." : input.featureGuess(),
+                input.capability().isBlank() ? "Support the required user workflow on this page." : input.capability().toLowerCase(),
                 "Mapped page with " + input.actions().size() + " action(s), "
                         + input.stableLocators().size() + " stable locator candidate(s), and "
                         + input.testCaseIds().size() + " relevant canonical test case(s).",

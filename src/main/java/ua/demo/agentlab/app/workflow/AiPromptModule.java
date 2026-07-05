@@ -10,6 +10,8 @@ public record AiPromptModule(
         WorkflowAgent pageModelEnrichmentAgent,
         WorkflowAgent flowScopedKnowledgeRefreshAgent,
         WorkflowAgent aiContextAssemblyAgent,
-        WorkflowAgent aiPageObjectSpecAgent
+        WorkflowAgent aiPageObjectSpecAgent,
+        WorkflowAgent pomContractPageObjectWriterAgent,
+        WorkflowAgent aiUiTestSpecAgent
 ) {
 }

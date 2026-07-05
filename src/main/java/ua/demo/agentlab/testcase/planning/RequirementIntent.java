@@ -1,0 +1,16 @@
+package ua.demo.agentlab.testcase.planning;
+
+public enum RequirementIntent {
+    OPEN_PAGE,
+    NAVIGATE,
+    AUTHENTICATE,
+    SUBMIT_FORM,
+    ENTER_DATA,
+    VERIFY_ELEMENT_VISIBLE,
+    VERIFY_ROUTE,
+    VERIFY_PAGE_ACCESSIBLE,
+    VERIFY_AUTHENTICATED_AREA,
+    VERIFY_LOGOUT_AVAILABLE,
+    LOGOUT,
+    INSPECT_CONTENT
+}

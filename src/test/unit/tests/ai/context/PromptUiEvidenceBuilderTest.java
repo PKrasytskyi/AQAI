@@ -149,7 +149,10 @@ public class PromptUiEvidenceBuilderTest {
                                         false,
                                         3,
                                         3,
-                                        true
+                                        true,
+                                        1,
+                                        1,
+                                        "DashboardNavigation"
                                 )
                         ),
                         pageModelElement(
@@ -168,7 +171,10 @@ public class PromptUiEvidenceBuilderTest {
                                         true,
                                         3,
                                         3,
-                                        true
+                                        true,
+                                        1,
+                                        1,
+                                        "DashboardNavigation"
                                 )
                         )
                 ),

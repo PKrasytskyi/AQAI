@@ -2,7 +2,10 @@ package ua.demo.agentlab.ai.ui.prompt;
 
 import ua.demo.agentlab.ai.context.AiContextPackage;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
+import ua.demo.agentlab.ai.ui.prompt.scope.PomScopeSanitizer;
+import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
 import ua.demo.agentlab.testcase.model.CanonicalTestCase;
+import ua.demo.agentlab.ui.UiTestScenario;
 import ua.demo.agentlab.ui.contract.AssertionIntent;
 import ua.demo.agentlab.ui.contract.AssertionIntentKind;
 import ua.demo.agentlab.ui.contract.UiOperationIntent;
@@ -20,7 +23,18 @@ import java.util.Set;
  */
 public class PageObjectCapabilityContractFormatter {
 
+    private final PomScopeSanitizer pomScopeSanitizer = new PomScopeSanitizer();
+
     public String format(AiContextPackage context, String requestedPageName, AiPageObjectSpec baselineSpec) {
+        return format(context, requestedPageName, List.of(), baselineSpec);
+    }
+
+    public String format(
+            AiContextPackage context,
+            String requestedPageName,
+            List<UiTestScenario> pageScenarios,
+            AiPageObjectSpec baselineSpec
+    ) {
         String pageName = requestedPageName == null || requestedPageName.isBlank()
                 ? "RequestedPage"
                 : requestedPageName.trim();
@@ -42,7 +56,15 @@ public class PageObjectCapabilityContractFormatter {
         }
         addBaselineMethods(contract, baselineSpec);
         addForbiddenMethods(contract);
+        contract.applyPromptReadyScope(pomScopeSanitizer.sanitize(context, pageName, pageScenarios));
         return contract.render();
+    }
+
+    public String capabilityFor(AiContextPackage context, String requestedPageName) {
+        String pageName = requestedPageName == null || requestedPageName.isBlank()
+                ? "RequestedPage"
+                : requestedPageName.trim();
+        return resolveCapability(context, pageName);
     }
 
     private boolean hasSemanticActionEvidence(AiContextPackage context) {
@@ -353,9 +375,9 @@ public class PageObjectCapabilityContractFormatter {
         boolean ownsTargetContainer = contract.ownedActions.stream().anyMatch(method -> method.contains("TargetContainer"))
                 || contract.ownedAssertions.stream().anyMatch(method -> method.contains("TargetContainer"));
         if (!ownsTargetContainer) {
-            contract.forbiddenMethods.add("openCart");
-            contract.forbiddenMethods.add("addToCart");
-            contract.forbiddenMethods.add("removeFromCart");
+            contract.forbiddenMethods.add("openTargetContainer");
+            contract.forbiddenMethods.add("addEntityToContainer");
+            contract.forbiddenMethods.add("removeEntityFromContainer");
         }
     }
 
@@ -455,12 +477,27 @@ public class PageObjectCapabilityContractFormatter {
         private final Set<String> baselineMethods = new LinkedHashSet<>();
         private final Set<String> forbiddenMethods = new LinkedHashSet<>();
         private final Set<String> forbiddenLocators = new LinkedHashSet<>();
+        private final Set<String> rejectedSuggestions = new LinkedHashSet<>();
 
         private Contract(String pageName, String route, String openMethod, String capability) {
             this.pageName = pageName;
             this.route = route;
             this.openMethod = openMethod;
             this.capability = capability == null || capability.isBlank() ? "UNKNOWN" : capability;
+        }
+
+        private void applyPromptReadyScope(PromptReadyPomScope scope) {
+            if (scope == null) {
+                return;
+            }
+            ownedActions.clear();
+            ownedActions.addAll(scope.ownedActions());
+            ownedAssertions.clear();
+            scope.ownedAssertions().forEach(assertion -> ownedAssertions.add(assertion.type() + "(" + assertion.expectedValue() + ")"));
+            requiredLocators.clear();
+            scope.allowedLocators().forEach(locator -> requiredLocators.add(locator.id()));
+            rejectedSuggestions.clear();
+            rejectedSuggestions.addAll(scope.rejectedSuggestions());
         }
 
         private String render() {
@@ -482,7 +519,8 @@ public class PageObjectCapabilityContractFormatter {
             builder.append("- reusableBaselineMethods=").append(emptyAsNone(baselineMethods)).append(System.lineSeparator());
             builder.append("- forbiddenMethods=").append(emptyAsNone(forbiddenMethods)).append(System.lineSeparator());
             builder.append("- forbiddenLocators=").append(emptyAsNone(forbiddenLocators)).append(System.lineSeparator());
-            builder.append("- rule=Generate public methods only from ownedActions, ownedAssertions, and reusableBaselineMethods. ")
+            builder.append("- rule=Generate public methods only from ownedActions and ownedAssertions. ")
+                    .append("Treat reusableBaselineMethods as compatibility hints only; do not create them unless they are also owned. ")
                     .append("Prerequisite pages are context only.");
             return builder.toString();
         }

@@ -36,12 +36,19 @@ public class AiUiTestSpecAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.UI_TEST_PLAN, WorkflowArtifact.AI_CONTEXT_PACKAGE);
+        return Set.of(
+                WorkflowArtifact.UI_TEST_PLAN,
+                WorkflowArtifact.AI_CONTEXT_PACKAGE,
+                WorkflowArtifact.AI_PAGE_OBJECT_SPECS
+        );
     }
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.AI_UI_TEST_GENERATION_RESULT);
+        return Set.of(
+                WorkflowArtifact.AI_UI_TEST_GENERATION_RESULT,
+                WorkflowArtifact.AI_UI_TEST_SPECS
+        );
     }
 
     @Override

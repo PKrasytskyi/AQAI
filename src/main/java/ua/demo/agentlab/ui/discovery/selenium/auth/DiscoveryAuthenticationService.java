@@ -7,6 +7,8 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiDiscoveryConfig;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiSessionManager;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -16,9 +18,17 @@ import java.util.Locale;
 public class DiscoveryAuthenticationService {
 
     private final DiscoveryAuthenticationConfig config;
+    private final BiDiSessionManager biDiSessionManager;
 
     public DiscoveryAuthenticationService(DiscoveryAuthenticationConfig config) {
+        this(config, null);
+    }
+
+    public DiscoveryAuthenticationService(DiscoveryAuthenticationConfig config, BiDiSessionManager biDiSessionManager) {
         this.config = config == null ? new DiscoveryAuthenticationConfig() : config;
+        this.biDiSessionManager = biDiSessionManager == null
+                ? new BiDiSessionManager(BiDiDiscoveryConfig.disabled())
+                : biDiSessionManager;
     }
 
     public boolean authenticateIfNeeded(WebDriver driver, ProjectProfile projectProfile, String targetUrl) {
@@ -44,6 +54,8 @@ public class DiscoveryAuthenticationService {
         try {
             driver.navigate().to(loginUrl);
             waitForAnyVisible(driver, config.usernameSelector(), config.passwordSelector());
+            biDiSessionManager.start(driver, pageIdFromUrl(loginUrl), loginUrl);
+            biDiSessionManager.drain(driver);
             WebElement username = firstVisible(driver, config.usernameSelector());
             WebElement password = firstVisible(driver, config.passwordSelector());
             if (username == null || password == null) {
@@ -69,8 +81,10 @@ public class DiscoveryAuthenticationService {
             } else {
                 password.sendKeys(Keys.ENTER);
             }
+            biDiSessionManager.drain(driver);
 
             boolean success = waitForAuthenticatedState(driver, projectProfile);
+            biDiSessionManager.drain(driver);
             return new DiscoveryAuthenticationResult(
                     true,
                     true,
@@ -184,6 +198,15 @@ public class DiscoveryAuthenticationService {
 
     private String normalizeRoute(String value) {
         return RouteCanonicalizer.canonicalize(value);
+    }
+
+    private String pageIdFromUrl(String url) {
+        String route = normalizeRoute(url);
+        if (route.isBlank() || "/".equals(route)) {
+            return "home-page";
+        }
+        String normalized = route.replaceAll("[^A-Za-z0-9]+", "-").replaceAll("^-+|-+$", "");
+        return normalized.isBlank() ? "page" : normalized.toLowerCase(Locale.ROOT);
     }
 
     private String safeCurrentUrl(WebDriver driver) {

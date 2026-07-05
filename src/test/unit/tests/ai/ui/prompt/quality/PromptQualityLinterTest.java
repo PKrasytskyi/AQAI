@@ -59,6 +59,43 @@ public class PromptQualityLinterTest {
         Assert.assertTrue(hasRule(report, "NO_STALE_LOCATOR_CANDIDATES"));
     }
 
+    @Test
+    public void scopedSourceActionContextDoesNotCountAsLoginPageOwnedAssertion() {
+        PromptQualityReport report = linter.validate(
+                """
+                # Input
+                Page capability contract:
+                - pageName=LoginPage | route=/auth/login | openMethodName=openLogin
+                - forbiddenMethods=[]
+
+                Scoped test cases:
+                - REQ-007 | title=User with valid credentials is redirected to the authenticated area | pageRole=source-action-owner | source=LoginPage /auth/login | target=DashboardPage /dashboard/index
+                  operations=[AUTHENTICATE] | assertions=[SUCCESS_STATE_VISIBLE]
+                  ownedExpectedValues=[] (target-page assertion values omitted)
+
+                Required POM contract:
+                - targetPage=LoginPage | targetRoute=/auth/login
+                Page-owned actions:
+                - login(String username, String password)
+                Page-owned assertions:
+                - URL_CONTAINS | expectedValue=/auth/login
+                - ELEMENT_VISIBLE | expectedValue=usernameInput
+
+                Allowed locators:
+                - usernameInput | element=username | strategy=name | value=username | role=input | sameOrigin=true | score=0.87
+
+                Baseline API signatures (naming hints only):
+                - methodSignatures=[void login(String username, String password)]
+                """,
+                "LoginPage",
+                null,
+                List.of(),
+                null
+        );
+
+        Assert.assertFalse(hasRule(report, "NO_CROSS_PAGE_LOGIN_ASSERTIONS"));
+    }
+
     private boolean hasRule(PromptQualityReport report, String ruleId) {
         return report.issues().stream().anyMatch(issue -> ruleId.equals(issue.ruleId()));
     }

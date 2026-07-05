@@ -53,6 +53,8 @@ target/repository-intelligence-check/
 # Generated UI code produced by local runs
 src/main/java/ua/demo/agentlab/ui/generated/
 src/test/java/ua/demo/agentlab/ui/generated/
+src/test/java/pages/
+src/test/java/tests/
 
 # Generated API code produced by local demo runs
 src/main/java/ua/demo/agentlab/api/generated/

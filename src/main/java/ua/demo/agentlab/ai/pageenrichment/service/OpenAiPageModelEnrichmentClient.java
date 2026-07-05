@@ -59,15 +59,16 @@ public class OpenAiPageModelEnrichmentClient implements PageModelEnrichmentClien
                 Enrich exactly one discovered UI page model for a Selenium Page Object prompt.
 
                 # Context
-                This is mapper evidence for one page selected by current requirements. It is not repository source code.
+                This is already page-owned mapper evidence selected by current requirements. It is not repository source code.
 
                 # Constraints
                 1. Return JSON only.
                 2. Do not invent elements, locators, actions, requirements, routes, or assertions.
                 3. Keep all lists concise, with at most 5 items.
                 4. Preserve pageId, pageName, and route exactly.
-                5. Prefer mapper locator evidence; flag missing evidence as a risk.
-                6. External navigation targets are outside the application boundary and must not appear as stable locators or supported actions.
+                5. Use only ownedRequirementIds, ownedActions, ownedAssertions, allowedLocators, semanticComponents, runtimeEvidence, and knownGaps from input.
+                6. Prefer allowedLocators; if evidence is missing, report a risk or coverage gap instead of inventing it.
+                7. External navigation targets are outside the application boundary and must not appear as stable locators or supported actions.
 
                 # Input
                 %s
@@ -81,10 +82,30 @@ public class OpenAiPageModelEnrichmentClient implements PageModelEnrichmentClien
 
                 # Notes
                 Enrichment is metadata only. Do not generate Java code or tests.
-                """.formatted(objectMapper.writeValueAsString(Map.of("page", input, "baseline", baseline)),
+                """.formatted(objectMapper.writeValueAsString(promptInput(input)),
                 LlmOutputSchemaVersion.PAGE_MODEL_ENRICHMENT_RECORD,
                 LlmOutputSchemaVersion.PAGE_MODEL_ENRICHMENT_RECORD,
                 input.pageId(), input.pageName(), input.route());
+    }
+
+    private Map<String, Object> promptInput(PageModelEnrichmentInput input) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        Map<String, Object> page = new LinkedHashMap<>();
+        page.put("pageId", input.pageId());
+        page.put("pageName", input.pageName());
+        page.put("route", input.route());
+        page.put("capability", input.capability());
+        page.put("title", input.title());
+        payload.put("page", page);
+        payload.put("ownedRequirementIds", input.requirementRefs());
+        payload.put("ownedActions", input.requirementActions().isEmpty() ? input.actions() : input.requirementActions());
+        payload.put("ownedAssertions", input.requirementAssertions());
+        payload.put("semanticComponents", input.semanticComponents());
+        payload.put("allowedLocators", input.stableLocators());
+        payload.put("runtimeEvidence", input.runtimeEvidence());
+        payload.put("preconditions", input.preconditions());
+        payload.put("knownGaps", input.knownGaps());
+        return payload;
     }
 
     private PageModelEnrichmentRecord parse(

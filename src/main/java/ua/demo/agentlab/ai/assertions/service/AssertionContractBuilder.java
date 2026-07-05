@@ -26,7 +26,7 @@ public class AssertionContractBuilder {
     }
 
     private AssertionContract toContract(CanonicalTestCase testCase, AssertionIntent intent) {
-        AssertionType type = toAssertionType(intent.kind());
+        AssertionType type = resolveAssertionType(testCase, intent);
         String expectedValue = expectedValue(testCase, intent, type);
         AssertionOwner owner = resolveOwner(testCase, type, expectedValue);
         return new AssertionContract(
@@ -45,20 +45,43 @@ public class AssertionContractBuilder {
     private AssertionOwner resolveOwner(CanonicalTestCase testCase, AssertionType type, String expectedValue) {
         String normalized = normalize(expectedValue + " " + firstAssertion(testCase) + " " + testCase.title());
         if (type == AssertionType.URL_CONTAINS && expectedValue != null && !expectedValue.isBlank()) {
-            if (expectedValue.contains("/login")) {
+            if (expectedValue.contains("/login") || normalized.contains("login page")) {
                 return sourceOwner(testCase, "LoginPage", "");
             }
-            if (expectedValue.contains("/secure")) {
-                return targetOwner(testCase, "SecureAreaPage", "");
+            if (expectedValue.contains("/secure")
+                    || expectedValue.contains("/dashboard")
+                    || normalized.contains("authenticated area")) {
+                return targetOwner(testCase, "AuthenticatedAreaPage", "");
             }
         }
         if (containsAny(normalized, "login page", "login form", "username", "password", "login button")) {
             return sourceOwner(testCase, "LoginPage", "");
         }
-        if (containsAny(normalized, "authenticated area", "secure area", "welcome message", "logged with valid credentials")) {
-            return targetOwner(testCase, "SecureAreaPage", "");
+        if (containsAny(normalized, "authenticated area", "secure area", "welcome message", "logged with valid credentials", "logout action")) {
+            return targetOwner(testCase, "AuthenticatedAreaPage", "");
         }
         return targetOwner(testCase, testCase.pageName(), testCase.route());
+    }
+
+    private AssertionType resolveAssertionType(CanonicalTestCase testCase, AssertionIntent intent) {
+        String text = normalize(firstNonBlank(
+                intent == null ? "" : intent.expectedValue(),
+                firstAssertion(testCase),
+                testCase.title()
+        ));
+        if (containsAny(text, "route contains", "route matches", "current url contains", "redirected to")) {
+            return AssertionType.URL_CONTAINS;
+        }
+        if (containsAny(text, "page is accessible", "home page is accessible")) {
+            return AssertionType.URL_CONTAINS;
+        }
+        if (containsAny(text, "field is visible", "button is visible", "action is visible", "form is visible")) {
+            return AssertionType.ELEMENT_VISIBLE;
+        }
+        if (containsAny(text, "logged with valid credentials", "successful login state")) {
+            return AssertionType.AUTHENTICATED_AREA_VISIBLE;
+        }
+        return toAssertionType(intent == null ? null : intent.kind());
     }
 
     private AssertionOwner sourceOwner(CanonicalTestCase testCase, String fallbackPage, String fallbackRoute) {
@@ -76,6 +99,9 @@ public class AssertionContractBuilder {
     }
 
     private AssertionType toAssertionType(AssertionIntentKind kind) {
+        if (kind == null) {
+            return AssertionType.ELEMENT_VISIBLE;
+        }
         return switch (kind) {
             case URL_CONTAINS -> AssertionType.URL_CONTAINS;
             case ERROR_VISIBLE, AUTH_REQUIRED -> AssertionType.ERROR_MESSAGE_VISIBLE;
@@ -92,7 +118,25 @@ public class AssertionContractBuilder {
 
     private String expectedValue(CanonicalTestCase testCase, AssertionIntent intent, AssertionType type) {
         if (type == AssertionType.URL_CONTAINS || type == AssertionType.ROUTE_EQUALS) {
-            return firstNonBlank(intent.expectedValue(), testCase.route());
+            return firstNonBlank(routeLike(intent.expectedValue()), testCase.route(), testCase.sourceRoute());
+        }
+        String text = normalize(firstNonBlank(testCase.title(), firstAssertion(testCase), intent.expectedValue()));
+        if (type == AssertionType.ELEMENT_VISIBLE || type == AssertionType.FORM_VISIBLE) {
+            if (containsAny(text, "username field")) {
+                return "usernameInput";
+            }
+            if (containsAny(text, "password field")) {
+                return "passwordInput";
+            }
+            if (containsAny(text, "login button")) {
+                return "loginButton";
+            }
+            if (containsAny(text, "logout action")) {
+                return "logoutLink";
+            }
+            if (containsAny(text, "welcome message")) {
+                return "welcomeMessage";
+            }
         }
         return firstNonBlank(intent.expectedValue(), firstAssertion(testCase), testCase.title());
     }
@@ -126,6 +170,16 @@ public class AssertionContractBuilder {
             }
         }
         return "";
+    }
+
+    private String routeLike(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+)")
+                .matcher(value);
+        return matcher.find() ? matcher.group(1) : "";
     }
 
     private String normalize(String value) {

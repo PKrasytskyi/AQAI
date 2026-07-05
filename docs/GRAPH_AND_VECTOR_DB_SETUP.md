@@ -4,9 +4,10 @@
 
 This project now has:
 
-- page-mapping artifacts ready for graph/vector persistence
-- Qdrant integration already used by the RAG layer
-- a Neo4j-ready schema for mapped UI knowledge
+- page-mapping artifacts ready for graph/vector persistence;
+- Qdrant integration for UI knowledge vector documents;
+- Neo4j integration for graph page knowledge and stable page-enrichment cache lookup;
+- namespace metadata for run-aware retrieval and stable page cache reuse.
 
 This document explains how to start both databases locally with Docker and how to initialize the Neo4j schema.
 
@@ -27,7 +28,8 @@ Use Neo4j for:
 - element/action/locator relationships
 - transitions
 - assertion hint relationships
-- future dependency and planner queries
+- page-enrichment cache records keyed by app/base URL/page fingerprint
+- dependency and planner queries
 
 ### Qdrant
 
@@ -38,6 +40,7 @@ Use Qdrant for:
 - element summaries
 - action summaries
 - transition summaries
+- page-enrichment summaries
 - RAG context search
 
 ## 1. Start Both Databases
@@ -135,7 +138,7 @@ If Qdrant is up, it returns JSON.
 
 ## 7. Project Configuration
 
-Current project config already points RAG to local Qdrant:
+Current project config points both repository RAG and UI knowledge retrieval to local services:
 
 - `src/main/resources/framework.properties`
 
@@ -144,10 +147,14 @@ Current values:
 ```properties
 rag.qdrant.url=http://localhost:6333
 rag.qdrant.collection=agentlab-project-style
+knowledge.graph.enabled=true
+knowledge.graph.neo4j.url=http://localhost:7474
+knowledge.vector.enabled=true
+knowledge.vector.qdrant.url=http://localhost:6333
+knowledge.vector.qdrant.collection=agentlab-ui-knowledge
 ```
 
-No Neo4j runtime config is consumed by the Java code yet.
-The schema and container are prepared now so the next step can be a `GraphPageKnowledgeWriter` that writes `MappedUiKnowledge` into Neo4j.
+Neo4j requires `KNOWLEDGE_GRAPH_NEO4J_PASSWORD` in the same shell that runs the workflow. Qdrant does not require an API key for the default local Docker setup.
 
 ## 8. Useful Docker Commands
 
@@ -204,11 +211,9 @@ RETURN p.name, e.semanticName;
 
 ## 10. What To Do Next
 
-Best next step:
+Best next steps:
 
-1. add `GraphPageKnowledgeWriter`
-2. add `Neo4jRuntimeConfig`
-3. write `MappedUiKnowledge.graphNodes/graphEdges` into Neo4j
-4. write `MappedUiKnowledge.vectorDocuments` into Qdrant
-
-At that point your `PageMapper` layer becomes persistent knowledge instead of only local JSON artifacts.
+1. strengthen DashboardPage fingerprint stability so authenticated pages can reuse stable page cache records;
+2. add a DB health artifact that records Neo4j/Qdrant writes, reads, cache hits, and misses per run;
+3. penalize run quality when expected DB cache hits are missing or when only vector docs are written without graph confirmation;
+4. add cleanup/versioning commands for local development data.

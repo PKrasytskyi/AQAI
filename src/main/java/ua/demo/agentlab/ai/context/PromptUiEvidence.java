@@ -7,22 +7,59 @@ import java.util.List;
 public record PromptUiEvidence(
         String targetPage,
         String targetRoute,
+        boolean requiresAuthentication,
+        List<String> prerequisitePages,
         List<String> requirementIds,
         List<PromptActionEvidence> requiredActions,
         List<PromptAssertionEvidence> requiredAssertions,
         List<PromptLocatorEvidence> requiredLocators,
+        List<PromptLocatorEvidence> candidateLocators,
+        List<PromptLocatorEvidence> fallbackLocators,
         List<PromptLocatorEvidence> forbiddenLocators,
         List<ExcludedEvidence> excludedEvidence,
         List<String> sourceTrace,
         double confidence
 ) {
+    public PromptUiEvidence(
+            String targetPage,
+            String targetRoute,
+            List<String> requirementIds,
+            List<PromptActionEvidence> requiredActions,
+            List<PromptAssertionEvidence> requiredAssertions,
+            List<PromptLocatorEvidence> requiredLocators,
+            List<PromptLocatorEvidence> forbiddenLocators,
+            List<ExcludedEvidence> excludedEvidence,
+            List<String> sourceTrace,
+            double confidence
+    ) {
+        this(
+                targetPage,
+                targetRoute,
+                false,
+                List.of(),
+                requirementIds,
+                requiredActions,
+                requiredAssertions,
+                requiredLocators,
+                List.of(),
+                List.of(),
+                forbiddenLocators,
+                excludedEvidence,
+                sourceTrace,
+                confidence
+        );
+    }
+
     public PromptUiEvidence {
         targetPage = safe(targetPage);
         targetRoute = safe(targetRoute);
+        prerequisitePages = prerequisitePages == null ? List.of() : List.copyOf(prerequisitePages);
         requirementIds = requirementIds == null ? List.of() : List.copyOf(requirementIds);
         requiredActions = requiredActions == null ? List.of() : List.copyOf(requiredActions);
         requiredAssertions = requiredAssertions == null ? List.of() : List.copyOf(requiredAssertions);
         requiredLocators = requiredLocators == null ? List.of() : List.copyOf(requiredLocators);
+        candidateLocators = candidateLocators == null ? List.of() : List.copyOf(candidateLocators);
+        fallbackLocators = fallbackLocators == null ? List.of() : List.copyOf(fallbackLocators);
         forbiddenLocators = forbiddenLocators == null ? List.of() : List.copyOf(forbiddenLocators);
         excludedEvidence = excludedEvidence == null ? List.of() : List.copyOf(excludedEvidence);
         sourceTrace = sourceTrace == null ? List.of() : List.copyOf(sourceTrace);
@@ -33,6 +70,10 @@ public record PromptUiEvidence(
         return new PromptUiEvidence(
                 "",
                 "",
+                false,
+                List.of(),
+                List.of(),
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),

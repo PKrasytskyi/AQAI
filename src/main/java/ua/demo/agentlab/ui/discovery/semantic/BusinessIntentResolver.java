@@ -20,6 +20,9 @@ public class BusinessIntentResolver {
             String semanticType,
             List<ActionCandidate> actions
     ) {
+        if (ignoredSystemElement(element)) {
+            return List.of();
+        }
         String pageEvidence = pageEvidence(page);
         String elementEvidence = normalize(String.join(" ",
                 semanticType,
@@ -36,7 +39,7 @@ public class BusinessIntentResolver {
         Map<String, BusinessIntentCandidate> intents = new LinkedHashMap<>();
 
         boolean authPage = isAuthenticationEntryPage(pageEvidence, page);
-        if (authPage && containsAny(elementEvidence + " " + actionEvidence, "username", "password", "submit", "login", "sign in", "type", "submit_form")) {
+        if (authPage && isCredentialFormElement(elementEvidence, actionEvidence)) {
             add(intents, "AUTHENTICATE", containsAny(actionEvidence, "submit_form", "click") ? 0.86d : 0.78d,
                     "business-context:credential-form", false);
         }
@@ -45,6 +48,33 @@ public class BusinessIntentResolver {
         }
         if (containsAny(elementEvidence + " " + pageEvidence, "search")) {
             add(intents, "SEARCH", 0.88d, "business-context:search-control", false);
+        }
+        if (containsAny(elementEvidence + " " + actionEvidence, "filter")) {
+            add(intents, "FILTER", 0.84d, "business-context:filter-control", false);
+        }
+        if (containsAny(elementEvidence + " " + actionEvidence, "sort_collection", "sort", "order")) {
+            add(intents, "SORT_COLLECTION", 0.82d, "business-context:sort-control", false);
+        }
+        if (containsAny(elementEvidence + " " + actionEvidence, "paginate", "next", "previous")) {
+            add(intents, "PAGINATE", 0.82d, "business-context:pagination-control", false);
+        }
+        if (containsAny(elementEvidence + " " + actionEvidence, "open_record", "details", "detail", "view", "profile")) {
+            add(intents, "OPEN_RECORD", 0.82d, "business-context:open-record", false);
+        }
+        if (containsAny(elementEvidence + " " + actionEvidence, "create_record", "create", "add", "new")) {
+            add(intents, "CREATE_RECORD", 0.82d, "business-context:create-record", false);
+        }
+        if (containsAny(elementEvidence + " " + actionEvidence, "edit_record", "edit", "update", "modify")) {
+            add(intents, "EDIT_RECORD", 0.82d, "business-context:edit-record", false);
+        }
+        if (containsAny(elementEvidence + " " + actionEvidence, "delete_record", "delete", "remove")) {
+            add(intents, "DELETE_RECORD", 0.82d, "business-context:delete-record", false);
+        }
+        if (containsAny(elementEvidence + " " + actionEvidence, "open_modal", "modal", "dialog", "popup")) {
+            add(intents, "OPEN_MODAL", 0.82d, "business-context:open-modal", false);
+        }
+        if (containsAny(elementEvidence + " " + actionEvidence, "confirm_action", "confirm", "approve", "ok")) {
+            add(intents, "CONFIRM_ACTION", 0.82d, "business-context:confirm-action", false);
         }
         if (containsAny(semanticType.toLowerCase(Locale.ROOT) + " " + pageEvidence, "collection", "table", "grid", "list")) {
             add(intents, "INSPECT_COLLECTION", 0.78d, "business-context:collection", false);
@@ -90,6 +120,19 @@ public class BusinessIntentResolver {
                 || hasCredentialPair(page);
     }
 
+    private boolean isCredentialFormElement(String elementEvidence, String actionEvidence) {
+        String evidence = elementEvidence + " " + actionEvidence;
+        if (containsAny(evidence, "forgot", "footer", "orangehrm", "inc", "privacy", "external", "href")) {
+            return false;
+        }
+        boolean credentialField = containsAny(evidence, "username", "user name", "userid", "user-id", "email", "password", "pass");
+        boolean loginControl = containsAny(evidence, "login", "sign in", "signin", "submit_form")
+                && !containsAny(evidence, "search", "filter", "lookup");
+        boolean actionable = containsAny(actionEvidence, "type", "clear", "submit_form", "click");
+        boolean formControl = containsAny(evidence, "input", "password_input", "button", "submit");
+        return actionable && (credentialField || loginControl && formControl);
+    }
+
     private boolean hasCredentialPair(PageModel page) {
         String text = page.elements().stream()
                 .map(element -> String.join(" ", element.name(), element.id(), element.placeholder(), element.inputType(), element.semanticType()))
@@ -116,6 +159,22 @@ public class BusinessIntentResolver {
             return "";
         }
         return normalize(String.join(" ", page.pageId(), page.route(), page.title(), page.featureGuess(), page.visibleText()));
+    }
+
+    private boolean ignoredSystemElement(PageElementModel element) {
+        String evidence = normalize(String.join(" ",
+                element.inputType(),
+                element.name(),
+                element.id(),
+                element.semanticType(),
+                element.technicalType(),
+                element.attributes().toString()
+        ));
+        return !element.visible()
+                || "hidden".equalsIgnoreCase(element.inputType())
+                || element.attributes().containsKey("hidden")
+                || "true".equalsIgnoreCase(element.attributes().get("aria-hidden"))
+                || containsAny(evidence, "_token", "csrf", "xsrf", "authenticity_token");
     }
 
     private boolean containsAny(String value, String... fragments) {

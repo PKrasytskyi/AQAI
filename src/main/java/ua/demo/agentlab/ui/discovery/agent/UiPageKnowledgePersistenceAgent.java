@@ -76,6 +76,7 @@ public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
 
     @Override
     public boolean supports(PipelineArtifactStore store, WorkflowState state) {
+        String phase = persistencePhase(state);
         return state != null
                 && selectedKnowledge(new UiKnowledgePersistenceInput(
                         state.getMappedUiKnowledge(),
@@ -83,7 +84,7 @@ public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
                         state.getFlowScopedKnowledgePackage(),
                         state.getKnowledgeRunMetadata()
                 )) != null
-                && !state.getArtifacts().containsKey("ui.knowledge.persistence.completed");
+                && !"true".equals(state.getArtifacts().get(phaseMarker(phase)));
     }
 
     @Override
@@ -95,7 +96,7 @@ public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
             PageKnowledgeWriteResult result = writeSafely(writer, namespacedKnowledge);
             results.add(result);
         }
-        return new UiKnowledgePersistenceOutput(results, input.runMetadata());
+        return new UiKnowledgePersistenceOutput(results, input.runMetadata(), persistencePhase(input));
     }
 
     @Override
@@ -104,6 +105,10 @@ public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
             return;
         }
         outputPublisher.publishKnowledgePersistence(output.results(), state, output.runMetadata());
+        if (state != null) {
+            state.getArtifacts().put(phaseMarker(output.phase()), "true");
+            state.getArtifacts().put("ui.knowledge.persistence.last.phase", output.phase());
+        }
     }
 
     private MappedUiKnowledge selectedKnowledge(UiKnowledgePersistenceInput input) {
@@ -112,6 +117,37 @@ public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
             knowledge = input.flowScopedKnowledgePackage().mappedUiKnowledge();
         }
         return knowledge == null ? input.mappedUiKnowledge() : knowledge;
+    }
+
+    private String persistencePhase(WorkflowState state) {
+        if (state == null) {
+            return "unknown";
+        }
+        if (state.getEnrichedMappedUiKnowledge() != null) {
+            return "enriched";
+        }
+        if (state.getFlowScopedKnowledgePackage() != null) {
+            return "flow-scoped";
+        }
+        return "raw";
+    }
+
+    private String persistencePhase(UiKnowledgePersistenceInput input) {
+        if (input == null) {
+            return "unknown";
+        }
+        if (input.enrichedMappedUiKnowledge() != null) {
+            return "enriched";
+        }
+        if (input.flowScopedKnowledgePackage() != null) {
+            return "flow-scoped";
+        }
+        return "raw";
+    }
+
+    private String phaseMarker(String phase) {
+        String normalized = phase == null || phase.isBlank() ? "unknown" : phase.trim();
+        return "ui.knowledge.persistence." + normalized + ".completed";
     }
 
     private PageKnowledgeWriteResult writeSafely(PageKnowledgeWriter writer, MappedUiKnowledge knowledge) {

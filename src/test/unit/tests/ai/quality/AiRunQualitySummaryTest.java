@@ -31,6 +31,9 @@ public class AiRunQualitySummaryTest {
                 0,
                 0,
                 0,
+                0,
+                0,
+                0,
                 Double.NaN,
                 100
         );

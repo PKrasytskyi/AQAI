@@ -1,11 +1,17 @@
 package ua.demo.agentlab.ai.ui.generation;
 
 import ua.demo.agentlab.ai.context.AiContextPackage;
+import ua.demo.agentlab.ai.openai.OpenAiRuntimeConfigRagAdapter;
 import ua.demo.agentlab.ai.openai.OpenAiRuntimeConfig;
 import ua.demo.agentlab.ai.quality.AiRunQualityArtifactResult;
 import ua.demo.agentlab.ai.quality.AiRunQualitySummaryInput;
 import ua.demo.agentlab.ai.quality.AiRunQualitySummaryWriter;
+import ua.demo.agentlab.ai.rag.openai.OpenAiResponseGenerationClient;
+import ua.demo.agentlab.ai.schema.LlmOutputSchemaValidationException;
+import ua.demo.agentlab.ai.ui.contract.DeterministicPomJavaWriter;
+import ua.demo.agentlab.ai.ui.contract.PomContractSpec;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
+import ua.demo.agentlab.ai.ui.parser.PomContractSpecParser;
 import ua.demo.agentlab.ai.ui.prompt.quality.PromptQualityGateException;
 import ua.demo.agentlab.ai.ui.prompt.quality.PromptQualityReport;
 
@@ -23,8 +29,15 @@ public class AiPageObjectSpecGenerator {
     private final AiPageObjectPromptArtifactWriter promptArtifactWriter;
     private final AiRunQualitySummaryWriter qualitySummaryWriter;
     private final PromptPageEligibilityEvaluator promptPageEligibilityEvaluator;
+    private final OpenAiResponseGenerationClient generationClient;
+    private final PomContractSpecParser contractParser;
+    private final DeterministicPomJavaWriter compatibilityContractWriter;
 
     public AiPageObjectSpecGenerator(OpenAiRuntimeConfig runtimeConfig) {
+        this(runtimeConfig, "pages");
+    }
+
+    public AiPageObjectSpecGenerator(OpenAiRuntimeConfig runtimeConfig, String generatedPagesPackage) {
         this(
                 runtimeConfig,
                 new AiPageObjectScopeResolverStage(),
@@ -32,7 +45,10 @@ public class AiPageObjectSpecGenerator {
                 new AiPageObjectPromptLintStage(),
                 new AiPageObjectPromptArtifactWriter(),
                 new AiRunQualitySummaryWriter(),
-                new PromptPageEligibilityEvaluator()
+                new PromptPageEligibilityEvaluator(),
+                new OpenAiResponseGenerationClient(new OpenAiRuntimeConfigRagAdapter(runtimeConfig)),
+                new PomContractSpecParser(),
+                new DeterministicPomJavaWriter(generatedPagesPackage)
         );
     }
 
@@ -43,13 +59,17 @@ public class AiPageObjectSpecGenerator {
             AiPageObjectPromptLintStage promptLintStage,
             AiPageObjectPromptArtifactWriter promptArtifactWriter,
             AiRunQualitySummaryWriter qualitySummaryWriter,
-            PromptPageEligibilityEvaluator promptPageEligibilityEvaluator
+            PromptPageEligibilityEvaluator promptPageEligibilityEvaluator,
+            OpenAiResponseGenerationClient generationClient,
+            PomContractSpecParser contractParser,
+            DeterministicPomJavaWriter compatibilityContractWriter
     ) {
         if (runtimeConfig == null) {
             throw new IllegalArgumentException("runtime config cannot be null");
         }
         if (scopeResolverStage == null || promptBuildStage == null || promptLintStage == null
-                || promptArtifactWriter == null || qualitySummaryWriter == null || promptPageEligibilityEvaluator == null) {
+                || promptArtifactWriter == null || qualitySummaryWriter == null || promptPageEligibilityEvaluator == null
+                || generationClient == null || contractParser == null || compatibilityContractWriter == null) {
             throw new IllegalArgumentException("page object generation stages cannot be null");
         }
         this.runtimeConfig = runtimeConfig;
@@ -59,6 +79,9 @@ public class AiPageObjectSpecGenerator {
         this.promptArtifactWriter = promptArtifactWriter;
         this.qualitySummaryWriter = qualitySummaryWriter;
         this.promptPageEligibilityEvaluator = promptPageEligibilityEvaluator;
+        this.generationClient = generationClient;
+        this.contractParser = contractParser;
+        this.compatibilityContractWriter = compatibilityContractWriter;
     }
 
     public AiPageObjectGenerationResult generate(AiPageObjectGenerationRequest request) {
@@ -67,11 +90,20 @@ public class AiPageObjectSpecGenerator {
         }
 
         List<AiPageObjectSpec> specs = new ArrayList<>();
+        List<PomContractSpec> contracts = new ArrayList<>();
         List<String> artifactFiles = new ArrayList<>();
         Map<String, String> artifacts = new LinkedHashMap<>();
         List<String> findings = new ArrayList<>();
+        boolean llmRequested = runtimeConfig.pageObjectLlmEnabled();
+        boolean llmEnabled = llmRequested && runtimeConfig.enabled() && hasApiKey();
 
         try {
+            if (llmRequested && !llmEnabled) {
+                artifacts.put("ai.page-object.llm.requested", "true");
+                artifacts.put("ai.page-object.llm.skipped", "true");
+                artifacts.put("ai.page-object.llm.skipReason", "missing-openai-api-key-or-openai-disabled");
+                findings.add("POM contract LLM was requested but skipped because OpenAI API key/config is unavailable; prompts were recorded only");
+            }
             for (AiPageObjectPromptScope scope : scopeResolverStage.resolve(request)) {
                 findings.addAll(promptLintStage.scopeFindings(scope));
                 PromptPage promptPage = promptPageEligibilityEvaluator.evaluate(scope);
@@ -104,13 +136,37 @@ public class AiPageObjectSpecGenerator {
                 if (qualityReport.hasBlockingIssues()) {
                     throw new PromptQualityGateException(qualityReport);
                 }
+                if (llmEnabled) {
+                    String response = generationClient.generate(draft.prompt());
+                    artifactFiles.add(promptArtifactWriter.writeText(scope.fileStem() + "-pom-contract-response.txt", response));
+                    PomContractSpec contract = contractParser.parse(response);
+                    contracts.add(contract);
+                    specs.add(compatibilityContractWriter.toAiPageObjectSpec(contract));
+                    artifactFiles.add(promptArtifactWriter.writeJson(scope.fileStem() + "-pom-contract.json", contract));
+                    artifacts.put("pom.contract." + scope.fileStem() + ".pageName", contract.page().name());
+                    artifacts.put("pom.contract." + scope.fileStem() + ".locator.count",
+                            String.valueOf(contract.locators().size()));
+                    artifacts.put("pom.contract." + scope.fileStem() + ".action.count",
+                            String.valueOf(contract.actions().size()));
+                    artifacts.put("pom.contract." + scope.fileStem() + ".assertion.count",
+                            String.valueOf(contract.assertions().size()));
+                }
             }
-            artifacts.put("openai.page.object.status", "llm-disabled-enrichment-only");
+            artifacts.put("openai.page.object.status", llmEnabled
+                    ? "pom-contract-llm-generated"
+                    : llmRequested ? "pom-contract-llm-skipped-prompt-only" : "llm-disabled-enrichment-only");
+            artifacts.put("ai.page-object.llm.requested", String.valueOf(llmRequested));
+            artifacts.put("ai.page-object.llm.enabled", String.valueOf(llmEnabled));
             artifacts.put("openai.page.object.scoped.requests", String.valueOf(request.uiTestPlan().pageNames().size()));
-            artifacts.put("ai.workflow.terminal.stage", "deterministic-page-object-prompts");
-            findings.add("OpenAI page object generation is disabled; prompts were recorded for review only");
+            artifacts.put("pom.contract.spec.count", String.valueOf(contracts.size()));
+            artifacts.put("ai.workflow.terminal.stage", llmEnabled
+                    ? "pom-contract-deterministic-java"
+                    : "deterministic-page-object-prompts");
+            findings.add(llmEnabled
+                    ? "OpenAI generated POM contract JSON; Java will be written by deterministic writer"
+                    : "OpenAI page object generation is disabled; prompts were recorded for review only");
             addQualityArtifacts(request, artifacts, artifactFiles);
-            return new AiPageObjectGenerationResult(specs, artifactFiles, artifacts, findings);
+            return new AiPageObjectGenerationResult(specs, contracts, artifactFiles, artifacts, findings);
         } catch (PromptQualityGateException exception) {
             artifactFiles.add(promptArtifactWriter.writeJson(
                     "prompt-quality-blocking-report.json",
@@ -121,6 +177,12 @@ public class AiPageObjectSpecGenerator {
             addQualityArtifacts(request, artifacts, artifactFiles);
             throw exception;
         } catch (Exception exception) {
+            if (exception instanceof LlmOutputSchemaValidationException validationException) {
+                artifactFiles.add(promptArtifactWriter.writeJson(
+                        "pom-contract-validation-report.json",
+                        validationException.report()
+                ));
+            }
             artifactFiles.add(promptArtifactWriter.writeText("error.txt", exception.getMessage()));
             artifacts.put(
                     "openai.page.object.status",
@@ -131,7 +193,7 @@ public class AiPageObjectSpecGenerator {
             if (runtimeConfig.strict()) {
                 throw new IllegalStateException("OpenAI strict mode rejected page object spec generation", exception);
             }
-            return new AiPageObjectGenerationResult(specs, artifactFiles, artifacts, findings);
+            return new AiPageObjectGenerationResult(specs, contracts, artifactFiles, artifacts, findings);
         }
     }
 
@@ -170,5 +232,10 @@ public class AiPageObjectSpecGenerator {
                 input == null ? null : input.mappedUiKnowledge(),
                 mergedArtifacts
         );
+    }
+
+    private boolean hasApiKey() {
+        String apiKey = runtimeConfig.apiKey();
+        return apiKey != null && !apiKey.isBlank();
     }
 }

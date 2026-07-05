@@ -9,18 +9,27 @@ import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.testcase.generator.RequirementToTestCaseInput;
 import ua.demo.agentlab.testcase.generator.RequirementToTestCaseGenerator;
-import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
+import ua.demo.agentlab.testcase.governance.RequirementGovernancePartitioner;
 
 import java.util.Set;
 
 public class RequirementToTestCaseAgent implements WorkflowAgent,
-        PipelineAgent<RequirementToTestCaseInput, CanonicalTestCaseBundle> {
+        PipelineAgent<RequirementToTestCaseInput, RequirementToTestCaseOutput> {
 
     private final RequirementToTestCaseGenerator generator;
+    private final RequirementGovernancePartitioner governancePartitioner;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
 
     public RequirementToTestCaseAgent(RequirementToTestCaseGenerator generator) {
+        this(generator, new RequirementGovernancePartitioner());
+    }
+
+    RequirementToTestCaseAgent(
+            RequirementToTestCaseGenerator generator,
+            RequirementGovernancePartitioner governancePartitioner
+    ) {
         this.generator = generator;
+        this.governancePartitioner = governancePartitioner;
     }
 
     @Override
@@ -38,7 +47,11 @@ public class RequirementToTestCaseAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE);
+        return Set.of(
+                WorkflowArtifact.REQUIREMENT_TO_TEST_CASE_OUTPUT,
+                WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE,
+                WorkflowArtifact.REQUIREMENT_GOVERNANCE_BUNDLE
+        );
     }
 
     @Override
@@ -48,7 +61,7 @@ public class RequirementToTestCaseAgent implements WorkflowAgent,
 
     @Override
     public WorkflowArtifact output() {
-        return WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE;
+        return WorkflowArtifact.REQUIREMENT_TO_TEST_CASE_OUTPUT;
     }
 
     @Override
@@ -70,12 +83,15 @@ public class RequirementToTestCaseAgent implements WorkflowAgent,
     }
 
     @Override
-    public CanonicalTestCaseBundle execute(RequirementToTestCaseInput input, WorkflowRunEnvelope run) {
-        return generator.generate(input);
+    public RequirementToTestCaseOutput execute(RequirementToTestCaseInput input, WorkflowRunEnvelope run) {
+        return new RequirementToTestCaseOutput(
+                generator.generate(input),
+                governancePartitioner.partition(input.normalizedRequirementBundle())
+        );
     }
 
     @Override
-    public void applyOutput(CanonicalTestCaseBundle output, WorkflowState state) {
-        outputPublisher.publishCanonicalTestCaseBundle(output, state);
+    public void applyOutput(RequirementToTestCaseOutput output, WorkflowState state) {
+        outputPublisher.publishRequirementToTestCaseOutput(output, state);
     }
 }

@@ -16,10 +16,19 @@ import ua.demo.agentlab.ui.discovery.selenium.collector.PageSnapshotCollector;
 import ua.demo.agentlab.ui.discovery.selenium.crawler.SafeNavigationCrawler;
 import ua.demo.agentlab.ui.discovery.selenium.extractor.FormStructureExtractor;
 import ua.demo.agentlab.ui.discovery.selenium.extractor.InteractiveElementExtractor;
+import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessRuleResolver;
+import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessWaiter;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiDiscoveryConfig;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiEventBuffer;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiSessionManager;
 
 public class SeleniumDiscoveryServiceFactory {
 
     public SeleniumUiDiscoveryService create(ProjectProfile projectProfile) {
+        return create(projectProfile, null);
+    }
+
+    public SeleniumUiDiscoveryService create(ProjectProfile projectProfile, BiDiEventBuffer biDiEventBuffer) {
         if (projectProfile == null) {
             throw new IllegalArgumentException("projectProfile cannot be null");
         }
@@ -32,11 +41,18 @@ public class SeleniumDiscoveryServiceFactory {
                 formStructureExtractor
         );
         DiscoveryCrawlPolicy discoveryCrawlPolicy = DiscoveryCrawlPolicy.defaultPolicy(projectProfile);
+        BiDiSessionManager biDiSessionManager = new BiDiSessionManager(
+                BiDiDiscoveryConfig.fromRuntime(),
+                biDiEventBuffer
+        );
         SafeNavigationCrawler safeNavigationCrawler = new SafeNavigationCrawler(
                 pageSnapshotCollector,
                 discoveryCrawlPolicy,
                 new LocalPageEvidenceCaptureService(),
-                new DiscoveryAuthenticationService(new DiscoveryAuthenticationConfig())
+                new DiscoveryAuthenticationService(new DiscoveryAuthenticationConfig(), biDiSessionManager),
+                new PageReadinessRuleResolver(),
+                new PageReadinessWaiter(),
+                biDiSessionManager
         );
         PageClassificationService pageClassificationService = new RuleBasedPageClassificationService();
         return new SeleniumUiDiscoveryService(

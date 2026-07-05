@@ -73,6 +73,7 @@ public class AiUiTestSpecGenerator {
                 artifactFiles.addAll(traceArtifact.artifactFiles());
             }
             artifacts.put("openai.ui.test.status", "llm-disabled-enrichment-only");
+            artifacts.put("ai.ui-test.llm.enabled", String.valueOf(runtimeConfig.uiTestLlmEnabled()));
             artifacts.put("openai.ui.test.scoped.requests", String.valueOf(request.uiTestPlan().scenarios().size()));
             findings.add("OpenAI UI test generation is disabled; prompts were recorded for review only");
             return new AiUiTestGenerationResult(specs, artifactFiles, artifacts, findings);

@@ -115,6 +115,9 @@ public class PomContractQualityGate {
             if (action.methodName().isBlank()) {
                 issues.add(blocker("POM_ACTION_METHOD_PRESENT", "Action method name is required", action.toString()));
             }
+            if (!"ACTION".equals(action.kind())) {
+                issues.add(blocker("POM_ACTION_KIND_VALID", "Action contract kind must be ACTION", action.toString()));
+            }
             if (!methodNames.add(action.methodName())) {
                 issues.add(blocker("POM_ACTION_METHOD_UNIQUE", "Action method names must be unique", action.methodName()));
             }

@@ -37,7 +37,11 @@ public class PropertiesOpenAiRuntimeConfig implements OpenAiRuntimeConfig {
 
     @Override
     public String apiKey() {
-        return readOptional("openai.api-key", "OPENAI_API_KEY");
+        return firstNonBlank(
+                readOptional("openai.api-key", "OPENAI_API_KEY"),
+                readOptional("rag.openai.api-key", "RAG_OPENAI_API_KEY"),
+                readOptional("knowledge.vector.openai.api-key", "KNOWLEDGE_VECTOR_OPENAI_API_KEY")
+        );
     }
 
     @Override
@@ -60,6 +64,16 @@ public class PropertiesOpenAiRuntimeConfig implements OpenAiRuntimeConfig {
         return Integer.parseInt(readValue("openai.max-output-tokens", "4000"));
     }
 
+    @Override
+    public boolean pageObjectLlmEnabled() {
+        return Boolean.parseBoolean(readValue("ai.page-object.llm.enabled", "false"));
+    }
+
+    @Override
+    public boolean uiTestLlmEnabled() {
+        return Boolean.parseBoolean(readValue("ai.ui-test.llm.enabled", "false"));
+    }
+
     private String readValue(String key, String defaultValue) {
         String value = readOptional(key, key.toUpperCase().replace('.', '_').replace('-', '_'));
         return value == null || value.isBlank() ? Objects.requireNonNull(defaultValue) : value.trim();
@@ -78,9 +92,35 @@ public class PropertiesOpenAiRuntimeConfig implements OpenAiRuntimeConfig {
 
         String propertyValue = properties.getProperty(propertyKey);
         if (propertyValue != null && !propertyValue.isBlank()) {
-            return propertyValue.trim();
+            return resolveConfiguredValue(propertyValue.trim());
         }
 
+        return null;
+    }
+
+    private String resolveConfiguredValue(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.startsWith("${") && trimmed.endsWith("}") && trimmed.length() > 3) {
+            String key = trimmed.substring(2, trimmed.length() - 1).trim();
+            String systemValue = System.getProperty(key);
+            if (systemValue != null && !systemValue.isBlank()) {
+                return systemValue.trim();
+            }
+            String envValue = System.getenv(key);
+            return envValue == null || envValue.isBlank() ? null : envValue.trim();
+        }
+        return trimmed;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
         return null;
     }
 }

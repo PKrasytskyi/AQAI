@@ -10,6 +10,12 @@ public class SemanticElementClassifier {
         if (element == null) {
             return "UNKNOWN";
         }
+        if (!element.visible()
+                || "hidden".equalsIgnoreCase(element.inputType())
+                || element.attributes().containsKey("hidden")
+                || "true".equalsIgnoreCase(element.attributes().get("aria-hidden"))) {
+            return "SYSTEM_HIDDEN";
+        }
         String evidence = normalize(String.join(" ",
                 element.technicalType(),
                 element.semanticType(),
@@ -21,6 +27,9 @@ public class SemanticElementClassifier {
                 element.placeholder(),
                 element.text()
         ));
+        if (containsAny(evidence, "_token", "csrf", "xsrf", "authenticity_token")) {
+            return "SYSTEM_HIDDEN";
+        }
         if (containsAny(evidence, "password")) {
             return "PASSWORD_INPUT";
         }

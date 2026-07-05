@@ -22,7 +22,7 @@ public class PromptPageEligibilityEvaluator {
         boolean hasAllowedLocators = scope.scopedContext().promptUiEvidence() != null
                 && !scope.scopedContext().promptUiEvidence().requiredLocators().isEmpty();
         boolean hasStableCacheEvidence = hasStableCacheEvidence(scope);
-        boolean routeOnly = isRouteOnlyContract(scope);
+        boolean routeOnly = isRouteBackedContract(scope);
         List<String> reasons = new ArrayList<>();
         if (hasRawEvidence) {
             reasons.add("raw DOM evidence is available");
@@ -34,7 +34,7 @@ public class PromptPageEligibilityEvaluator {
             reasons.add("stable cache evidence is available");
         }
         if (routeOnly) {
-            reasons.add("route-only page contract");
+                reasons.add("route-backed page contract; locator-backed checks require coverage gaps when evidence is missing");
         }
         boolean eligible = hasRawEvidence || hasAllowedLocators || hasStableCacheEvidence || routeOnly;
         if (!eligible) {
@@ -80,7 +80,7 @@ public class PromptPageEligibilityEvaluator {
                 && matchedPages.toString().toLowerCase(Locale.ROOT).contains("db_stable_cache");
     }
 
-    private boolean isRouteOnlyContract(AiPageObjectPromptScope scope) {
+    private boolean isRouteBackedContract(AiPageObjectPromptScope scope) {
         if (scope.scopedContext().promptUiEvidence() == null) {
             return false;
         }
@@ -91,10 +91,9 @@ public class PromptPageEligibilityEvaluator {
         boolean actionsAreRouteOnly = scope.scopedContext().promptUiEvidence().requiredActions().isEmpty()
                 || scope.scopedContext().promptUiEvidence().requiredActions().stream()
                 .allMatch(this::routeOnlyAction);
-        boolean assertionsAreRouteOnly = !scope.scopedContext().promptUiEvidence().requiredAssertions().isEmpty()
-                && scope.scopedContext().promptUiEvidence().requiredAssertions().stream()
-                .allMatch(this::routeOnlyAssertion);
-        return actionsAreRouteOnly && assertionsAreRouteOnly;
+        boolean hasRouteAssertion = scope.scopedContext().promptUiEvidence().requiredAssertions().stream()
+                .anyMatch(this::routeOnlyAssertion);
+        return actionsAreRouteOnly && hasRouteAssertion;
     }
 
     private boolean routeOnlyAction(PromptActionEvidence action) {

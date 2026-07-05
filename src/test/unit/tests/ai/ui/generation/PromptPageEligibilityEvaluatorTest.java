@@ -69,6 +69,43 @@ public class PromptPageEligibilityEvaluatorTest {
         Assert.assertTrue(promptPage.routeOnlyContract());
     }
 
+    @Test
+    public void routeBackedContractWithMissingLocatorAssertionsIsPromptEligibleForCoverageGaps() {
+        AiPageObjectPromptScope scope = scope(new PromptUiEvidence(
+                "DashboardPage",
+                "/dashboard/index",
+                List.of("REQ-ROUTE", "REQ-LOGOUT"),
+                List.of(),
+                List.of(
+                        new PromptAssertionEvidence(
+                                "URL_CONTAINS",
+                                "/dashboard/index",
+                                "DashboardPage",
+                                "REQ-ROUTE",
+                                1.0d
+                        ),
+                        new PromptAssertionEvidence(
+                                "ELEMENT_VISIBLE",
+                                "logoutLink",
+                                "DashboardPage",
+                                "REQ-LOGOUT",
+                                0.88d
+                        )
+                ),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("test"),
+                0.80d
+        ));
+
+        PromptPage promptPage = new PromptPageEligibilityEvaluator().evaluate(scope);
+
+        Assert.assertTrue(promptPage.eligible());
+        Assert.assertTrue(promptPage.routeOnlyContract());
+        Assert.assertTrue(promptPage.reasons().stream().anyMatch(reason -> reason.contains("coverage gaps")));
+    }
+
     private AiPageObjectPromptScope scope(PromptUiEvidence evidence) {
         AiContextPackage context = new AiContextPackage(
                 "test",

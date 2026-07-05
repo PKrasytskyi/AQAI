@@ -9,6 +9,10 @@ import ua.demo.agentlab.ui.discovery.component.model.ComponentDiscoveryModel;
 import ua.demo.agentlab.ui.discovery.component.model.ScopedLocatorCandidate;
 import ua.demo.agentlab.ui.discovery.component.model.SemanticComponentModel;
 import ua.demo.agentlab.ui.discovery.component.model.SemanticComponentPageModel;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceClassifier;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
+import ua.demo.agentlab.ui.discovery.evidence.EvidenceRankingService;
+import ua.demo.agentlab.ui.discovery.evidence.POMRelevantEvidence;
 import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedAction;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedElement;
@@ -37,23 +41,44 @@ public class PromptUiEvidenceBuilder {
     private final PromptLocatorSelector locatorSelector;
     private final SemanticActionModelBuilder semanticActionModelBuilder;
     private final ComponentBoundaryDetector componentBoundaryDetector;
+    private final EvidenceRankingService evidenceRankingService;
+    private final LocatorEvidenceClassifier locatorEvidenceClassifier;
 
     public PromptUiEvidenceBuilder() {
-        this(new PromptLocatorSelector(), new SemanticActionModelBuilder(), new ComponentBoundaryDetector());
+        this(
+                new PromptLocatorSelector(),
+                new SemanticActionModelBuilder(),
+                new ComponentBoundaryDetector(),
+                new EvidenceRankingService(),
+                new LocatorEvidenceClassifier()
+        );
     }
 
     PromptUiEvidenceBuilder(PromptLocatorSelector locatorSelector) {
-        this(locatorSelector, new SemanticActionModelBuilder(), new ComponentBoundaryDetector());
+        this(locatorSelector, new SemanticActionModelBuilder(), new ComponentBoundaryDetector(), new EvidenceRankingService(),
+                new LocatorEvidenceClassifier());
     }
 
     PromptUiEvidenceBuilder(PromptLocatorSelector locatorSelector, SemanticActionModelBuilder semanticActionModelBuilder) {
-        this(locatorSelector, semanticActionModelBuilder, new ComponentBoundaryDetector());
+        this(locatorSelector, semanticActionModelBuilder, new ComponentBoundaryDetector(), new EvidenceRankingService(),
+                new LocatorEvidenceClassifier());
     }
 
     PromptUiEvidenceBuilder(
             PromptLocatorSelector locatorSelector,
             SemanticActionModelBuilder semanticActionModelBuilder,
             ComponentBoundaryDetector componentBoundaryDetector
+    ) {
+        this(locatorSelector, semanticActionModelBuilder, componentBoundaryDetector, new EvidenceRankingService(),
+                new LocatorEvidenceClassifier());
+    }
+
+    PromptUiEvidenceBuilder(
+            PromptLocatorSelector locatorSelector,
+            SemanticActionModelBuilder semanticActionModelBuilder,
+            ComponentBoundaryDetector componentBoundaryDetector,
+            EvidenceRankingService evidenceRankingService,
+            LocatorEvidenceClassifier locatorEvidenceClassifier
     ) {
         this.locatorSelector = locatorSelector == null ? new PromptLocatorSelector() : locatorSelector;
         this.semanticActionModelBuilder = semanticActionModelBuilder == null
@@ -62,6 +87,10 @@ public class PromptUiEvidenceBuilder {
         this.componentBoundaryDetector = componentBoundaryDetector == null
                 ? new ComponentBoundaryDetector()
                 : componentBoundaryDetector;
+        this.evidenceRankingService = evidenceRankingService == null ? new EvidenceRankingService() : evidenceRankingService;
+        this.locatorEvidenceClassifier = locatorEvidenceClassifier == null
+                ? new LocatorEvidenceClassifier()
+                : locatorEvidenceClassifier;
     }
 
     public PromptUiEvidence build(AiContextPackage context) {
@@ -72,7 +101,18 @@ public class PromptUiEvidenceBuilder {
         Set<String> requirementIds = requirementIds(context);
         List<PromptActionEvidence> actions = actionEvidence(context, targetPage);
         List<PromptAssertionEvidence> assertions = assertionEvidence(context, targetPage);
-        List<PromptLocatorEvidence> locators = locatorEvidence(context, targetPage);
+        List<PromptLocatorEvidence> locatorCandidates = locatorEvidence(context, targetPage);
+        List<PromptLocatorEvidence> locators = locatorCandidates.stream()
+                .filter(locator -> locator.evidenceType() == LocatorEvidenceType.CONFIRMED_LOCATOR)
+                .toList();
+        List<PromptLocatorEvidence> candidateLocators = locatorCandidates.stream()
+                .filter(locator -> locator.evidenceType() == LocatorEvidenceType.CANDIDATE_LOCATOR)
+                .toList();
+        List<PromptLocatorEvidence> fallbackLocators = locatorCandidates.stream()
+                .filter(locator -> locator.evidenceType() == LocatorEvidenceType.FALLBACK_LOCATOR)
+                .toList();
+        boolean requiresAuthentication = requiresAuthentication(context, targetPage);
+        List<String> prerequisitePages = prerequisitePages(context, targetPage);
         List<ExcludedEvidence> excluded = context.mappedUiKnowledgeCurated() == null
                 ? List.of()
                 : context.mappedUiKnowledgeCurated().excludedEvidence().stream()
@@ -83,18 +123,55 @@ public class PromptUiEvidenceBuilder {
         sourceTrace.add("prompt-evidence:scoped-context");
         sourceTrace.add("prompt-evidence:targetPage=" + targetPage.pageName());
         sourceTrace.add("prompt-evidence:requirementIds=" + requirementIds);
+        if (requiresAuthentication) {
+            sourceTrace.add("prompt-evidence:requiresAuthentication=true");
+        }
         return new PromptUiEvidence(
                 targetPage.pageName(),
                 route(targetPage),
+                requiresAuthentication,
+                prerequisitePages,
                 new ArrayList<>(requirementIds),
                 actions,
                 assertions,
                 locators,
+                candidateLocators,
+                fallbackLocators,
                 List.of(),
                 excluded,
                 sourceTrace,
                 confidence(context, locators, assertions)
         );
+    }
+
+    private boolean requiresAuthentication(AiContextPackage context, MappedPage targetPage) {
+        if (targetPage != null && targetPage.stateHints() != null && targetPage.stateHints().requiresAuthentication()) {
+            return true;
+        }
+        String evidence = String.join(" ",
+                targetPage == null ? "" : targetPage.pageName(),
+                targetPage == null ? "" : targetPage.pageType(),
+                targetPage == null ? "" : route(targetPage)
+        ).toLowerCase(Locale.ROOT);
+        return containsAny(evidence, "dashboard", "authenticated", "secure", "protected");
+    }
+
+    private List<String> prerequisitePages(AiContextPackage context, MappedPage targetPage) {
+        Set<String> pages = new LinkedHashSet<>();
+        if (context != null && context.canonicalTestCaseBundle() != null) {
+            for (CanonicalTestCase testCase : context.canonicalTestCaseBundle().testCases()) {
+                if (canonicalTestCaseBelongsToTarget(testCase, targetPage)
+                        && !canonicalTestCaseSourceBelongsToTarget(testCase, targetPage)
+                        && testCase.sourcePageName() != null
+                        && !testCase.sourcePageName().isBlank()) {
+                    pages.add(testCase.sourcePageName().trim());
+                }
+            }
+        }
+        if (pages.isEmpty() && requiresAuthentication(context, targetPage) && !isLoginPage(targetPage)) {
+            pages.add("LoginPage");
+        }
+        return new ArrayList<>(pages);
     }
 
     private Set<String> requirementIds(AiContextPackage context) {
@@ -372,6 +449,24 @@ public class PromptUiEvidenceBuilder {
         if (pageModel == null) {
             return List.of();
         }
+        SemanticPageModel semanticPage = semanticActionModelBuilder.buildForTarget(
+                context.pageModelBundle(),
+                context.mappedUiKnowledge(),
+                targetPage
+        );
+        List<PromptLocatorEvidence> ranked = evidenceRankingService.rank(
+                        targetPage,
+                        pageModel,
+                        componentModel,
+                        semanticPage,
+                        requirementIds(context)
+                ).stream()
+                .map(this::toRankedLocatorEvidence)
+                .limit(32)
+                .toList();
+        if (!ranked.isEmpty()) {
+            return ranked;
+        }
         Map<String, PageElementModel> elementsById = pageModel.elements().stream()
                 .collect(java.util.stream.Collectors.toMap(
                         PageElementModel::elementId,
@@ -385,6 +480,33 @@ public class PromptUiEvidenceBuilder {
                 .flatMap(component -> bestComponentLocators(component, elementsById, targetPage).stream())
                 .limit(16)
                 .toList();
+    }
+
+    private PromptLocatorEvidence toRankedLocatorEvidence(POMRelevantEvidence evidence) {
+        List<String> sourceTrace = new ArrayList<>();
+        sourceTrace.add("ranked-evidence:" + evidence.elementId());
+        sourceTrace.add("component:" + evidence.componentName());
+        sourceTrace.add("evidenceType:" + evidence.evidenceType());
+        sourceTrace.add("score:" + String.format(Locale.ROOT, "%.2f", evidence.finalScore()));
+        sourceTrace.addAll(evidence.reasons());
+        return new PromptLocatorEvidence(
+                fieldHint(firstNonBlank(evidence.fieldHint(), evidence.elementName(), evidence.elementId())),
+                fieldHint(firstNonBlank(evidence.elementName(), evidence.fieldHint(), evidence.elementId())),
+                normalizeStrategy(evidence.strategy()),
+                evidence.value(),
+                normalizeRole(evidence.role()),
+                evidence.visibleText(),
+                evidence.href(),
+                evidence.sameOrigin(),
+                evidence.finalScore(),
+                evidence.componentName(),
+                evidence.componentType(),
+                evidence.globalMatchCount(),
+                evidence.scopedMatchCount(),
+                evidence.uniqueWithinComponent(),
+                evidence.evidenceType(),
+                sourceTrace
+        );
     }
 
     private boolean componentPageMatchesTarget(
@@ -438,6 +560,9 @@ public class PromptUiEvidenceBuilder {
         if (candidate.finalScore() < 0.72d) {
             return false;
         }
+        if (candidate.globalMatchCount() < 0 || candidate.scopedMatchCount() < 0) {
+            return false;
+        }
         if (candidate.risks().stream().anyMatch(this::componentForbiddenRisk)) {
             return false;
         }
@@ -486,6 +611,8 @@ public class PromptUiEvidenceBuilder {
                 || normalized.equals("framework-generated-class")
                 || normalized.equals("security-token-field")
                 || normalized.equals("hidden-or-invisible-element")
+                || normalized.equals("browser-global-count-missing")
+                || normalized.equals("browser-scoped-count-missing")
                 || normalized.equals("not-component-unique");
     }
 
@@ -515,7 +642,12 @@ public class PromptUiEvidenceBuilder {
                 candidate.globalMatchCount(),
                 candidate.scopedMatchCount(),
                 candidate.uniqueWithinComponent(),
-                List.of("component-locator:" + component.componentId(), "element:" + element.elementId())
+                candidate.evidenceType(),
+                List.of(
+                        "component-locator:" + component.componentId(),
+                        "element:" + element.elementId(),
+                        "evidenceType:" + candidate.evidenceType()
+                )
         );
     }
 
@@ -586,6 +718,12 @@ public class PromptUiEvidenceBuilder {
         if (locator.score() < 0.75d) {
             return false;
         }
+        if (locator.browserMatchCount() < 0 || locator.browserScopedMatchCount() < 0) {
+            return false;
+        }
+        if (!locator.unique()) {
+            return false;
+        }
         String value = locator.value().toLowerCase(Locale.ROOT);
         String evidence = String.join(" ",
                 element.elementId(),
@@ -631,7 +769,16 @@ public class PromptUiEvidenceBuilder {
                 element.href(),
                 true,
                 locator.score(),
-                List.of("page-model-locator:" + element.elementId())
+                "",
+                "",
+                locator.browserMatchCount(),
+                locator.browserScopedMatchCount(),
+                locator.unique(),
+                locatorEvidenceClassifier.classify(locator),
+                List.of(
+                        "page-model-locator:" + element.elementId(),
+                        "evidenceType:" + locatorEvidenceClassifier.classify(locator)
+                )
         );
     }
 
@@ -785,7 +932,16 @@ public class PromptUiEvidenceBuilder {
                 locator.href(),
                 locator.sameOrigin(),
                 locator.stabilityScore(),
-                List.of("curated-locator:" + locator.evidenceSource())
+                "",
+                "",
+                locator.uniqueOnPage() ? 1 : -1,
+                locator.uniqueOnPage() ? 1 : -1,
+                locator.uniqueOnPage(),
+                locator.evidenceType(),
+                List.of(
+                        "curated-locator:" + locator.evidenceSource(),
+                        "evidenceType:" + locator.evidenceType()
+                )
         );
     }
 
@@ -845,7 +1001,7 @@ public class PromptUiEvidenceBuilder {
         normalized = normalized.replaceAll("^[\"'\\[]+|[\"'\\]]+$", "");
         normalized = normalized.replaceAll("[^A-Za-z0-9]+", " ").trim();
         if (normalized.equalsIgnoreCase("submit")) {
-            return "loginButton";
+            return "submitButton";
         }
         return normalized.isBlank() ? "element" : normalized;
     }

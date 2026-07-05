@@ -10,6 +10,9 @@ public class PageFeatureClassifier {
         if (containsAny(text, "authenticated-area", "secure area", "/secure", "logout", "logged in")) {
             return "authenticated-area";
         }
+        if (containsAny(text, "dashboard", "/dashboard", "dashboard/index")) {
+            return "dashboard";
+        }
         if (containsAny(text, "auth", "login", "signin", "password")) {
             return "authentication";
         }

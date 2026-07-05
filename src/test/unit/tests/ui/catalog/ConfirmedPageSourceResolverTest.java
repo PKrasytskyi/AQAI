@@ -22,6 +22,7 @@ import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedElement;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
+import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeGraphEdge;
 import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeGraphNode;
 import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeVectorDocument;
 import ua.demo.agentlab.ui.discovery.mapping.model.PageStateHints;
@@ -361,6 +362,53 @@ public class ConfirmedPageSourceResolverTest {
         List<LocatorCandidate> candidates = filtered.pages().get(0).elements().get(0).locatorCandidates();
         Assert.assertEquals(candidates.size(), 1);
         Assert.assertEquals(candidates.get(0).value(), "username");
+    }
+
+    @Test
+    public void locatorPromotionPreservesSupplementalEnrichmentKnowledgeForPersistence() {
+        MappedPage page = new MappedPage(
+                "login",
+                "LoginPage",
+                "authentication",
+                "/auth/login",
+                "/auth/login",
+                "Login",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                new PageStateHints(false, false, false, false, false, false),
+                "",
+                ""
+        );
+        PageKnowledgeGraphNode enrichment = new PageKnowledgeGraphNode(
+                "login:enrichment",
+                "PageEnrichment",
+                "LoginPage",
+                "login",
+                Map.of("enrichmentCacheVersion", "page-enrichment-v1")
+        );
+        PageKnowledgeVectorDocument enrichmentDocument = new PageKnowledgeVectorDocument(
+                "login:enrichment",
+                "page-enrichment",
+                "login",
+                "login:enrichment",
+                "LoginPage enrichment",
+                List.of("login")
+        );
+
+        MappedUiKnowledge filtered = new LocatorPromotionFilter().filterForPersistence(new MappedUiKnowledge(
+                List.of(page),
+                List.of(),
+                List.of(enrichment),
+                List.of(new PageKnowledgeGraphEdge("login", "login:enrichment", "PAGE_ENRICHED_BY")),
+                List.of(enrichmentDocument)
+        ));
+
+        Assert.assertTrue(filtered.graphNodes().stream().anyMatch(node -> node.nodeType().equals("PageEnrichment")));
+        Assert.assertTrue(filtered.graphEdges().stream().anyMatch(edge -> edge.edgeType().equals("PAGE_ENRICHED_BY")));
+        Assert.assertTrue(filtered.vectorDocuments().stream().anyMatch(document -> document.documentType().equals("page-enrichment")));
     }
 
     private LocatorCandidate locator(

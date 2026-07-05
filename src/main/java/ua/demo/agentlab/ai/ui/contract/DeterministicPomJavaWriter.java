@@ -77,6 +77,9 @@ public class DeterministicPomJavaWriter {
         List<AiMethodSpec> methods = new ArrayList<>();
         Set<String> emitted = new LinkedHashSet<>();
         for (PomComponentSpec component : contract.components()) {
+            if (!hasComponentBehavior(component)) {
+                continue;
+            }
             String rootLocatorId = componentRootLocatorId(component);
             if (rootLocatorId.isBlank()) {
                 continue;
@@ -149,7 +152,7 @@ public class DeterministicPomJavaWriter {
         List<GeneratedSourceFile> files = new ArrayList<>();
         String packageName = compatibilityWriter.pagePackage();
         for (PomComponentSpec component : contract.components()) {
-            if (!component.reusable() && component.actions().isEmpty() && component.assertions().isEmpty()) {
+            if (!hasComponentBehavior(component)) {
                 continue;
             }
             String rootLocatorId = componentRootLocatorId(component);
@@ -165,6 +168,11 @@ public class DeterministicPomJavaWriter {
             ));
         }
         return files;
+    }
+
+    private boolean hasComponentBehavior(PomComponentSpec component) {
+        return component != null
+                && (!component.actions().isEmpty() || !component.assertions().isEmpty());
     }
 
     private String renderComponent(
@@ -438,6 +446,15 @@ public class DeterministicPomJavaWriter {
 
     private String valueExpression(String valueFrom, String literalValue) {
         if (valueFrom != null && !valueFrom.isBlank()) {
+            String trimmed = valueFrom.trim();
+            int dot = trimmed.indexOf('.');
+            if (dot > 0 && dot < trimmed.length() - 1) {
+                String variable = sanitizeVariableName(trimmed.substring(0, dot));
+                String key = trimmed.substring(dot + 1).replaceAll("[^A-Za-z0-9._-]+", "");
+                if (!variable.isBlank() && !key.isBlank()) {
+                    return variable + ".required(\"" + escapeJava(key) + "\")";
+                }
+            }
             return sanitizeVariableName(valueFrom);
         }
         return "\"" + escapeJava(literalValue == null ? "" : literalValue) + "\"";

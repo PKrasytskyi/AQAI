@@ -10,10 +10,15 @@ import ua.demo.agentlab.ai.schema.LlmOutputSchemaValidator;
 import ua.demo.agentlab.ai.schema.LlmOutputSchemaVersion;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.testcase.model.CanonicalTestCase;
+import ua.demo.agentlab.ui.contract.AssertionIntentKind;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class OpenAiTestCaseExpectationEnrichmentClient implements TestCaseExpectationEnrichmentClient {
 
@@ -21,6 +26,7 @@ public class OpenAiTestCaseExpectationEnrichmentClient implements TestCaseExpect
     private final OpenAiResponseGenerationClient generationClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final LlmOutputSchemaValidator schemaValidator = new LlmOutputSchemaValidator();
+    private final ExpectedResultConflictDetector conflictDetector = new ExpectedResultConflictDetector();
     private List<String> lastFailures = List.of();
 
     public OpenAiTestCaseExpectationEnrichmentClient(RagRuntimeConfig config) {
@@ -47,15 +53,20 @@ public class OpenAiTestCaseExpectationEnrichmentClient implements TestCaseExpect
         for (int index = 0; index < fallback.size(); index++) {
             CanonicalTestCase testCase = testCases.get(index);
             ResolvedExpectedResult defaultResult = fallback.get(index);
-            if ("project-profile-route".equals(defaultResult.source())) {
+            if (defaultResult.isApproved() || "conflict-detector".equals(defaultResult.source())) {
+                results.add(defaultResult);
+                continue;
+            }
+            List<ExpectedResultCandidate> scopedCandidates = scopedCandidates(testCase, candidates, defaultResult);
+            if (scopedCandidates.isEmpty()) {
                 results.add(defaultResult);
                 continue;
             }
             try {
                 results.add(parse(
-                        generationClient.generate(prompt(testCase, candidates, projectProfile)),
+                        generationClient.generate(prompt(testCase, scopedCandidates, projectProfile)),
                         testCase,
-                        candidates,
+                        scopedCandidates,
                         defaultResult
                 ));
             } catch (Exception exception) {
@@ -87,8 +98,8 @@ public class OpenAiTestCaseExpectationEnrichmentClient implements TestCaseExpect
                 1. Return JSON only.
                 2. Select at most one supplied assertion-result candidate.
                 3. Do not invent expected text, routes, locators, methods, or requirements.
-                4. expectedValue must exactly equal the selected candidate's expectedResult, or the test case's supplied route assertion value.
-                5. Use status=resolved only when confidence is at least 0.80; otherwise use needs-review.
+                4. expectedValue must exactly equal the selected candidate's expectedResult, or the test case's routeAssertionValue.
+                5. Use status=resolved only when confidence is at least 0.80 and conflictSignals is empty; otherwise use needs-review.
 
                 # Input
                 %s
@@ -102,18 +113,116 @@ public class OpenAiTestCaseExpectationEnrichmentClient implements TestCaseExpect
 
                 # Notes
                 This is enrichment metadata. Do not generate Java, Page Objects, or tests.
-                """.formatted(objectMapper.writeValueAsString(Map.of(
-                "testCase", testCase,
-                "assertionResultCandidates", candidates == null ? List.of() : candidates,
-                "projectRoutes", profile == null ? Map.of() : Map.of(
-                        "home", profile.homeRoute(),
-                        "login", profile.loginRoute(),
-                        "authenticated", profile.authenticatedRoute()
-                )
-        )),
+                """.formatted(objectMapper.writeValueAsString(promptInput(testCase, candidates, profile)),
                 LlmOutputSchemaVersion.RESOLVED_EXPECTED_RESULT,
                 LlmOutputSchemaVersion.RESOLVED_EXPECTED_RESULT,
                 testCase.id());
+    }
+
+    private Map<String, Object> promptInput(
+            CanonicalTestCase testCase,
+            List<ExpectedResultCandidate> candidates,
+            ProjectProfile profile
+    ) {
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("assertionResultCandidates", candidates == null ? List.of() : candidates);
+        input.put("projectRoutes", projectRoutes(profile));
+        input.put("testCase", compactTestCase(testCase));
+        input.put("conflictSignals", conflictDetector.detect(testCase));
+        return input;
+    }
+
+    private Map<String, Object> compactTestCase(CanonicalTestCase testCase) {
+        Map<String, Object> compact = new LinkedHashMap<>();
+        compact.put("id", testCase.id());
+        compact.put("title", testCase.title());
+        compact.put("requirementRefs", testCase.requirementRefs());
+        compact.put("sourcePageName", testCase.sourcePageName());
+        compact.put("pageName", testCase.pageName());
+        compact.put("sourceRoute", testCase.sourceRoute());
+        compact.put("route", testCase.route());
+        compact.put("operationKinds", testCase.operationIntents().stream()
+                .map(intent -> intent.kind().name())
+                .distinct()
+                .toList());
+        compact.put("assertionKinds", testCase.assertionIntents().stream()
+                .map(intent -> intent.kind().name())
+                .distinct()
+                .toList());
+        compact.put("routeAssertionValue", routeAssertionValue(testCase));
+        compact.put("actions", testCase.actions().stream().limit(5).toList());
+        compact.put("assertions", testCase.assertions().stream().limit(5).toList());
+        return compact;
+    }
+
+    private List<ExpectedResultCandidate> scopedCandidates(
+            CanonicalTestCase testCase,
+            List<ExpectedResultCandidate> candidates,
+            ResolvedExpectedResult fallback
+    ) {
+        List<ExpectedResultCandidate> safeCandidates = candidates == null ? List.of() : candidates;
+        List<ExpectedResultCandidate> exact = safeCandidates.stream()
+                .filter(candidate -> testCase.requirementRefs().contains(candidate.requirementId())
+                        || candidate.requirementId().equals(testCase.id())
+                        || candidate.requirementId().equals(fallback.sourceRequirementId()))
+                .distinct()
+                .toList();
+        if (!exact.isEmpty()) {
+            return exact.stream().limit(3).toList();
+        }
+        return safeCandidates.stream()
+                .map(candidate -> Map.entry(candidate, similarity(testCase, candidate)))
+                .filter(entry -> entry.getValue() >= 0.35d)
+                .sorted(Map.Entry.<ExpectedResultCandidate, Double>comparingByValue(Comparator.reverseOrder()))
+                .limit(3)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private String routeAssertionValue(CanonicalTestCase testCase) {
+        return testCase.assertionIntents().stream()
+                .filter(intent -> intent.kind() == AssertionIntentKind.URL_CONTAINS)
+                .map(intent -> intent.expectedValue() == null ? "" : intent.expectedValue())
+                .filter(value -> !value.isBlank())
+                .findFirst()
+                .orElse("");
+    }
+
+    private Map<String, String> projectRoutes(ProjectProfile profile) {
+        if (profile == null) {
+            return Map.of();
+        }
+        Map<String, String> routes = new LinkedHashMap<>();
+        if (!profile.homeRoute().isBlank()) {
+            routes.put("home", profile.homeRoute());
+        }
+        if (!profile.loginRoute().isBlank()) {
+            routes.put("login", profile.loginRoute());
+        }
+        if (!profile.authenticatedRoute().isBlank()) {
+            routes.put("authenticated", profile.authenticatedRoute());
+        }
+        return routes;
+    }
+
+    private double similarity(CanonicalTestCase testCase, ExpectedResultCandidate candidate) {
+        Set<String> testTokens = tokens(testCase.title() + " " + String.join(" ", testCase.actions())
+                + " " + String.join(" ", testCase.assertions()));
+        Set<String> candidateTokens = tokens(candidate.expectedResult());
+        if (testTokens.isEmpty() || candidateTokens.isEmpty()) {
+            return 0.0d;
+        }
+        long overlap = candidateTokens.stream().filter(testTokens::contains).count();
+        return (double) overlap / (double) candidateTokens.size();
+    }
+
+    private Set<String> tokens(String value) {
+        return java.util.Arrays.stream((value == null ? "" : value)
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .replaceAll("[^a-z0-9]+", " ")
+                        .split("\\s+"))
+                .filter(token -> token.length() >= 4)
+                .collect(Collectors.toSet());
     }
 
     private ResolvedExpectedResult parse(

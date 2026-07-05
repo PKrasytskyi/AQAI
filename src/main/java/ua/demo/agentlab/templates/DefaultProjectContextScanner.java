@@ -8,8 +8,8 @@ import java.util.List;
 public class DefaultProjectContextScanner implements ProjectContextScanner {
 
     private static final String SUPPORT_PACKAGE = "ua.demo.agentlab.core.ui";
-    private static final String GENERATED_PAGES_PACKAGE = "ua.demo.agentlab.ui.generated.pages";
-    private static final String GENERATED_TESTS_PACKAGE = "ua.demo.agentlab.ui.generated.tests";
+    private static final String GENERATED_PAGES_PACKAGE = "pages";
+    private static final String GENERATED_TESTS_PACKAGE = "tests.ui";
 
     private final Path workspaceRoot;
 

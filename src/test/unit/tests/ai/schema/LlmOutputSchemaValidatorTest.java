@@ -68,6 +68,7 @@ public class LlmOutputSchemaValidatorTest {
                   "actions": [
                     {
                       "methodName": "enterUsername",
+                      "kind": "ACTION",
                       "parameters": [{"type": "String", "name": "username"}],
                       "steps": [
                         {"action": "CLEAR_AND_TYPE", "locator": "usernameInput", "valueFrom": "username", "literalValue": "", "route": ""}

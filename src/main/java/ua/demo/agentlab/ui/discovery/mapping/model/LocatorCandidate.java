@@ -1,6 +1,7 @@
 package ua.demo.agentlab.ui.discovery.mapping.model;
 
 import ua.demo.agentlab.ui.discovery.mapping.LocatorStrategy;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 
 import java.util.List;
 
@@ -17,8 +18,42 @@ public record LocatorCandidate(
         boolean sameOrigin,
         boolean uniqueOnPage,
         boolean stableAcrossRuns,
-        List<String> risks
+        List<String> risks,
+        LocatorEvidenceType evidenceType
 ) {
+    public LocatorCandidate(
+            LocatorStrategy strategy,
+            String value,
+            double stabilityScore,
+            String evidenceSource,
+            String elementRole,
+            String accessibleName,
+            String visibleText,
+            String href,
+            String originHost,
+            boolean sameOrigin,
+            boolean uniqueOnPage,
+            boolean stableAcrossRuns,
+            List<String> risks
+    ) {
+        this(
+                strategy,
+                value,
+                stabilityScore,
+                evidenceSource,
+                elementRole,
+                accessibleName,
+                visibleText,
+                href,
+                originHost,
+                sameOrigin,
+                uniqueOnPage,
+                stableAcrossRuns,
+                risks,
+                inferEvidenceType(stabilityScore, sameOrigin, uniqueOnPage, stableAcrossRuns, risks)
+        );
+    }
+
     public LocatorCandidate {
         strategy = strategy == null ? LocatorStrategy.UNKNOWN : strategy;
         value = value == null ? "" : value.trim();
@@ -36,5 +71,26 @@ public record LocatorCandidate(
                 .map(String::trim)
                 .distinct()
                 .toList());
+        evidenceType = evidenceType == null ? LocatorEvidenceType.CANDIDATE_LOCATOR : evidenceType;
+    }
+
+    private static LocatorEvidenceType inferEvidenceType(
+            double score,
+            boolean sameOrigin,
+            boolean uniqueOnPage,
+            boolean stableAcrossRuns,
+            List<String> risks
+    ) {
+        if (score >= 0.75d
+                && sameOrigin
+                && uniqueOnPage
+                && stableAcrossRuns
+                && (risks == null || risks.isEmpty())) {
+            return LocatorEvidenceType.CONFIRMED_LOCATOR;
+        }
+        if (score >= 0.45d && sameOrigin) {
+            return LocatorEvidenceType.CANDIDATE_LOCATOR;
+        }
+        return LocatorEvidenceType.FALLBACK_LOCATOR;
     }
 }

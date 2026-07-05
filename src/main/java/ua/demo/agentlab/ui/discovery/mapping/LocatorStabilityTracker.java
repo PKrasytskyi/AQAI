@@ -17,6 +17,7 @@ public class LocatorStabilityTracker {
         return strategy == LocatorStrategy.ID
                 || strategy == LocatorStrategy.NAME && isFormField(element)
                 || strategy == LocatorStrategy.CSS && isSubmitControlLocator(value, element)
+                || strategy == LocatorStrategy.CSS && isSameOriginHrefLocator(value, element)
                 || value.contains("data-testid")
                 || value.contains("data-test")
                 || value.contains("data-qa")
@@ -36,6 +37,7 @@ public class LocatorStabilityTracker {
             boolean stableAttribute = strategy == LocatorStrategy.ID
                     || strategy == LocatorStrategy.NAME && isFormField(element)
                     || strategy == LocatorStrategy.CSS && isSubmitControlLocator(value, element)
+                    || strategy == LocatorStrategy.CSS && isSameOriginHrefLocator(value, element)
                     || value.contains("data-testid")
                     || value.contains("data-test")
                     || value.contains("data-qa")
@@ -68,7 +70,8 @@ public class LocatorStabilityTracker {
         }
         return strategy == LocatorStrategy.NAME && isFormField(element)
                 || strategy == LocatorStrategy.ID
-                || strategy == LocatorStrategy.CSS && isSubmitControlLocator(value, element);
+                || strategy == LocatorStrategy.CSS && isSubmitControlLocator(value, element)
+                || strategy == LocatorStrategy.CSS && isSameOriginHrefLocator(value, element);
     }
 
     private boolean isSubmitControlLocator(String value, PageElementModel element) {
@@ -83,6 +86,18 @@ public class LocatorStabilityTracker {
         return text.toLowerCase().contains("submit")
                 || text.toLowerCase().contains("button")
                 || text.toLowerCase().contains("input");
+    }
+
+    private boolean isSameOriginHrefLocator(String value, PageElementModel element) {
+        String normalizedValue = safe(value).toLowerCase();
+        String href = safe(element == null ? "" : element.href()).toLowerCase();
+        if (!normalizedValue.contains("[href=") || href.isBlank()) {
+            return false;
+        }
+        if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
+            return false;
+        }
+        return href.startsWith("/") || href.startsWith("./") || href.startsWith("../");
     }
 
     private boolean isFormField(PageElementModel element) {

@@ -77,12 +77,18 @@ public class PipelineArtifactStore {
             putIfPresent(WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE, output.bundle());
             return;
         }
+        if (value instanceof ua.demo.agentlab.testcase.agent.RequirementToTestCaseOutput output) {
+            putIfPresent(WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE, output.canonicalTestCaseBundle());
+            putIfPresent(WorkflowArtifact.REQUIREMENT_GOVERNANCE_BUNDLE, output.governanceBundle());
+            return;
+        }
         if (value instanceof ua.demo.agentlab.ai.context.AiContextPackage contextPackage) {
             putIfPresent(WorkflowArtifact.AI_CONTEXT_PACKAGE, contextPackage);
             return;
         }
         if (value instanceof ua.demo.agentlab.ai.ui.generation.AiPageObjectGenerationResult result) {
             putIfPresent(WorkflowArtifact.AI_PAGE_OBJECT_SPECS, result.specs());
+            putIfPresent(WorkflowArtifact.POM_CONTRACT_SPECS, result.contracts());
             return;
         }
         if (value instanceof ua.demo.agentlab.ai.ui.generation.AiUiTestGenerationResult result) {
@@ -119,10 +125,12 @@ public class PipelineArtifactStore {
         putIfPresent(WorkflowArtifact.PAGE_MODEL_ENRICHMENT_RECORDS, state.getPageModelEnrichments());
         putIfPresent(WorkflowArtifact.ENRICHED_MAPPED_UI_KNOWLEDGE, state.getEnrichedMappedUiKnowledge());
         putIfPresent(WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE, state.getCanonicalTestCaseBundle());
+        putIfPresent(WorkflowArtifact.REQUIREMENT_GOVERNANCE_BUNDLE, state.getRequirementGovernanceBundle());
         putIfPresent(WorkflowArtifact.UI_KNOWLEDGE_PERSISTED, state.getArtifacts().get("ui.knowledge.persistence.completed"));
         putIfPresent(WorkflowArtifact.ASSERTION_CONTRACTS, state.getAssertionContracts());
         putIfPresent(WorkflowArtifact.UI_TEST_PLAN, state.getUiTestPlan());
         putIfPresent(WorkflowArtifact.AI_CONTEXT_PACKAGE, state.getAiContextPackage());
+        putIfPresent(WorkflowArtifact.POM_CONTRACT_SPECS, state.getPomContractSpecs());
         putIfPresent(WorkflowArtifact.AI_PAGE_OBJECT_SPECS, state.getAiPageObjectSpecs());
         putIfPresent(WorkflowArtifact.AI_UI_TEST_SPECS, state.getAiUiTestSpecs());
         putIfPresent(WorkflowArtifact.PAGE_OBJECT_FILES, state.getPageObjectFiles());

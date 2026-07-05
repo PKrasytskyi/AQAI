@@ -203,6 +203,11 @@ public class LlmOutputSchemaValidator {
             JsonNode item = actions.get(index);
             String itemPath = path + "[" + index + "]";
             requireText(item, "methodName", itemPath + ".methodName", issues);
+            requireText(item, "kind", itemPath + ".kind", issues);
+            String kind = text(item, "kind");
+            if (!kind.isBlank() && !"ACTION".equals(kind)) {
+                issues.add(new LlmOutputSchemaIssue(itemPath + ".kind", "must be ACTION"));
+            }
             requireArray(item, "parameters", itemPath + ".parameters", issues);
             requireArray(item, "steps", itemPath + ".steps", issues);
             JsonNode steps = item.path("steps");

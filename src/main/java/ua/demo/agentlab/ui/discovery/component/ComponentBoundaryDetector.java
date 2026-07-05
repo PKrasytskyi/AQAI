@@ -89,6 +89,7 @@ public class ComponentBoundaryDetector {
             elementIds.addAll(form.submitElementIds());
             elementIds = elementIds.stream()
                     .filter(elementsById::containsKey)
+                    .filter(elementId -> componentEvidenceElement(elementsById.get(elementId)))
                     .distinct()
                     .toList();
             if (elementIds.isEmpty()) {
@@ -120,6 +121,7 @@ public class ComponentBoundaryDetector {
     ) {
         List<String> elementIds = elementsById.values().stream()
                 .filter(element -> !assigned.contains(element.elementId()))
+                .filter(this::componentEvidenceElement)
                 .filter(this::isSearchElement)
                 .map(PageElementModel::elementId)
                 .toList();
@@ -150,6 +152,7 @@ public class ComponentBoundaryDetector {
     ) {
         List<String> elementIds = elementsById.values().stream()
                 .filter(element -> !assigned.contains(element.elementId()))
+                .filter(this::componentEvidenceElement)
                 .filter(this::isNavigationElement)
                 .map(PageElementModel::elementId)
                 .toList();
@@ -180,6 +183,7 @@ public class ComponentBoundaryDetector {
     ) {
         List<String> elementIds = elementsById.values().stream()
                 .filter(element -> !assigned.contains(element.elementId()))
+                .filter(this::componentEvidenceElement)
                 .filter(this::isTableElement)
                 .map(PageElementModel::elementId)
                 .toList();
@@ -210,6 +214,7 @@ public class ComponentBoundaryDetector {
     ) {
         List<String> elementIds = elementsById.values().stream()
                 .filter(element -> !assigned.contains(element.elementId()))
+                .filter(this::componentEvidenceElement)
                 .map(PageElementModel::elementId)
                 .toList();
         if (elementIds.isEmpty()) {
@@ -285,6 +290,7 @@ public class ComponentBoundaryDetector {
             return new PageLocatorModel("css", "input[type='search'], input[placeholder*='Search']", 0.50d, "component root fallback", false);
         }
         return elements.stream()
+                .filter(this::componentEvidenceElement)
                 .flatMap(element -> element.locatorCandidates().stream())
                 .max(Comparator.comparingDouble(PageLocatorModel::score))
                 .orElse(null);
@@ -313,6 +319,14 @@ public class ComponentBoundaryDetector {
 
     private boolean isSearchElement(PageElementModel element) {
         return containsAny(evidence(element), "search", "filter", "lookup");
+    }
+
+    private boolean componentEvidenceElement(PageElementModel element) {
+        if (element == null || !element.visible()) {
+            return false;
+        }
+        String evidence = evidence(element);
+        return !containsAny(evidence, "_token", "csrf", "xsrf", "authenticity_token", "type hidden");
     }
 
     private boolean isNavigationElement(PageElementModel element) {

@@ -16,6 +16,7 @@ import ua.demo.agentlab.ui.discovery.selenium.model.SeleniumDiscoveryResult;
 import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessRule;
 import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessRuleResolver;
 import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessWaiter;
+import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiSessionManager;
 
 import java.net.URI;
 import java.util.ArrayDeque;
@@ -36,6 +37,7 @@ public class SafeNavigationCrawler {
     private final DiscoveryAuthenticationService authenticationService;
     private final PageReadinessRuleResolver pageReadinessRuleResolver;
     private final PageReadinessWaiter pageReadinessWaiter;
+    private final BiDiSessionManager biDiSessionManager;
 
     public SafeNavigationCrawler(
             PageSnapshotCollector pageSnapshotCollector,
@@ -63,6 +65,19 @@ public class SafeNavigationCrawler {
             PageReadinessRuleResolver pageReadinessRuleResolver,
             PageReadinessWaiter pageReadinessWaiter
     ) {
+        this(pageSnapshotCollector, crawlPolicy, pageEvidenceCaptureService, authenticationService,
+                pageReadinessRuleResolver, pageReadinessWaiter, null);
+    }
+
+    public SafeNavigationCrawler(
+            PageSnapshotCollector pageSnapshotCollector,
+            DiscoveryCrawlPolicy crawlPolicy,
+            PageEvidenceCaptureService pageEvidenceCaptureService,
+            DiscoveryAuthenticationService authenticationService,
+            PageReadinessRuleResolver pageReadinessRuleResolver,
+            PageReadinessWaiter pageReadinessWaiter,
+            BiDiSessionManager biDiSessionManager
+    ) {
         if (pageSnapshotCollector == null) {
             throw new IllegalArgumentException("pageSnapshotCollector cannot be null");
         }
@@ -82,6 +97,9 @@ public class SafeNavigationCrawler {
         this.pageReadinessWaiter = pageReadinessWaiter == null
                 ? new PageReadinessWaiter()
                 : pageReadinessWaiter;
+        this.biDiSessionManager = biDiSessionManager == null
+                ? new BiDiSessionManager(ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiDiscoveryConfig.disabled())
+                : biDiSessionManager;
     }
 
     public SeleniumDiscoveryResult crawl(WebDriver driver, ProjectProfile projectProfile) {
@@ -113,61 +131,71 @@ public class SafeNavigationCrawler {
                 continue;
             }
 
-            DiscoveryAuthenticationResult authenticationResult =
-                    DiscoveryAuthenticationResult.skipped(false, false, target.targetUrl(), "authentication not attempted");
-            boolean authenticated = false;
-            if (crawlPolicy.allowAuthentication() && authenticationService != null) {
-                authenticationResult = authenticationService.authenticate(driver, projectProfile, target.targetUrl());
-                if (authenticationResult.protectedTarget()) {
-                    authenticationResults.add(authenticationResult);
+            biDiSessionManager.start(driver, buildPageIdHint(target.targetUrl()), target.targetUrl());
+            try {
+                DiscoveryAuthenticationResult authenticationResult =
+                        DiscoveryAuthenticationResult.skipped(false, false, target.targetUrl(), "authentication not attempted");
+                boolean authenticated = false;
+                if (crawlPolicy.allowAuthentication() && authenticationService != null) {
+                    authenticationResult = authenticationService.authenticate(driver, projectProfile, target.targetUrl());
+                    biDiSessionManager.drain(driver);
+                    if (authenticationResult.protectedTarget()) {
+                        authenticationResults.add(authenticationResult);
+                    }
+                    authenticated = authenticationResult.success();
                 }
-                authenticated = authenticationResult.success();
-            }
-            if (!authenticated || !currentPageMatchesTarget(driver, projectProfile, target.targetUrl())) {
-                driver.navigate().to(target.targetUrl());
-            }
-            PageReadinessRule readinessRule = pageReadinessRuleResolver.resolve(
-                    projectProfile,
-                    requirementBundle,
-                    target.targetUrl()
-            );
-            pageReadinessWaiter.waitUntilReady(driver, readinessRule);
-            if (shouldSkipRedirectedProtectedPage(driver, projectProfile, authenticationResult)) {
+                if (!authenticated || !currentPageMatchesTarget(driver, projectProfile, target.targetUrl())) {
+                    driver.navigate().to(target.targetUrl());
+                    biDiSessionManager.start(driver, buildPageIdHint(driver.getCurrentUrl()), driver.getCurrentUrl());
+                    biDiSessionManager.drain(driver);
+                }
+                PageReadinessRule readinessRule = pageReadinessRuleResolver.resolve(
+                        projectProfile,
+                        requirementBundle,
+                        target.targetUrl()
+                );
+                pageReadinessWaiter.waitUntilReady(driver, readinessRule);
+                biDiSessionManager.drain(driver);
+                if (shouldSkipRedirectedProtectedPage(driver, projectProfile, authenticationResult)) {
+                    visitedUrls.add(normalizedUrl);
+                    continue;
+                }
+                String pageIdHint = buildPageIdHint(driver.getCurrentUrl());
+                DiscoveredPageEvidence evidence = pageEvidenceCaptureService.capture(driver, pageIdHint);
+                DiscoveredPageSnapshot snapshot = pageSnapshotCollector.collect(
+                        driver,
+                        pageIdHint,
+                        evidence
+                );
+                biDiSessionManager.drain(driver);
+
+                pagesById.putIfAbsent(snapshot.pageId(), snapshot);
                 visitedUrls.add(normalizedUrl);
-                continue;
-            }
-            String pageIdHint = buildPageIdHint(driver.getCurrentUrl());
-            DiscoveredPageEvidence evidence = pageEvidenceCaptureService.capture(driver, pageIdHint);
-            DiscoveredPageSnapshot snapshot = pageSnapshotCollector.collect(
-                    driver,
-                    pageIdHint,
-                    evidence
-            );
 
-            pagesById.putIfAbsent(snapshot.pageId(), snapshot);
-            visitedUrls.add(normalizedUrl);
+                if (target.fromPageId() != null) {
+                    transitions.add(new DiscoveredTransition(
+                            target.fromPageId(),
+                            target.actionLabel(),
+                            target.actionType(),
+                            snapshot.pageId(),
+                            snapshot.url(),
+                            true
+                    ));
+                }
 
-            if (target.fromPageId() != null) {
-                transitions.add(new DiscoveredTransition(
-                        target.fromPageId(),
-                        target.actionLabel(),
-                        target.actionType(),
-                        snapshot.pageId(),
-                        snapshot.url(),
-                        true
-                ));
-            }
+                if (target.depth() >= crawlPolicy.maxDepth()) {
+                    continue;
+                }
 
-            if (target.depth() >= crawlPolicy.maxDepth()) {
-                continue;
-            }
+                if (crawlPolicy.followLinks()) {
+                    enqueueTargets(queue, snapshot.pageId(), snapshot.links(), "LINK", target.depth() + 1, projectProfile.baseUrl(), visitedUrls);
+                }
 
-            if (crawlPolicy.followLinks()) {
-                enqueueTargets(queue, snapshot.pageId(), snapshot.links(), "LINK", target.depth() + 1, projectProfile.baseUrl(), visitedUrls);
-            }
-
-            if (crawlPolicy.followButtons()) {
-                enqueueTargets(queue, snapshot.pageId(), snapshot.buttons(), "BUTTON", target.depth() + 1, projectProfile.baseUrl(), visitedUrls);
+                if (crawlPolicy.followButtons()) {
+                    enqueueTargets(queue, snapshot.pageId(), snapshot.buttons(), "BUTTON", target.depth() + 1, projectProfile.baseUrl(), visitedUrls);
+                }
+            } finally {
+                biDiSessionManager.stop(driver);
             }
         }
 

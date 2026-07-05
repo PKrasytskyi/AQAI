@@ -6,10 +6,17 @@ import ua.demo.agentlab.ui.discovery.mapping.model.MappedField;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedForm;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
+import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeGraphEdge;
+import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeGraphNode;
+import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeVectorDocument;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class LocatorPromotionFilter {
 
@@ -23,13 +30,79 @@ public class LocatorPromotionFilter {
                 .filter(page -> !isBrowserErrorPage(page))
                 .map(this::filterPage)
                 .toList();
+        PageKnowledgeArtifactBuilder artifactBuilder = new PageKnowledgeArtifactBuilder();
+        List<PageKnowledgeGraphNode> graphNodes = new ArrayList<>(artifactBuilder.buildGraphNodes(pages));
+        List<PageKnowledgeGraphNode> supplementalNodes = supplementalGraphNodes(knowledge.graphNodes());
+        graphNodes.addAll(supplementalNodes);
+        Set<String> graphNodeIds = graphNodes.stream()
+                .map(PageKnowledgeGraphNode::nodeId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        List<PageKnowledgeGraphEdge> graphEdges = new ArrayList<>(artifactBuilder.buildGraphEdges(pages, knowledge.transitions()));
+        graphEdges.addAll(supplementalGraphEdges(knowledge.graphEdges(), graphNodeIds));
+        List<PageKnowledgeVectorDocument> vectorDocuments = new ArrayList<>(artifactBuilder.buildVectorDocuments(pages, knowledge.transitions()));
+        vectorDocuments.addAll(supplementalVectorDocuments(knowledge.vectorDocuments()));
         return new MappedUiKnowledge(
                 pages,
                 knowledge.transitions(),
-                new PageKnowledgeArtifactBuilder().buildGraphNodes(pages),
-                new PageKnowledgeArtifactBuilder().buildGraphEdges(pages, knowledge.transitions()),
-                new PageKnowledgeArtifactBuilder().buildVectorDocuments(pages, knowledge.transitions())
+                graphNodes,
+                graphEdges,
+                vectorDocuments
         );
+    }
+
+    private List<PageKnowledgeGraphNode> supplementalGraphNodes(List<PageKnowledgeGraphNode> nodes) {
+        if (nodes == null || nodes.isEmpty()) {
+            return List.of();
+        }
+        return nodes.stream()
+                .filter(node -> !isGeneratedMapperNode(node.nodeType()))
+                .toList();
+    }
+
+    private List<PageKnowledgeGraphEdge> supplementalGraphEdges(
+            List<PageKnowledgeGraphEdge> edges,
+            Set<String> graphNodeIds
+    ) {
+        if (edges == null || edges.isEmpty()) {
+            return List.of();
+        }
+        return edges.stream()
+                .filter(edge -> graphNodeIds.contains(edge.fromId()) && graphNodeIds.contains(edge.toId()))
+                .filter(edge -> !isGeneratedMapperEdge(edge.edgeType()))
+                .toList();
+    }
+
+    private List<PageKnowledgeVectorDocument> supplementalVectorDocuments(List<PageKnowledgeVectorDocument> documents) {
+        if (documents == null || documents.isEmpty()) {
+            return List.of();
+        }
+        return documents.stream()
+                .filter(document -> !isGeneratedMapperDocument(document.documentType()))
+                .toList();
+    }
+
+    private boolean isGeneratedMapperNode(String nodeType) {
+        String normalized = nodeType == null ? "" : nodeType.trim();
+        return Set.of("Page", "Element", "Locator", "Form", "Field", "Action", "AssertionHint")
+                .contains(normalized);
+    }
+
+    private boolean isGeneratedMapperEdge(String edgeType) {
+        String normalized = edgeType == null ? "" : edgeType.trim();
+        return Set.of(
+                "PAGE_HAS_ELEMENT",
+                "ELEMENT_HAS_LOCATOR",
+                "PAGE_HAS_FORM",
+                "FORM_HAS_FIELD",
+                "PAGE_HAS_ACTION",
+                "ELEMENT_SUPPORTS_ACTION",
+                "PAGE_TRANSITIONS_TO"
+        ).contains(normalized);
+    }
+
+    private boolean isGeneratedMapperDocument(String documentType) {
+        String normalized = documentType == null ? "" : documentType.trim();
+        return Set.of("page-summary", "element-summary", "transition-summary").contains(normalized);
     }
 
     private MappedPage filterPage(MappedPage page) {
@@ -106,6 +179,9 @@ public class LocatorPromotionFilter {
 
     private boolean isPromoted(LocatorCandidate candidate) {
         if (candidate == null || candidate.stabilityScore() < MIN_PROMOTED_SCORE) {
+            return false;
+        }
+        if (candidate.evidenceType() != LocatorEvidenceType.CONFIRMED_LOCATOR) {
             return false;
         }
         if (!candidate.sameOrigin() || !candidate.uniqueOnPage() || !candidate.stableAcrossRuns()) {
