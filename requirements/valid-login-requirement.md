@@ -13,8 +13,9 @@ Verify that an existing user can open the login page, submit valid credentials, 
 * User can enter a valid password into the password field.
 * User can submit the login form.
 * User with valid credentials is redirected to the authenticated area.
-* Authenticated area displays a successful login state.
-* Authenticated user can see a logout action.
+* Authenticated area displays a successful dashboard state.
+* Authenticated user can open the user menu and see a logout action.
+* User can click "Logout" in the drop-down menu.
 
 ## Assertion Requirements
 
@@ -25,8 +26,11 @@ Verify that an existing user can open the login page, submit valid credentials, 
 * Login button is visible on the login page.
 * User logged with valid credentials and redirected to the authenticated area.
 * Authenticated area route contains the project authenticated route.
-* Authenticated welcome message is visible.
-* Logout action is visible for the authenticated user.
+* Dashboard heading is visible in the authenticated area.
+* Authenticated user can open the user menu.
+* Logout action is visible for the authenticated user after opening the user menu.
+* User is redirected to the Login Page after click "Logout"
+* "Login" button is visible
 
 ## UI Expectations
 
@@ -48,7 +52,7 @@ Verify that an existing user can open the login page, submit valid credentials, 
 
 * HomePage owns navigation to the login page.
 * LoginPage owns username input, password input, and login form submission.
-* AuthenticatedAreaPage owns successful login state assertions and logout visibility assertions.
+* AuthenticatedAreaPage owns successful dashboard state assertions, user menu actions, and logout visibility assertions.
 
 ## Quality Expectations
 

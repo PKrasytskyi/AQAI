@@ -6,7 +6,9 @@ import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
 import ua.demo.agentlab.ui.discovery.runtime.model.RuntimeEvidenceBundle;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class RuntimeFeedbackAnalyzer {
 
@@ -14,6 +16,7 @@ public class RuntimeFeedbackAnalyzer {
         int locatorCandidates = 0;
         int browserVerifiedUnique = 0;
         int unstableLocators = 0;
+        Map<String, RuntimeFeedbackIssue> locatorIssues = new LinkedHashMap<>();
         List<RuntimeFeedbackIssue> issues = new ArrayList<>();
 
         if (pageModelBundle != null) {
@@ -27,18 +30,25 @@ public class RuntimeFeedbackAnalyzer {
                         }
                         if (!locator.stableAcrossRuns()) {
                             unstableLocators++;
-                            issues.add(new RuntimeFeedbackIssue(
-                                    "WARN",
-                                    "UNSTABLE_LOCATOR",
-                                    page.pageId(),
-                                    locator.strategy() + "=" + locator.value(),
-                                    "Prefer stable attributes, component-scoped uniqueness, or repeat discovery confirmation"
-                            ));
+                            if (shouldReviewUnstableLocator(locator, browserUnique)) {
+                                String evidence = locator.strategy() + "=" + locator.value();
+                                locatorIssues.putIfAbsent(
+                                        page.pageId() + "|" + evidence,
+                                        new RuntimeFeedbackIssue(
+                                                "WARN",
+                                                "UNSTABLE_LOCATOR",
+                                                page.pageId(),
+                                                evidence,
+                                                "Prefer stable attributes, component-scoped uniqueness, or repeat discovery confirmation"
+                                        )
+                                );
+                            }
                         }
                     }
                 }
             }
         }
+        issues.addAll(locatorIssues.values());
 
         int networkFailures = runtimeEvidenceBundle == null ? 0 : (int) runtimeEvidenceBundle.networkResponses().stream()
                 .filter(response -> response.status() >= 400)
@@ -79,5 +89,17 @@ public class RuntimeFeedbackAnalyzer {
                 flakyRisk,
                 issues
         );
+    }
+
+    private boolean shouldReviewUnstableLocator(PageLocatorModel locator, boolean browserUnique) {
+        if (locator == null || locator.value().isBlank()) {
+            return false;
+        }
+        String value = locator.value().toLowerCase(java.util.Locale.ROOT);
+        if (value.equals("body") || value.equals("html") || value.contains(":nth-child(")
+                || value.contains(" > div > div")) {
+            return false;
+        }
+        return browserUnique || locator.score() >= 0.75d;
     }
 }

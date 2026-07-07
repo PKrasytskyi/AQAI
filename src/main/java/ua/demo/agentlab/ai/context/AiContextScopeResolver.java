@@ -277,6 +277,9 @@ public class AiContextScopeResolver {
         return text.contains("authenticated area")
                 || text.contains("secure area")
                 || text.contains("welcome")
+                || text.contains("logout")
+                || text.contains("user menu")
+                || text.contains("sign out")
                 || text.contains("redirected to the authenticated")
                 || text.contains("logged with valid credentials");
     }

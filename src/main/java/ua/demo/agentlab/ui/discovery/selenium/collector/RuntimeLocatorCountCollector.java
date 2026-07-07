@@ -139,8 +139,10 @@ public class RuntimeLocatorCountCollector {
         add(locators, "css", element.placeholder().isBlank()
                 ? ""
                 : element.tag() + "[placeholder='" + escapeCssValue(element.placeholder()) + "']");
+        add(locators, "css", stableClassLocator(element));
         add(locators, "css", submitControlLocator(element));
-        if (!element.text().isBlank() && ("button".equals(element.tag()) || "a".equals(element.tag()))) {
+        if (!element.text().isBlank()
+                && ("button".equals(element.tag()) || "a".equals(element.tag()) || headingTag(element.tag()))) {
             add(locators, "xpath", "//" + element.tag() + "[normalize-space()='" + escapeXpathLiteral(element.text()) + "']");
         }
         return locators.stream()
@@ -185,6 +187,41 @@ public class RuntimeLocatorCountCollector {
             return tag + "[type='submit']";
         }
         return "";
+    }
+
+    private String stableClassLocator(RawElement element) {
+        String tag = safe(element.tag()).toLowerCase(Locale.ROOT);
+        if (tag.isBlank() || safe(element.cssClass()).isBlank()) {
+            return "";
+        }
+        for (String token : element.cssClass().split("\\s+")) {
+            String normalized = token.toLowerCase(Locale.ROOT);
+            if (stableSemanticClass(normalized)) {
+                return tag + "." + escapeCssClass(token);
+            }
+        }
+        return "";
+    }
+
+    private boolean stableSemanticClass(String token) {
+        return token.contains("dropdown")
+                || token.contains("breadcrumb")
+                || token.contains("topbar")
+                || token.contains("dashboard")
+                || token.contains("header")
+                || token.contains("title")
+                || token.contains("menu")
+                || token.contains("logout")
+                || token.contains("button")
+                || token.contains("link");
+    }
+
+    private boolean headingTag(String tag) {
+        return safe(tag).toLowerCase(Locale.ROOT).matches("h[1-6]");
+    }
+
+    private String escapeCssClass(String value) {
+        return safe(value).replace("\\", "\\\\").replace(".", "\\.");
     }
 
     private void add(List<LocatorDescriptor> locators, String strategy, String value) {

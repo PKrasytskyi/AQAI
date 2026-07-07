@@ -22,6 +22,12 @@ public class DomParser {
             "select",
             "textarea",
             "label",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
             "form",
             "table",
             "tr",
@@ -30,6 +36,8 @@ public class DomParser {
             "dialog",
             "[role='dialog']",
             "[role='button']",
+            "[aria-haspopup]",
+            "[aria-expanded]",
             "[role='checkbox']",
             "[role='radio']",
             "[type='checkbox']",
@@ -41,7 +49,11 @@ public class DomParser {
             ".toast",
             ".error",
             ".success",
-            ".alert"
+            ".alert",
+            "span[class*=dropdown]",
+            "div[class*=dropdown]",
+            "span[class*=menu]",
+            "div[class*=menu]"
     );
 
     public List<RawElement> parse(RawPageSnapshot rawPageSnapshot) {

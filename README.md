@@ -131,10 +131,10 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" test
 Unit tests for the platform live in:
 
 ```text
-src/test/unit/tests
+src/test/java/unit/tests
 ```
 
-`src/test/java` is reserved for future integration tests and generated-test compile fixtures.
+`src/test/java` is the standard Maven test source root. Generated UI/API compile fixtures also live under this root so their package names match their file paths.
 
 Compile only:
 
@@ -254,7 +254,7 @@ This keeps GitHub focused on source code, requirements, docs, infrastructure def
 
 Before publishing a new snapshot, the expected commit boundary is:
 
-- source code under `src/main/java` and unit tests under `src/test/unit/tests`;
+- source code under `src/main/java` and unit tests under `src/test/java/unit/tests`;
 - curated requirements/docs/config examples;
 - infrastructure definitions such as `docker-compose.knowledge.yml`;
 - no `target/`, local DB volumes, IDE metadata, API keys, real credentials, or generated runtime artifacts.

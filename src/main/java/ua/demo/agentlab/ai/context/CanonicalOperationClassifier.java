@@ -156,6 +156,7 @@ public class CanonicalOperationClassifier {
             case ADD_ENTITY_TO_CONTAINER, ADD_ITEM_TO_CONTAINER -> "addEntityToContainer";
             case REMOVE_ENTITY_FROM_CONTAINER, REMOVE_ITEM_FROM_CONTAINER -> "removeEntityFromContainer";
             case AUTHENTICATE -> "authenticate";
+            case ENTER_TEXT -> "enterText";
             case SUBMIT_FORM -> "submitForm";
             case SEARCH -> "search";
             case FILTER -> "applyFilter";

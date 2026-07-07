@@ -118,7 +118,7 @@ public class RuleBasedTestCaseExpectationEnrichmentClient implements TestCaseExp
             return candidateContaining(candidates, "logged with valid credentials", "authenticated area route contains");
         }
         if (containsAny(text, "successful login state", "authenticated area displays")) {
-            return candidateContaining(candidates, "authenticated welcome message", "authenticated area route contains");
+            return candidateContaining(candidates, "dashboard heading is visible", "authenticated area route contains");
         }
         if (containsAny(text, "logout action", "logout")) {
             return candidateContaining(candidates, "logout action is visible");

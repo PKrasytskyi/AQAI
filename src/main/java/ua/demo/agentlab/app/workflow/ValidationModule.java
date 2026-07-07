@@ -7,6 +7,8 @@ public record ValidationModule(
         GeneratedCodeValidator generatedCodeValidator,
         WorkflowAgent generatedUiContractValidationAgent,
         WorkflowAgent generatedCodeCompileAgent,
-        WorkflowAgent generatedCodeReviewAgent
+        WorkflowAgent generatedCodeReviewAgent,
+        WorkflowAgent generatedUiSmokeAgent,
+        WorkflowAgent runtimeFeedbackDbUpdateAgent
 ) {
 }

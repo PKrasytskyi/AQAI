@@ -191,6 +191,46 @@ public class SeleniumBiDiSessionAdapter {
                   });
                 } catch (ignored) {}
               };
+              window.__agentLabBiDiInflight = 0;
+              window.__agentLabBiDiNetworkIdleTimer = null;
+              window.__agentLabBiDiNetworkStart = function(method, url, resourceType) {
+                window.__agentLabBiDiInflight += 1;
+                if (window.__agentLabBiDiNetworkIdleTimer) {
+                  clearTimeout(window.__agentLabBiDiNetworkIdleTimer);
+                  window.__agentLabBiDiNetworkIdleTimer = null;
+                }
+                window.__agentLabBiDiPush('network.requestWillBeSent', {
+                  method: String(method || 'GET').toUpperCase(),
+                  url: String(url || ''),
+                  resourceType: String(resourceType || 'xhr'),
+                  inflight: String(window.__agentLabBiDiInflight)
+                });
+              };
+              window.__agentLabBiDiNetworkEnd = function(method, url, status, resourceType, error) {
+                window.__agentLabBiDiInflight = Math.max(0, window.__agentLabBiDiInflight - 1);
+                var attributes = {
+                  method: String(method || 'GET').toUpperCase(),
+                  url: String(url || ''),
+                  status: String(status || 0),
+                  resourceType: String(resourceType || 'xhr'),
+                  inflight: String(window.__agentLabBiDiInflight)
+                };
+                if (error) {
+                  attributes.error = String(error);
+                }
+                window.__agentLabBiDiPush('network.responseCompleted', attributes);
+                if (window.__agentLabBiDiInflight === 0) {
+                  if (window.__agentLabBiDiNetworkIdleTimer) {
+                    clearTimeout(window.__agentLabBiDiNetworkIdleTimer);
+                  }
+                  window.__agentLabBiDiNetworkIdleTimer = setTimeout(function() {
+                    window.__agentLabBiDiPush('network.idle', {
+                      inflight: String(window.__agentLabBiDiInflight),
+                      idleForMs: '500'
+                    });
+                  }, 500);
+                }
+              };
               window.__agentLabBiDiDrain = function() {
                 var events = window.__agentLabBiDiEvents || [];
                 window.__agentLabBiDiEvents = [];
@@ -210,6 +250,15 @@ public class SeleniumBiDiSessionAdapter {
                   trigger: kind,
                   sameDocument: 'true'
                 });
+                setTimeout(function() {
+                  window.__agentLabBiDiPush('browsingContext.navigationCompleted', {
+                    fromUrl: String(fromUrl || previousUrl || ''),
+                    url: String(window.location.href),
+                    trigger: kind,
+                    sameDocument: 'true',
+                    readyState: String(document.readyState || '')
+                  });
+                }, 0);
                 previousUrl = toUrl;
               }
               var originalPushState = history.pushState;
@@ -234,6 +283,15 @@ public class SeleniumBiDiSessionAdapter {
                   trigger: 'hashchange',
                   sameDocument: 'true'
                 });
+                setTimeout(function() {
+                  window.__agentLabBiDiPush('browsingContext.navigationCompleted', {
+                    fromUrl: String(event.oldURL || previousUrl || ''),
+                    url: String(window.location.href),
+                    trigger: 'hashchange',
+                    sameDocument: 'true',
+                    readyState: String(document.readyState || '')
+                  });
+                }, 0);
                 previousUrl = String(window.location.href);
               });
               ['log', 'info', 'warn', 'error'].forEach(function(level) {
@@ -266,27 +324,12 @@ public class SeleniumBiDiSessionAdapter {
                 window.fetch = function(input, init) {
                   var url = typeof input === 'string' ? input : String((input && input.url) || '');
                   var method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
-                  window.__agentLabBiDiPush('network.requestWillBeSent', {
-                    method: method,
-                    url: url,
-                    resourceType: 'fetch'
-                  });
+                  window.__agentLabBiDiNetworkStart(method, url, 'fetch');
                   return originalFetch.apply(this, arguments).then(function(response) {
-                    window.__agentLabBiDiPush('network.responseCompleted', {
-                      method: method,
-                      url: String(response.url || url),
-                      status: String(response.status || 0),
-                      resourceType: 'fetch'
-                    });
+                    window.__agentLabBiDiNetworkEnd(method, String(response.url || url), String(response.status || 0), 'fetch', '');
                     return response;
                   }).catch(function(error) {
-                    window.__agentLabBiDiPush('network.responseCompleted', {
-                      method: method,
-                      url: url,
-                      status: '0',
-                      resourceType: 'fetch',
-                      error: String(error && error.message || error || '')
-                    });
+                    window.__agentLabBiDiNetworkEnd(method, url, '0', 'fetch', String(error && error.message || error || ''));
                     throw error;
                   });
                 };
@@ -303,18 +346,9 @@ public class SeleniumBiDiSessionAdapter {
                   var xhr = this;
                   var method = xhr.__agentLabMethod || 'GET';
                   var url = xhr.__agentLabUrl || '';
-                  window.__agentLabBiDiPush('network.requestWillBeSent', {
-                    method: method,
-                    url: url,
-                    resourceType: 'xhr'
-                  });
+                  window.__agentLabBiDiNetworkStart(method, url, 'xhr');
                   xhr.addEventListener('loadend', function() {
-                    window.__agentLabBiDiPush('network.responseCompleted', {
-                      method: method,
-                      url: url,
-                      status: String(xhr.status || 0),
-                      resourceType: 'xhr'
-                    });
+                    window.__agentLabBiDiNetworkEnd(method, url, String(xhr.status || 0), 'xhr', '');
                   });
                   return originalSend.apply(this, arguments);
                 };
@@ -346,6 +380,13 @@ public class SeleniumBiDiSessionAdapter {
               window.addEventListener('load', function() {
                 window.__agentLabBiDiPush('browsingContext.lifecycle', {
                   name: 'load',
+                  pageUrl: String(window.location.href),
+                  readyState: String(document.readyState || '')
+                });
+              });
+              window.addEventListener('DOMContentLoaded', function() {
+                window.__agentLabBiDiPush('browsingContext.lifecycle', {
+                  name: 'DOMContentLoaded',
                   pageUrl: String(window.location.href),
                   readyState: String(document.readyState || '')
                 });

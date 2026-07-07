@@ -20,6 +20,7 @@ public enum UiOperationKind {
     ADD_ITEM_TO_CONTAINER,
     REMOVE_ITEM_FROM_CONTAINER,
     AUTHENTICATE,
+    ENTER_TEXT,
     SUBMIT_FORM,
     SEARCH,
     FILTER,

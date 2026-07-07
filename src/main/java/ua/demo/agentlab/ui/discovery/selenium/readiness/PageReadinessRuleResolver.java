@@ -84,7 +84,7 @@ public class PageReadinessRuleResolver {
                     capability,
                     route,
                     List.of("nav, aside, header, [role='navigation'], [class*='dashboard' i], [href*='logout' i], button"),
-                    List.of("dashboard", "logout", "profile", "welcome"),
+                    List.of("dashboard", "logout", "profile"),
                     timeoutMillis,
                     "default-authenticated-area"
             );

@@ -2,6 +2,8 @@ package ua.demo.agentlab.ai.context;
 
 import ua.demo.agentlab.ai.flow.FlowScopedKnowledgePackage;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
+import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,18 +12,28 @@ public class AiContextAssembler {
 
     private final CanonicalInteractionLayer canonicalInteractionLayer;
     private final UiKnowledgeRetrievalService retrievalService;
+    private final DbStableLocatorEvidenceService stableLocatorEvidenceService;
     private final PromptUiEvidenceBuilder promptUiEvidenceBuilder = new PromptUiEvidenceBuilder();
 
     public AiContextAssembler() {
-        this(null, null);
+        this(null, null, null);
     }
 
     public AiContextAssembler(
             CanonicalInteractionLayer canonicalInteractionLayer,
             UiKnowledgeRetrievalService retrievalService
     ) {
+        this(canonicalInteractionLayer, retrievalService, null);
+    }
+
+    public AiContextAssembler(
+            CanonicalInteractionLayer canonicalInteractionLayer,
+            UiKnowledgeRetrievalService retrievalService,
+            DbStableLocatorEvidenceService stableLocatorEvidenceService
+    ) {
         this.canonicalInteractionLayer = canonicalInteractionLayer;
         this.retrievalService = retrievalService;
+        this.stableLocatorEvidenceService = stableLocatorEvidenceService;
     }
 
     public AiContextPackage assemble(WorkflowState state) {
@@ -81,6 +93,9 @@ public class AiContextAssembler {
             UiKnowledgeRetrievalContext retrievalContext
     ) {
         FlowScopedKnowledgePackage flowScopedKnowledgePackage = input.flowScopedKnowledgePackage();
+        MappedUiKnowledge scopedKnowledge = flowScopedKnowledgePackage == null
+                ? input.mappedUiKnowledge()
+                : flowScopedKnowledgePackage.mappedUiKnowledge();
         AiContextPackage contextPackage = new AiContextPackage(
                 input.objective(),
                 input.normalizedRequirementBundle(),
@@ -90,9 +105,7 @@ public class AiContextAssembler {
                 input.canonicalTestCaseBundle(),
                 input.uiTestPlan(),
                 input.canonicalPageFlowModel(),
-                flowScopedKnowledgePackage == null
-                        ? input.mappedUiKnowledge()
-                        : flowScopedKnowledgePackage.mappedUiKnowledge(),
+                scopedKnowledge,
                 input.mappedUiKnowledgeCurated(),
                 input.pageModelBundle(),
                 canonicalInteractionModel,
@@ -100,6 +113,7 @@ public class AiContextAssembler {
                 input.assertionContracts(),
                 input.pageModelEnrichments(),
                 buildTemplateCapabilities(),
+                dbStableLocators(input, scopedKnowledge),
                 PromptUiEvidence.empty("prompt-evidence:assembly-bootstrap")
         );
         return withPromptEvidence(contextPackage, promptUiEvidenceBuilder.build(contextPackage));
@@ -123,8 +137,24 @@ public class AiContextAssembler {
                 contextPackage.assertionContracts(),
                 contextPackage.pageModelEnrichments(),
                 contextPackage.templateCapabilities(),
+                contextPackage.dbStableLocatorEvidence(),
                 promptUiEvidence
         );
+    }
+
+    private List<PromptLocatorEvidence> dbStableLocators(AiContextAssemblyInput input, MappedUiKnowledge scopedKnowledge) {
+        if (stableLocatorEvidenceService == null
+                || input == null
+                || input.knowledgeRunMetadata() == null
+                || scopedKnowledge == null
+                || scopedKnowledge.pages().isEmpty()) {
+            return List.of();
+        }
+        List<PromptLocatorEvidence> locators = new ArrayList<>();
+        for (MappedPage page : scopedKnowledge.pages()) {
+            locators.addAll(stableLocatorEvidenceService.findStableLocators(input.knowledgeRunMetadata(), page));
+        }
+        return List.copyOf(locators);
     }
 
     private List<String> buildTemplateCapabilities() {

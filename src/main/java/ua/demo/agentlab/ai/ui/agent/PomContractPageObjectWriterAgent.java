@@ -39,7 +39,7 @@ public class PomContractPageObjectWriterAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.PAGE_OBJECT_FILES);
+        return Set.of(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES, WorkflowArtifact.PAGE_OBJECT_FILES);
     }
 
     @Override
@@ -49,7 +49,7 @@ public class PomContractPageObjectWriterAgent implements WorkflowAgent,
 
     @Override
     public WorkflowArtifact output() {
-        return WorkflowArtifact.PAGE_OBJECT_FILES;
+        return WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES;
     }
 
     @Override

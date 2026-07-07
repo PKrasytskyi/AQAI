@@ -191,7 +191,7 @@ public class AiPageObjectPromptBuilder {
                 2. Assertion contracts.
                 3. Mapper-approved locator candidates.
                 4. PageModel enrichment facts.
-                5. Current-run Neo4j/Qdrant evidence.
+                5. Retrieval health metadata already applied before prompt assembly.
                 6. Baseline POM spec.
 
                 If evidence conflicts, prefer higher priority evidence.
@@ -229,7 +229,7 @@ public class AiPageObjectPromptBuilder {
                 PageModel enrichment facts:
                 %s
 
-                Relevant knowledge retrieved from Neo4j/Qdrant:
+                Retrieval health metadata:
                 %s
 
                 Baseline page object spec:

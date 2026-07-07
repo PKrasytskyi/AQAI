@@ -31,29 +31,31 @@ public class GeneratedCodeReviewAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.PAGE_OBJECT_FILES);
+        return Set.of(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES, WorkflowArtifact.COMPILE_RESULT);
     }
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.GENERATED_CODE_REVIEW);
+        return Set.of(WorkflowArtifact.REVIEW_RESULT, WorkflowArtifact.GENERATED_CODE_REVIEW);
     }
 
     @Override
     public WorkflowArtifact input() {
-        return WorkflowArtifact.PAGE_OBJECT_FILES;
+        return WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES;
     }
 
     @Override
     public WorkflowArtifact output() {
-        return WorkflowArtifact.GENERATED_CODE_REVIEW;
+        return WorkflowArtifact.REVIEW_RESULT;
     }
 
     @Override
     public GeneratedUiSources inputFrom(PipelineArtifactStore store, WorkflowState state) {
         return new GeneratedUiSources(
                 store == null ? state.getPageObjectFiles() : (List<ua.demo.agentlab.ui.writer.GeneratedSourceFile>)
-                        store.get(WorkflowArtifact.PAGE_OBJECT_FILES).orElse(state.getPageObjectFiles()),
+                        store.get(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES)
+                                .or(() -> store.get(WorkflowArtifact.PAGE_OBJECT_FILES))
+                                .orElse(state.getPageObjectFiles()),
                 store == null ? state.getUiTestFiles() : (List<ua.demo.agentlab.ui.writer.GeneratedSourceFile>)
                         store.get(WorkflowArtifact.UI_TEST_FILES).orElse(state.getUiTestFiles())
         );

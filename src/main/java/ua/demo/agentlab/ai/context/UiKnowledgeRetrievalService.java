@@ -98,7 +98,13 @@ public class UiKnowledgeRetrievalService {
                     List.of(),
                     "SKIPPED_NO_NAMESPACE",
                     "SKIPPED_NO_NAMESPACE",
-                    List.copyOf(notes)
+                    List.copyOf(notes),
+                    false,
+                    false,
+                    "current-run",
+                    false,
+                    0,
+                    "namespace unavailable"
             );
         }
 
@@ -111,12 +117,19 @@ public class UiKnowledgeRetrievalService {
                     List.of(),
                     "SKIPPED_NO_ROUTE_MATCH",
                     "SKIPPED_NO_ROUTE_MATCH",
-                    List.copyOf(notes)
+                    List.copyOf(notes),
+                    false,
+                    false,
+                    "current-run",
+                    false,
+                    0,
+                    ""
             );
         }
 
         List<RetrievedChunk> vectorMatches = List.of();
         String vectorSource = "DISABLED";
+        String vectorUnavailableReason = "";
         Map<String, String> currentRunFilter = namespaceFilterBuilder.currentRunOnly(runMetadata);
         if (vectorConfig != null && vectorConfig.enabled() && embeddingService != null && vectorStore != null) {
             try {
@@ -129,9 +142,11 @@ public class UiKnowledgeRetrievalService {
                         + " for runId=" + runMetadata.runId());
             } catch (Exception exception) {
                 vectorSource = "QDRANT_UI_KNOWLEDGE_UNAVAILABLE";
-                notes.add("Vector retrieval unavailable: " + exception.getMessage());
+                vectorUnavailableReason = safeUnavailableReason(exception);
+                notes.add("Vector retrieval unavailable: " + vectorUnavailableReason);
             }
         } else {
+            vectorUnavailableReason = "vector retrieval disabled";
             notes.add("Vector retrieval disabled");
         }
 
@@ -159,8 +174,45 @@ public class UiKnowledgeRetrievalService {
                 graphMatches,
                 vectorSource,
                 graphSource,
-                List.copyOf(notes)
+                List.copyOf(notes),
+                !graphMatches.isEmpty(),
+                !vectorMatches.isEmpty(),
+                KnowledgeRetrievalMode.CURRENT_RUN_ONLY.name().toLowerCase(Locale.ROOT).replace('_', '-'),
+                false,
+                staleEvidenceRejected(vectorMatches, graphMatches),
+                vectorUnavailableReason
         );
+    }
+
+    private int staleEvidenceRejected(List<RetrievedChunk> vectorMatches, List<UiKnowledgeGraphMatch> graphMatches) {
+        int stale = 0;
+        if (vectorMatches != null) {
+            stale += (int) vectorMatches.stream()
+                    .filter(match -> match.metadata() != null
+                            && match.metadata().tags().stream()
+                            .map(tag -> tag.toLowerCase(Locale.ROOT))
+                            .anyMatch(tag -> tag.contains("stale") || tag.contains("old-run")))
+                    .count();
+        }
+        if (graphMatches != null) {
+            stale += (int) graphMatches.stream()
+                    .map(match -> String.join(" ", match.metadata().values()).toLowerCase(Locale.ROOT))
+                    .filter(trace -> trace.contains("stale") || trace.contains("old-run"))
+                    .count();
+        }
+        return stale;
+    }
+
+    private String safeUnavailableReason(Exception exception) {
+        String message = exception == null ? "" : exception.getMessage();
+        if (message == null || message.isBlank()) {
+            return exception == null ? "unknown" : exception.getClass().getSimpleName();
+        }
+        String normalized = message.replaceAll("(?i)sk-[A-Za-z0-9_-]+", "<redacted-openai-key>");
+        if (normalized.length() > 240) {
+            return normalized.substring(0, 240);
+        }
+        return normalized;
     }
 
     private List<String> mergeTerms(List<String> preferredTerms, List<String> extractedTerms) {

@@ -13,6 +13,7 @@ import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeGraphNode;
 import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeVectorDocument;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -40,14 +41,7 @@ public class PageKnowledgeArtifactBuilder {
                             "Locator",
                             locator.strategy().wireName(),
                             page.pageId(),
-                            Map.of(
-                                    "value", locator.value(),
-                                    "stabilityScore", String.valueOf(locator.stabilityScore()),
-                                    "evidenceType", locator.evidenceType().name(),
-                                    "sameOrigin", String.valueOf(locator.sameOrigin()),
-                                    "originHost", locator.originHost(),
-                                    "risks", String.join(",", locator.risks())
-                            )
+                            locatorMetadata(page, element, locator)
                     ));
                 }
             }
@@ -172,6 +166,32 @@ public class PageKnowledgeArtifactBuilder {
             }
         }
         return List.copyOf(keywords);
+    }
+
+    private Map<String, String> locatorMetadata(MappedPage page, MappedElement element, LocatorCandidate locator) {
+        Map<String, String> metadata = new LinkedHashMap<>();
+        String locatorId = element.elementId() + ":locator:" + sanitize(locator.strategy().wireName() + "-" + locator.value());
+        metadata.put("locatorId", locatorId);
+        metadata.put("locatorKey", sanitize(page.pageId() + "-" + element.semanticName() + "-"
+                + locator.strategy().wireName() + "-" + locator.value()));
+        metadata.put("elementId", element.elementId());
+        metadata.put("elementName", element.semanticName());
+        metadata.put("elementRole", locator.elementRole().isBlank() ? element.role() : locator.elementRole());
+        metadata.put("accessibleName", locator.accessibleName());
+        metadata.put("visibleText", locator.visibleText().isBlank() ? element.text() : locator.visibleText());
+        metadata.put("href", locator.href());
+        metadata.put("strategy", locator.strategy().wireName());
+        metadata.put("value", locator.value());
+        metadata.put("stabilityScore", String.valueOf(locator.stabilityScore()));
+        metadata.put("qualityScore", String.valueOf(locator.stabilityScore()));
+        metadata.put("evidenceType", locator.evidenceType().name());
+        metadata.put("sameOrigin", String.valueOf(locator.sameOrigin()));
+        metadata.put("uniqueOnPage", String.valueOf(locator.uniqueOnPage()));
+        metadata.put("stableAcrossRuns", String.valueOf(locator.stableAcrossRuns()));
+        metadata.put("originHost", locator.originHost());
+        metadata.put("risks", String.join(",", locator.risks()));
+        metadata.put("sourceTrace", "mapped-ui-knowledge:" + page.pageId() + ":" + element.elementId());
+        return Map.copyOf(metadata);
     }
 
     private String sanitize(String value) {

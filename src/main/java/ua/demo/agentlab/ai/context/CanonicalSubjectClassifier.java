@@ -28,6 +28,7 @@ public class CanonicalSubjectClassifier {
             case OPEN_TARGET_CONTAINER, OPEN_DESTINATION_CONTAINER, ADD_ENTITY_TO_CONTAINER, ADD_ITEM_TO_CONTAINER,
                     REMOVE_ENTITY_FROM_CONTAINER, REMOVE_ITEM_FROM_CONTAINER -> "container";
             case AUTHENTICATE, LOGOUT -> "session";
+            case ENTER_TEXT -> "field";
             case SUBMIT_FORM -> "form";
             case OPEN_MODAL, CONFIRM_ACTION -> "interaction";
             case UPLOAD_FILE, DOWNLOAD_FILE -> "file";
@@ -49,6 +50,7 @@ public class CanonicalSubjectClassifier {
                     ADD_ENTITY_TO_CONTAINER, ADD_ITEM_TO_CONTAINER,
                     REMOVE_ENTITY_FROM_CONTAINER, REMOVE_ITEM_FROM_CONTAINER -> "container";
             case AUTHENTICATE -> "authenticated-session";
+            case ENTER_TEXT -> "field-value";
             case SUBMIT_FORM -> "form-submission";
             case OPEN_MODAL -> "modal";
             case CONFIRM_ACTION -> "confirmed-action";

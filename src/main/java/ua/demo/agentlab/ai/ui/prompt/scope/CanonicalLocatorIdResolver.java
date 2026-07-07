@@ -17,13 +17,26 @@ public class CanonicalLocatorIdResolver {
                 locator.visibleText(),
                 locator.value()
         ));
+        if (containsAny(evidence, "dashboard heading", "dashboard_heading", "dashboardheading")
+                || containsAny(evidence, "dashboard") && containsAny(evidence, "heading", "breadcrumb", "title", "h6")) {
+            return "dashboardHeading";
+        }
+        if (containsAny(evidence, "user menu", "user_menu", "usermenu", "userdropdown", "dropdown tab", "dropdown-tab")) {
+            return "userMenuTrigger";
+        }
         if (containsAny(evidence, "logout", "log out", "signout", "sign out")) {
             return "logoutLink";
+        }
+        if (containsAny(evidence, "change password", "changepassword", "updatepassword", "update password")) {
+            return "changePasswordLink";
         }
         if (containsAny(evidence, "username", "user name", "userid", "user-id", "email")) {
             return "usernameInput";
         }
-        if (containsAny(evidence, "password", "pass")) {
+        String role = normalize(locator.role());
+        boolean inputLike = containsAny(role, "input", "field", "textbox", "password")
+                || containsAny(normalize(locator.value()), "input[", "textarea", "name=password", "type='password'", "type=\"password\"");
+        if (inputLike && containsAny(evidence, "password", "pass")) {
             return "passwordInput";
         }
         if (containsAny(evidence, "login", "log in", "signin", "sign in")) {
@@ -32,7 +45,6 @@ public class CanonicalLocatorIdResolver {
         if (containsAny(evidence, "submit")) {
             return "submitButton";
         }
-        String role = normalize(locator.role());
         String base = firstNonBlank(locator.fieldHint(), locator.elementName(), semanticNameFromValue(locator.value()));
         String field = camel(base);
         if (field.isBlank()) {

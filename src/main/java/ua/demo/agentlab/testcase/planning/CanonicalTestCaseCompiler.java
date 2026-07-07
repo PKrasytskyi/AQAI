@@ -101,6 +101,7 @@ class CanonicalTestCaseCompiler {
         return switch (step.kind()) {
             case OPEN_PAGE -> "Open the target page (" + step.route() + ")";
             case AUTHENTICATE -> "Authenticate using the configured credentials";
+            case ENTER_TEXT -> "Enter " + (step.dataKey() == null || step.dataKey().isBlank() ? "text" : step.dataKey() + " text");
             case SUBMIT_FORM -> "Submit the target form with valid data";
             case INSPECT_PAGE_CONTENT -> "Inspect the rendered content area";
             case LOGOUT -> "Sign out from the current session";

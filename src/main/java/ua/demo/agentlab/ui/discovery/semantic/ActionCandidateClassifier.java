@@ -32,7 +32,8 @@ public class ActionCandidateClassifier {
                 element.text(),
                 element.name(),
                 element.id(),
-                element.placeholder()
+                element.placeholder(),
+                element.cssClass()
         ));
         switch (semanticType == null ? "" : semanticType.toUpperCase(Locale.ROOT)) {
             case "BUTTON", "LINK" -> add(candidates, "CLICK", element.elementId(), 0.88d, "semantic-element:" + semanticType);
@@ -89,6 +90,9 @@ public class ActionCandidateClassifier {
         if (containsAny(evidence, "logout", "log out", "sign out")) {
             add(candidates, "LOGOUT", element.elementId(), 0.92d, "semantic-evidence:logout");
         }
+        if (containsAny(evidence, "user_menu_trigger", "user menu", "userdropdown", "dropdown")) {
+            add(candidates, "OPEN_MENU", element.elementId(), 0.86d, "semantic-evidence:user-menu");
+        }
         return new ArrayList<>(candidates.values());
     }
 
@@ -125,6 +129,7 @@ public class ActionCandidateClassifier {
             case "sort", "order", "sortcollection" -> "SORT_COLLECTION";
             case "paginate", "next", "previous" -> "PAGINATE";
             case "openmodal", "modal", "dialog" -> "OPEN_MODAL";
+            case "openmenu", "menu", "dropdown" -> "OPEN_MENU";
             case "confirm", "approve", "confirmaction" -> "CONFIRM_ACTION";
             case "check" -> "CHECK";
             case "uncheck" -> "UNCHECK";

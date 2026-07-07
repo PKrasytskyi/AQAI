@@ -1,13 +1,30 @@
 package ua.demo.agentlab.ai.ui.contract;
 
+import java.util.List;
+
 public record PomLocatorSpec(
         String id,
         String elementName,
         String strategy,
         String value,
         String role,
-        double stabilityScore
+        double stabilityScore,
+        String evidenceType,
+        boolean sameOrigin,
+        boolean uniqueWithinComponent,
+        List<String> sourceTrace
 ) {
+    public PomLocatorSpec(
+            String id,
+            String elementName,
+            String strategy,
+            String value,
+            String role,
+            double stabilityScore
+    ) {
+        this(id, elementName, strategy, value, role, stabilityScore, "", true, false, List.of());
+    }
+
     public PomLocatorSpec {
         id = safe(id);
         elementName = safe(elementName);
@@ -15,6 +32,8 @@ public record PomLocatorSpec(
         value = safe(value);
         role = safe(role);
         stabilityScore = Math.max(0.0d, Math.min(1.0d, stabilityScore));
+        evidenceType = safe(evidenceType);
+        sourceTrace = sourceTrace == null ? List.of() : List.copyOf(sourceTrace);
     }
 
     private static String safe(String value) {

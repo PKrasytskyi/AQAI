@@ -22,6 +22,8 @@ import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
 import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeGraphEdge;
 import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeGraphNode;
 import ua.demo.agentlab.ui.discovery.mapping.model.PageKnowledgeVectorDocument;
+import ua.demo.agentlab.ui.discovery.pagemodel.model.PageElementModel;
+import ua.demo.agentlab.ui.discovery.pagemodel.model.PageLocatorModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.PageKnowledgeFingerprintCalculator;
@@ -367,12 +369,14 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
             String applicationHost
     ) {
         String capability = pageCapability(page, model);
-        List<String> actions = page.actions().stream()
-                .map(action -> action.actionName().isBlank() ? action.description() : action.actionName())
+        List<String> actions = scopedActionHints(page, evidence, capability);
+        List<String> locators = selectedLocatorFacts(page, evidence, applicationHost);
+        locators = java.util.stream.Stream
+                .concat(locators.stream(), dependencyLocatorFacts(model, evidence).stream())
                 .filter(value -> value != null && !value.isBlank())
                 .distinct()
+                .limit(16)
                 .toList();
-        List<String> locators = selectedLocatorFacts(page, evidence, applicationHost);
         List<String> forms = model == null ? List.of() : model.forms().stream()
                 .map(form -> form.formName() + " fields=" + form.fieldElementIds() + " submit=" + form.submitElementIds())
                 .toList();
@@ -498,19 +502,120 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
                 .limit(12)
                 .forEach(selected::add);
 
-        Set<String> selectedKeys = selected.stream()
-                .map(this::locatorKey)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        candidates.stream()
-                .filter(candidate -> !selectedKeys.contains(locatorKey(candidate)))
-                .sorted(locatorComparator(relevantTerms))
-                .limit(Math.max(0, 20 - selected.size()))
-                .forEach(selected::add);
+        if (selected.isEmpty()) {
+            candidates.stream()
+                    .filter(this::isSafePageIdentityLocator)
+                    .sorted(locatorComparator(relevantTerms))
+                    .limit(5)
+                    .forEach(selected::add);
+        }
 
         return selected.stream()
                 .map(candidate -> locatorFact(candidate, isRequirementRelevant(candidate, relevantTerms)))
                 .distinct()
                 .toList();
+    }
+
+    private List<String> dependencyLocatorFacts(PageModel model, PageRequirementEvidence evidence) {
+        if (model == null || !needsUserMenuTrigger(evidence)) {
+            return List.of();
+        }
+        List<String> facts = new ArrayList<>();
+        for (PageElementModel element : model.elements()) {
+            String elementText = normalize(String.join(" ",
+                    element.elementId(),
+                    element.semanticType(),
+                    element.technicalType(),
+                    element.name(),
+                    element.text(),
+                    element.cssClass()
+            ));
+            if (!containsAny(elementText, "user-menu-trigger", "user menu trigger", "userdropdown", "oxd-userdropdown")) {
+                continue;
+            }
+            PageLocatorModel locator = preferredUserMenuLocator(element);
+            if (locator == null || locator.value().isBlank()) {
+                continue;
+            }
+            facts.add(locator.strategy().toLowerCase(java.util.Locale.ROOT) + "=" + locator.value()
+                    + " (stability=" + Math.max(locator.score(), 0.78d)
+                    + ", sameOrigin=true"
+                    + ", element=User menu trigger"
+                    + ", relevance=requirement"
+                    + ", dependency=required-for-logout-menu-flow"
+                    + ")");
+        }
+        return facts.stream().distinct().limit(2).toList();
+    }
+
+    private boolean needsUserMenuTrigger(PageRequirementEvidence evidence) {
+        String text = evidenceText(evidence);
+        return containsAny(text, "logout", "sign out")
+                && containsAny(text, "user menu", "menu", "dropdown", "drop-down");
+    }
+
+    private PageLocatorModel preferredUserMenuLocator(PageElementModel element) {
+        if (element == null) {
+            return null;
+        }
+        return element.locatorCandidates().stream()
+                .filter(locator -> containsAny(normalize(locator.value()),
+                        "userdropdown",
+                        "oxd-userdropdown-tab",
+                        "user-menu",
+                        "dropdown-tab"))
+                .findFirst()
+                .orElseGet(() -> element.bestLocator() != null
+                        && containsAny(normalize(element.bestLocator().value()), "userdropdown", "oxd-userdropdown-tab")
+                        ? element.bestLocator()
+                        : null);
+    }
+
+    private List<String> scopedActionHints(MappedPage page, PageRequirementEvidence evidence, String capability) {
+        List<String> hints = new ArrayList<>();
+        String text = evidenceText(evidence);
+        if ("AUTHENTICATION".equals(capability)) {
+            if (containsAny(text, "username", "credential", "login")) {
+                hints.add("enterUsername");
+            }
+            if (containsAny(text, "password", "credential", "login")) {
+                hints.add("enterPassword");
+            }
+            if (containsAny(text, "submit", "login", "authenticate")) {
+                hints.add("clickLoginButton");
+                hints.add("login");
+            }
+        } else if (isAuthenticatedCapability(capability)) {
+            if (containsAny(text, "user menu", "drop-down", "dropdown", "open menu")) {
+                hints.add("openUserMenu");
+            }
+            if (containsAny(text, "logout", "sign out")) {
+                hints.add("logout");
+            }
+        }
+        if (hints.isEmpty() && evidence != null && !evidence.actions().isEmpty()) {
+            evidence.actions().stream()
+                    .filter(action -> actionBelongsToPage(page, action))
+                    .limit(5)
+                    .forEach(hints::add);
+        }
+        return hints.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    private String evidenceText(PageRequirementEvidence evidence) {
+        if (evidence == null) {
+            return "";
+        }
+        return normalize(java.util.stream.Stream.of(
+                        evidence.actions(),
+                        evidence.assertions(),
+                        evidence.preconditions()
+                )
+                .flatMap(List::stream)
+                .collect(java.util.stream.Collectors.joining(" ")));
     }
 
     private Comparator<LocatorEvidence> locatorComparator(Set<String> relevantTerms) {
@@ -574,12 +679,43 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
                 + " " + candidate.element().text()
                 + " " + candidate.element().semanticName()
                 + " " + candidate.element().elementType());
+        if (containsAnyToken(relevantTerms, "logout", "sign out")
+                && containsAny(locatorText, "logout", "auth/logout")) {
+            return true;
+        }
+        if (containsAnyToken(relevantTerms, "user menu", "menu", "dropdown", "drop-down")
+                && containsAny(locatorText, "userdropdown", "user dropdown", "oxd-userdropdown", "dropdown tab")) {
+            return true;
+        }
+        if (containsAnyToken(relevantTerms, "dashboard", "/dashboard/index")
+                && containsAny(locatorText, "dashboard", "/dashboard/index")) {
+            return true;
+        }
         for (String term : relevantTerms) {
             if (!term.isBlank() && locatorText.contains(term)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean isSafePageIdentityLocator(LocatorEvidence candidate) {
+        if (candidate == null || candidate.locator() == null) {
+            return false;
+        }
+        LocatorCandidate locator = candidate.locator();
+        return locator.sameOrigin()
+                && locator.stabilityScore() >= 0.75d
+                && locator.uniqueOnPage()
+                && locator.risks().isEmpty();
+    }
+
+    private boolean containsAnyToken(Set<String> terms, String... needles) {
+        if (terms == null || terms.isEmpty()) {
+            return false;
+        }
+        String joined = normalize(String.join(" ", terms));
+        return containsAny(joined, needles);
     }
 
     private String locatorFact(LocatorEvidence candidate, boolean requirementRelevant) {

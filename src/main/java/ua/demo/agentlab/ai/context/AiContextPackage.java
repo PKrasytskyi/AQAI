@@ -32,6 +32,7 @@ public record AiContextPackage(
         List<AssertionContract> assertionContracts,
         List<PageModelEnrichmentRecord> pageModelEnrichments,
         List<String> templateCapabilities,
+        List<PromptLocatorEvidence> dbStableLocatorEvidence,
         PromptUiEvidence promptUiEvidence
 ) {
     public AiContextPackage {
@@ -46,6 +47,48 @@ public record AiContextPackage(
         assertionContracts = assertionContracts == null ? List.of() : List.copyOf(assertionContracts);
         pageModelEnrichments = pageModelEnrichments == null ? List.of() : List.copyOf(pageModelEnrichments);
         templateCapabilities = templateCapabilities == null ? List.of() : List.copyOf(templateCapabilities);
+        dbStableLocatorEvidence = dbStableLocatorEvidence == null ? List.of() : List.copyOf(dbStableLocatorEvidence);
         promptUiEvidence = promptUiEvidence == null ? PromptUiEvidence.empty("prompt-evidence:not-built") : promptUiEvidence;
+    }
+
+    public AiContextPackage(
+            String objective,
+            NormalizedRequirementBundle normalizedRequirementBundle,
+            GenerationPolicy generationPolicy,
+            ProjectProfile projectProfile,
+            TestPlan testPlan,
+            CanonicalTestCaseBundle canonicalTestCaseBundle,
+            UiTestPlan uiTestPlan,
+            CanonicalPageFlowModel canonicalPageFlowModel,
+            MappedUiKnowledge mappedUiKnowledge,
+            MappedUiKnowledgeCurated mappedUiKnowledgeCurated,
+            PageModelBundle pageModelBundle,
+            CanonicalUiInteractionModel canonicalInteractionModel,
+            UiKnowledgeRetrievalContext retrievalContext,
+            List<AssertionContract> assertionContracts,
+            List<PageModelEnrichmentRecord> pageModelEnrichments,
+            List<String> templateCapabilities,
+            PromptUiEvidence promptUiEvidence
+    ) {
+        this(
+                objective,
+                normalizedRequirementBundle,
+                generationPolicy,
+                projectProfile,
+                testPlan,
+                canonicalTestCaseBundle,
+                uiTestPlan,
+                canonicalPageFlowModel,
+                mappedUiKnowledge,
+                mappedUiKnowledgeCurated,
+                pageModelBundle,
+                canonicalInteractionModel,
+                retrievalContext,
+                assertionContracts,
+                pageModelEnrichments,
+                templateCapabilities,
+                List.of(),
+                promptUiEvidence
+        );
     }
 }

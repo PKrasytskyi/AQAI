@@ -42,8 +42,8 @@ public class PropertiesProjectProfileLoader implements ProjectProfileLoader {
                 readOptionalText("project.route.products"),
                 readOptionalText("project.route.cart"),
                 new OutputProfile(
-                        readText("project.output.generated-pages-package", "pages"),
-                        readText("project.output.generated-tests-package", "tests.ui")
+                        readText("project.output.generated-pages-package", "ua.demo.agentlab.ui.generated.pages"),
+                        readText("project.output.generated-tests-package", "ua.demo.agentlab.ui.generated.tests")
                 )
         );
     }

@@ -96,7 +96,7 @@ public class PomScopeSanitizer {
                 if (!belongsToRequestedPage(action.ownerPage(), targetPage) || !belongsToScoped(action.sourceTrace(), scopedIds)) {
                     continue;
                 }
-                String normalized = normalize(action.name());
+                String normalized = normalize(action.name() + " " + action.type() + " " + action.sourceTrace());
                 if (isNoisyAction(normalized)) {
                     rejected.add(action.name() + ": external/non-business or generic link action");
                     continue;
@@ -110,7 +110,7 @@ public class PomScopeSanitizer {
                     );
                     continue;
                 }
-                String method = semanticActionToMethod(action.name());
+                String method = semanticActionToMethod(action.name() + " " + action.type() + " " + action.sourceTrace());
                 if (!method.isBlank()) {
                     actions.add(method);
                 }
@@ -119,7 +119,28 @@ public class PomScopeSanitizer {
         if (authenticationPage && hasUsername && hasPassword && hasLoginButton) {
             addLoginActions(actions, true, true, true);
         }
+        if (!authenticationPage
+                && isAuthenticatedAreaPage(targetPage, "")
+                && hasLogoutMenuEvidence(context, scopedIds, targetPage, actions)) {
+            if (hasLocator(locators, "userMenuTrigger") && hasLocator(locators, "logoutLink")) {
+                return orderedLogoutMenuActions(actions);
+            }
+            actions.removeIf(action -> containsAny(normalize(action), "logout", "openusermenu", "open user menu"));
+        }
         return actions.stream().limit(12).toList();
+    }
+
+    private List<String> orderedLogoutMenuActions(Set<String> actions) {
+        Set<String> ordered = new LinkedHashSet<>();
+        ordered.add("openUserMenu()");
+        ordered.add("logout()");
+        for (String action : actions) {
+            String normalized = normalize(action);
+            if (!containsAny(normalized, "logout", "openusermenu", "open user menu")) {
+                ordered.add(action);
+            }
+        }
+        return ordered.stream().limit(12).toList();
     }
 
     private void addLoginActions(Set<String> actions, boolean hasUsername, boolean hasPassword, boolean hasLoginButton) {
@@ -153,6 +174,17 @@ public class PomScopeSanitizer {
         }
         if (containsAny(normalized, "search")) {
             return "search(String query)";
+        }
+        if (containsAny(normalized,
+                "openusermenu",
+                "open user menu",
+                "open_menu",
+                "user-menu",
+                "user_menu",
+                "userdropdown",
+                "user-menu-trigger",
+                "openmenu")) {
+            return "openUserMenu()";
         }
         if (containsAny(normalized, "logout")) {
             return "logout()";
@@ -202,6 +234,9 @@ public class PomScopeSanitizer {
         if (isLoginPage(targetPage) || containsAny(normalize(targetPage), "auth")) {
             addLoginAssertions(assertions, evidence, locators);
         }
+        if (!isLoginPage(targetPage) && isAuthenticatedAreaPage(targetPage, evidence.targetRoute())) {
+            addAuthenticatedAreaAssertions(assertions, evidence, locators);
+        }
         return assertions.values().stream().limit(12).toList();
     }
 
@@ -246,6 +281,19 @@ public class PomScopeSanitizer {
         if (containsAny(normalized, "login button")) {
             return elementAssertion("loginButton", targetPage, assertion, locators);
         }
+        if (containsAny(normalized, "dashboard heading", "dashboard is visible", "successful login state")
+                || assertion.type().equals("AUTHENTICATED_AREA_VISIBLE")) {
+            PromptReadyAssertion heading = elementAssertion("dashboardHeading", targetPage, assertion, locators);
+            if (heading != null) {
+                return heading;
+            }
+            if (!targetRoute.isBlank()) {
+                return new PromptReadyAssertion("URL_CONTAINS", targetRoute, targetPage, assertion.sourceTrace(), 1.0d);
+            }
+        }
+        if (containsAny(normalized, "logout action")) {
+            return elementAssertion("logoutLink", targetPage, assertion, locators);
+        }
         if (looksLikeRequirementSentence(expected)
                 || assertion.type().equals("ELEMENT_VISIBLE") && !isKnownLocatorExpectedValue(expected, locators)) {
             rejected.add(assertion.type() + "(" + expected + "): requirement sentence is not UI text");
@@ -273,6 +321,60 @@ public class PomScopeSanitizer {
         if (hasLocator(locators, "usernameInput") && hasLocator(locators, "passwordInput") && hasLocator(locators, "loginButton")) {
             add(assertions, new PromptReadyAssertion("FORM_VISIBLE", "loginForm", evidence.targetPage(), "pom-scope-sanitizer:login-form", 0.95d));
         }
+    }
+
+    private void addAuthenticatedAreaAssertions(
+            Map<String, PromptReadyAssertion> assertions,
+            ua.demo.agentlab.ai.context.PromptUiEvidence evidence,
+            List<PromptReadyLocator> locators
+    ) {
+        String route = firstNonBlank(evidence.targetRoute(), "/dashboard/index");
+        add(assertions, new PromptReadyAssertion("URL_CONTAINS", route, evidence.targetPage(), "pom-scope-sanitizer:authenticated-route", 1.0d));
+        if (hasLocator(locators, "dashboardHeading")) {
+            add(assertions, new PromptReadyAssertion("ELEMENT_VISIBLE", "dashboardHeading", evidence.targetPage(), "pom-scope-sanitizer:dashboard-heading", 0.95d));
+        }
+        if (hasLocator(locators, "logoutLink")) {
+            add(assertions, new PromptReadyAssertion("ELEMENT_VISIBLE", "logoutLink", evidence.targetPage(), "pom-scope-sanitizer:logout-link", 0.90d));
+        }
+    }
+
+    private boolean hasLogoutMenuRequirement(AiContextPackage context, Set<String> scopedIds, String targetPage) {
+        if (context == null || context.uiTestPlan() == null) {
+            return false;
+        }
+        return context.uiTestPlan().scenarios().stream()
+                .filter(scenario -> scopedIds == null || scopedIds.isEmpty() || scopedIds.contains(scenario.id()))
+                .filter(scenario -> belongsToRequestedPage(scenario.pageName(), targetPage)
+                        || belongsToRequestedPage(scenario.sourcePageName(), targetPage))
+                .map(scenario -> String.join(" ",
+                        safe(scenario.title()),
+                        String.join(" ", scenario.actions()),
+                        String.join(" ", scenario.assertions())))
+                .map(this::normalize)
+                .anyMatch(text -> containsAny(text, "logout", "sign out") && containsAny(text, "user menu", "menu"));
+    }
+
+    private boolean hasLogoutMenuEvidence(
+            AiContextPackage context,
+            Set<String> scopedIds,
+            String targetPage,
+            Set<String> actions
+    ) {
+        if (hasLogoutMenuRequirement(context, scopedIds, targetPage)) {
+            return true;
+        }
+        if (actions != null && actions.stream().map(this::normalize)
+                .anyMatch(action -> containsAny(action, "openusermenu", "open user menu", "logout"))) {
+            return true;
+        }
+        if (context == null || context.promptUiEvidence() == null) {
+            return false;
+        }
+        return context.promptUiEvidence().requiredAssertions().stream()
+                .filter(assertion -> belongsToRequestedPage(assertion.ownerPage(), targetPage))
+                .filter(assertion -> belongsToScoped(assertion.sourceTrace(), scopedIds))
+                .map(assertion -> normalize(assertion.type() + " " + assertion.expectedValue()))
+                .anyMatch(text -> containsAny(text, "logout", "sign out") && containsAny(text, "user menu", "menu", "link"));
     }
 
     private void add(Map<String, PromptReadyAssertion> assertions, PromptReadyAssertion assertion) {
@@ -371,6 +473,11 @@ public class PomScopeSanitizer {
                 "welcome message",
                 "logout action"
         );
+    }
+
+    private boolean isAuthenticatedAreaPage(String targetPage, String targetRoute) {
+        String evidence = normalize(targetPage + " " + targetRoute);
+        return containsAny(evidence, "dashboard", "authenticated", "secure");
     }
 
     private boolean looksLikeRequirementSentence(String expectedValue) {

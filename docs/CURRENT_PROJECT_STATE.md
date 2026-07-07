@@ -80,10 +80,10 @@ Need-review expected-result cases are written separately under `target/ai-run/ne
 Unit tests live in:
 
 ```text
-src/test/unit/tests
+src/test/java/unit/tests
 ```
 
-`src/test/java` is intentionally left available for future integration tests and generated-test compile fixtures.
+`src/test/java` is the standard Maven test source root. Generated-test compile fixtures are written under this root with package-aligned paths.
 
 ## 6. Configuration And Secrets
 

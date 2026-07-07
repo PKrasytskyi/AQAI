@@ -9,9 +9,12 @@ import ua.demo.agentlab.ai.quality.AiRunQualitySummaryWriter;
 import ua.demo.agentlab.ai.rag.openai.OpenAiResponseGenerationClient;
 import ua.demo.agentlab.ai.schema.LlmOutputSchemaValidationException;
 import ua.demo.agentlab.ai.ui.contract.DeterministicPomJavaWriter;
+import ua.demo.agentlab.ai.ui.contract.PomContractEvidenceRehydrator;
 import ua.demo.agentlab.ai.ui.contract.PomContractSpec;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
 import ua.demo.agentlab.ai.ui.parser.PomContractSpecParser;
+import ua.demo.agentlab.ai.ui.prompt.scope.PomScopeSanitizer;
+import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
 import ua.demo.agentlab.ai.ui.prompt.quality.PromptQualityGateException;
 import ua.demo.agentlab.ai.ui.prompt.quality.PromptQualityReport;
 
@@ -31,6 +34,8 @@ public class AiPageObjectSpecGenerator {
     private final PromptPageEligibilityEvaluator promptPageEligibilityEvaluator;
     private final OpenAiResponseGenerationClient generationClient;
     private final PomContractSpecParser contractParser;
+    private final PomContractEvidenceRehydrator contractEvidenceRehydrator;
+    private final PomScopeSanitizer pomScopeSanitizer;
     private final DeterministicPomJavaWriter compatibilityContractWriter;
 
     public AiPageObjectSpecGenerator(OpenAiRuntimeConfig runtimeConfig) {
@@ -48,6 +53,8 @@ public class AiPageObjectSpecGenerator {
                 new PromptPageEligibilityEvaluator(),
                 new OpenAiResponseGenerationClient(new OpenAiRuntimeConfigRagAdapter(runtimeConfig)),
                 new PomContractSpecParser(),
+                new PomContractEvidenceRehydrator(),
+                new PomScopeSanitizer(),
                 new DeterministicPomJavaWriter(generatedPagesPackage)
         );
     }
@@ -62,6 +69,8 @@ public class AiPageObjectSpecGenerator {
             PromptPageEligibilityEvaluator promptPageEligibilityEvaluator,
             OpenAiResponseGenerationClient generationClient,
             PomContractSpecParser contractParser,
+            PomContractEvidenceRehydrator contractEvidenceRehydrator,
+            PomScopeSanitizer pomScopeSanitizer,
             DeterministicPomJavaWriter compatibilityContractWriter
     ) {
         if (runtimeConfig == null) {
@@ -69,7 +78,8 @@ public class AiPageObjectSpecGenerator {
         }
         if (scopeResolverStage == null || promptBuildStage == null || promptLintStage == null
                 || promptArtifactWriter == null || qualitySummaryWriter == null || promptPageEligibilityEvaluator == null
-                || generationClient == null || contractParser == null || compatibilityContractWriter == null) {
+                || generationClient == null || contractParser == null || contractEvidenceRehydrator == null
+                || pomScopeSanitizer == null || compatibilityContractWriter == null) {
             throw new IllegalArgumentException("page object generation stages cannot be null");
         }
         this.runtimeConfig = runtimeConfig;
@@ -81,6 +91,8 @@ public class AiPageObjectSpecGenerator {
         this.promptPageEligibilityEvaluator = promptPageEligibilityEvaluator;
         this.generationClient = generationClient;
         this.contractParser = contractParser;
+        this.contractEvidenceRehydrator = contractEvidenceRehydrator;
+        this.pomScopeSanitizer = pomScopeSanitizer;
         this.compatibilityContractWriter = compatibilityContractWriter;
     }
 
@@ -96,6 +108,7 @@ public class AiPageObjectSpecGenerator {
         List<String> findings = new ArrayList<>();
         boolean llmRequested = runtimeConfig.pageObjectLlmEnabled();
         boolean llmEnabled = llmRequested && runtimeConfig.enabled() && hasApiKey();
+        addRetrievalHealthArtifacts(request.contextPackage(), artifacts);
 
         try {
             if (llmRequested && !llmEnabled) {
@@ -139,7 +152,16 @@ public class AiPageObjectSpecGenerator {
                 if (llmEnabled) {
                     String response = generationClient.generate(draft.prompt());
                     artifactFiles.add(promptArtifactWriter.writeText(scope.fileStem() + "-pom-contract-response.txt", response));
-                    PomContractSpec contract = contractParser.parse(response);
+                    PromptReadyPomScope readyScope = pomScopeSanitizer.sanitize(
+                            scope.scopedContext(),
+                            scope.pageName(),
+                            scope.pageScenarios()
+                    );
+                    PomContractSpec contract = contractEvidenceRehydrator.rehydrate(
+                            contractParser.parse(response),
+                            readyScope,
+                            scope.scopedContext()
+                    );
                     contracts.add(contract);
                     specs.add(compatibilityContractWriter.toAiPageObjectSpec(contract));
                     artifactFiles.add(promptArtifactWriter.writeJson(scope.fileStem() + "-pom-contract.json", contract));
@@ -208,6 +230,19 @@ public class AiPageObjectSpecGenerator {
         );
         artifactFiles.addAll(qualityResult.artifactFiles());
         artifacts.putAll(qualityResult.artifacts());
+    }
+
+    private void addRetrievalHealthArtifacts(AiContextPackage context, Map<String, String> artifacts) {
+        if (context == null || context.retrievalContext() == null || artifacts == null) {
+            return;
+        }
+        var retrieval = context.retrievalContext();
+        artifacts.put("ui.knowledge.retrieval.neo4j.hit", String.valueOf(retrieval.neo4jHit()));
+        artifacts.put("ui.knowledge.retrieval.qdrant.hit", String.valueOf(retrieval.qdrantHit()));
+        artifacts.put("ui.knowledge.retrieval.mode", retrieval.retrievalMode());
+        artifacts.put("ui.knowledge.retrieval.stable.cache.used", String.valueOf(retrieval.stableCacheUsed()));
+        artifacts.put("ui.knowledge.retrieval.stale.evidence.rejected", String.valueOf(retrieval.staleEvidenceRejected()));
+        artifacts.put("ui.knowledge.retrieval.vector.unavailable.reason", retrieval.vectorUnavailableReason());
     }
 
     private AiRunQualitySummaryInput mergeQualityArtifacts(

@@ -17,6 +17,12 @@ public record AiRunQualitySummary(
         int fallbackLocators,
         int promptBlockingIssues,
         double averageLocatorScore,
+        boolean neo4jHit,
+        boolean qdrantHit,
+        String retrievalMode,
+        boolean stableCacheUsed,
+        int staleEvidenceRejected,
+        String vectorUnavailableReason,
         int qualityScore
 ) {
     public AiRunQualitySummary {
@@ -38,6 +44,9 @@ public record AiRunQualitySummary(
         averageLocatorScore = Double.isFinite(averageLocatorScore)
                 ? Math.max(0.0d, Math.min(1.0d, averageLocatorScore))
                 : 0.0d;
+        retrievalMode = retrievalMode == null || retrievalMode.isBlank() ? "unknown" : retrievalMode.trim();
+        staleEvidenceRejected = Math.max(0, staleEvidenceRejected);
+        vectorUnavailableReason = vectorUnavailableReason == null ? "" : vectorUnavailableReason.trim();
         qualityScore = Math.max(0, Math.min(100, qualityScore));
     }
 }

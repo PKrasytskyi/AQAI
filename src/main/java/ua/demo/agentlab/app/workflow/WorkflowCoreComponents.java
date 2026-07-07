@@ -30,6 +30,8 @@ public record WorkflowCoreComponents(
         WorkflowAgent filePersistenceAgent,
         WorkflowAgent generatedUiContractValidationAgent,
         WorkflowAgent generatedCodeCompileAgent,
-        WorkflowAgent generatedCodeReviewAgent
+        WorkflowAgent generatedCodeReviewAgent,
+        WorkflowAgent generatedUiSmokeAgent,
+        WorkflowAgent runtimeFeedbackDbUpdateAgent
 ) {
 }

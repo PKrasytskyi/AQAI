@@ -39,7 +39,7 @@ public class AiPageObjectWriterAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.PAGE_OBJECT_FILES);
+        return Set.of(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES, WorkflowArtifact.PAGE_OBJECT_FILES);
     }
 
     @Override
@@ -49,7 +49,7 @@ public class AiPageObjectWriterAgent implements WorkflowAgent,
 
     @Override
     public WorkflowArtifact output() {
-        return WorkflowArtifact.PAGE_OBJECT_FILES;
+        return WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES;
     }
 
     @Override
@@ -62,7 +62,7 @@ public class AiPageObjectWriterAgent implements WorkflowAgent,
     public boolean supports(PipelineArtifactStore store, WorkflowState state) {
         return store != null
                 && store.get(WorkflowArtifact.UI_TEST_PLAN).isPresent()
-                && store.get(WorkflowArtifact.PAGE_OBJECT_FILES).isEmpty();
+                && store.get(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES).isEmpty();
     }
 
     @Override

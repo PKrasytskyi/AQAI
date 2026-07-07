@@ -172,6 +172,19 @@ public class LocatorRiskClassifier {
     }
 
     private boolean dynamicCssHash(String value) {
+        if (containsAny(value,
+                "dropdown",
+                "breadcrumb",
+                "topbar",
+                "dashboard",
+                "header",
+                "title",
+                "menu",
+                "logout",
+                "button",
+                "link")) {
+            return false;
+        }
         return value.matches(".*\\.(css|sc|jss|_)?-[a-z0-9]{5,}.*")
                 || value.matches(".*\\.[a-z]+-[a-z0-9]{6,}.*");
     }

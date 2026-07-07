@@ -72,7 +72,7 @@ class ScenarioCandidateBuilder {
             }
             case ENTER_DATA -> {
                 steps.add(new ScenarioStepCandidate(UiOperationKind.OPEN_PAGE, targetPage, targetRoute, null, true));
-                steps.add(new ScenarioStepCandidate(UiOperationKind.INSPECT_PAGE_CONTENT, targetPage, targetRoute, null, false));
+                steps.add(new ScenarioStepCandidate(UiOperationKind.ENTER_TEXT, targetPage, targetRoute, entryDataKey(unit), false));
             }
             case SUBMIT_FORM -> {
                 steps.add(new ScenarioStepCandidate(UiOperationKind.OPEN_PAGE, sourcePage, sourceRoute, null, true));
@@ -209,6 +209,24 @@ class ScenarioCandidateBuilder {
                 .toList();
     }
 
+    private String entryDataKey(RequirementUnit unit) {
+        String text = String.join(" ",
+                safe(unit.requirement().title()),
+                safe(unit.requirement().statement()),
+                safe(unit.requirement().expectedResult())
+        ).toLowerCase(java.util.Locale.ROOT);
+        if (text.contains("username") || text.contains("user name") || text.contains("login")) {
+            return "username";
+        }
+        if (text.contains("password") || text.contains("pass")) {
+            return "password";
+        }
+        if (text.contains("email")) {
+            return "email";
+        }
+        return "value";
+    }
+
     private String firstNonBlank(String... values) {
         for (String value : values) {
             if (value != null && !value.isBlank()) {
@@ -216,5 +234,9 @@ class ScenarioCandidateBuilder {
             }
         }
         return "";
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 }

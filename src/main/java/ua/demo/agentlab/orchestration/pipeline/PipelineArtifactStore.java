@@ -98,11 +98,29 @@ public class PipelineArtifactStore {
         if (value instanceof java.util.List list) {
             if (artifact == WorkflowArtifact.PAGE_OBJECT_FILES) {
                 putIfPresent(WorkflowArtifact.PAGE_OBJECT_FILES, list);
+                putIfPresent(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES, list);
+            } else if (artifact == WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES) {
+                putIfPresent(WorkflowArtifact.PAGE_OBJECT_FILES, list);
+                putIfPresent(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES, list);
             } else if (artifact == WorkflowArtifact.UI_TEST_FILES) {
                 putIfPresent(WorkflowArtifact.UI_TEST_FILES, list);
             } else if (artifact == WorkflowArtifact.WRITTEN_FILES) {
                 putIfPresent(WorkflowArtifact.WRITTEN_FILES, list);
+                putIfPresent(WorkflowArtifact.PERSISTED_GENERATED_SOURCES, list);
+            } else if (artifact == WorkflowArtifact.PERSISTED_GENERATED_SOURCES) {
+                putIfPresent(WorkflowArtifact.WRITTEN_FILES, list);
+                putIfPresent(WorkflowArtifact.PERSISTED_GENERATED_SOURCES, list);
             }
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.validation.GeneratedCodeValidationResult result) {
+            putIfPresent(WorkflowArtifact.GENERATED_CODE_VALIDATION, result);
+            putIfPresent(WorkflowArtifact.COMPILE_RESULT, result);
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.review.GeneratedCodeReviewReport report) {
+            putIfPresent(WorkflowArtifact.GENERATED_CODE_REVIEW, report);
+            putIfPresent(WorkflowArtifact.REVIEW_RESULT, report);
         }
     }
 
@@ -134,11 +152,15 @@ public class PipelineArtifactStore {
         putIfPresent(WorkflowArtifact.AI_PAGE_OBJECT_SPECS, state.getAiPageObjectSpecs());
         putIfPresent(WorkflowArtifact.AI_UI_TEST_SPECS, state.getAiUiTestSpecs());
         putIfPresent(WorkflowArtifact.PAGE_OBJECT_FILES, state.getPageObjectFiles());
+        putIfPresent(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES, state.getPageObjectFiles());
         putIfPresent(WorkflowArtifact.UI_TEST_FILES, state.getUiTestFiles());
         putIfPresent(WorkflowArtifact.GENERATED_UI_CONTRACT_VALIDATION, state.getGeneratedUiContractValidationResult());
         putIfPresent(WorkflowArtifact.GENERATED_CODE_VALIDATION, state.getGeneratedCodeValidationResult());
+        putIfPresent(WorkflowArtifact.COMPILE_RESULT, state.getGeneratedCodeValidationResult());
         putIfPresent(WorkflowArtifact.GENERATED_CODE_REVIEW, state.getGeneratedCodeReviewReport());
+        putIfPresent(WorkflowArtifact.REVIEW_RESULT, state.getGeneratedCodeReviewReport());
         putIfPresent(WorkflowArtifact.WRITTEN_FILES, state.getWrittenFiles());
+        putIfPresent(WorkflowArtifact.PERSISTED_GENERATED_SOURCES, state.getWrittenFiles());
     }
 
     private void putIfPresent(WorkflowArtifact artifact, Object value) {

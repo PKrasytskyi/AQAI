@@ -677,8 +677,10 @@ public class PageModelBuilder {
         addRuntimeLocator(locators, rawElement, "css", rawElement.placeholder().isBlank()
                 ? ""
                 : rawElement.tag() + "[placeholder='" + escapeCssValue(rawElement.placeholder()) + "']", 0.72d, "placeholder attribute");
+        addRuntimeLocator(locators, rawElement, "css", stableClassLocator(rawElement), 0.78d, "stable semantic class");
         addRuntimeLocator(locators, rawElement, "css", submitControlLocator(rawElement), 0.82d, "submit control candidate");
-        if (!rawElement.text().isBlank() && ("button".equals(rawElement.tag()) || "a".equals(rawElement.tag()))) {
+        if (!rawElement.text().isBlank()
+                && ("button".equals(rawElement.tag()) || "a".equals(rawElement.tag()) || headingTag(rawElement.tag()))) {
             addRuntimeLocator(locators, rawElement, "xpath", "//" + rawElement.tag() + "[normalize-space()='" + escapeXpathLiteral(rawElement.text()) + "']", 0.62d, "button/link text fallback");
         }
         return locators.stream()
@@ -738,6 +740,37 @@ public class PageModelBuilder {
             return tag + "[type='submit']";
         }
         return "";
+    }
+
+    private String stableClassLocator(RawElement rawElement) {
+        String tag = safe(rawElement.tag()).toLowerCase(Locale.ROOT);
+        if (tag.isBlank() || rawElement.cssClass().isBlank()) {
+            return "";
+        }
+        for (String token : rawElement.cssClass().split("\\s+")) {
+            String normalized = token.toLowerCase(Locale.ROOT);
+            if (stableSemanticClass(normalized)) {
+                return tag + "." + escapeCssClass(token);
+            }
+        }
+        return "";
+    }
+
+    private boolean stableSemanticClass(String token) {
+        return token.contains("dropdown")
+                || token.contains("breadcrumb")
+                || token.contains("topbar")
+                || token.contains("dashboard")
+                || token.contains("header")
+                || token.contains("title")
+                || token.contains("menu")
+                || token.contains("logout")
+                || token.contains("button")
+                || token.contains("link");
+    }
+
+    private boolean headingTag(String tag) {
+        return safe(tag).toLowerCase(Locale.ROOT).matches("h[1-6]");
     }
 
     private boolean isAbsoluteHttpUrl(String value) {
@@ -1132,6 +1165,10 @@ public class PageModelBuilder {
 
     private String escapeCssValue(String value) {
         return safe(value).replace("\\", "\\\\").replace("'", "\\'");
+    }
+
+    private String escapeCssClass(String value) {
+        return safe(value).replace("\\", "\\\\").replace(".", "\\.");
     }
 
     private String escapeXpathLiteral(String value) {

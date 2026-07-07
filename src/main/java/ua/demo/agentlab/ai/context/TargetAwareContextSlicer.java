@@ -77,6 +77,7 @@ public class TargetAwareContextSlicer {
                 assertionContracts,
                 pageModelEnrichments,
                 context.templateCapabilities(),
+                sliceDbStableLocators(context, mappedUiKnowledge),
                 PromptUiEvidence.empty("prompt-evidence:slicer-bootstrap")
         );
         return new AiContextPackage(
@@ -96,8 +97,31 @@ public class TargetAwareContextSlicer {
                 scopedPackage.assertionContracts(),
                 scopedPackage.pageModelEnrichments(),
                 scopedPackage.templateCapabilities(),
+                scopedPackage.dbStableLocatorEvidence(),
                 promptUiEvidenceBuilder.build(scopedPackage)
         );
+    }
+
+    private List<PromptLocatorEvidence> sliceDbStableLocators(AiContextPackage context, MappedUiKnowledge mappedUiKnowledge) {
+        if (context == null || context.dbStableLocatorEvidence().isEmpty() || mappedUiKnowledge == null) {
+            return List.of();
+        }
+        Set<String> pageIds = mappedUiKnowledge.pages().stream()
+                .map(MappedPage::pageId)
+                .map(this::normalize)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Set<String> routes = mappedUiKnowledge.pages().stream()
+                .flatMap(page -> java.util.stream.Stream.of(page.urlPattern(), page.url()))
+                .map(this::normalize)
+                .filter(value -> !value.isBlank())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        return context.dbStableLocatorEvidence().stream()
+                .filter(locator -> locator.sourceTrace().stream().anyMatch(trace -> {
+                    String normalized = normalize(trace);
+                    return pageIds.stream().anyMatch(pageId -> normalized.equals("db-page-id:" + pageId))
+                            || routes.stream().anyMatch(route -> normalized.equals("db-route:" + route));
+                }))
+                .toList();
     }
 
     private MappedUiKnowledgeCurated sliceCuratedKnowledge(AiContextPackage context, MappedUiKnowledge mappedUiKnowledge) {

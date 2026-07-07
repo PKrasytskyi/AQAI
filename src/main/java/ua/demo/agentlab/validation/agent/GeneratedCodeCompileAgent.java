@@ -30,22 +30,22 @@ public class GeneratedCodeCompileAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.WRITTEN_FILES);
+        return Set.of(WorkflowArtifact.PERSISTED_GENERATED_SOURCES);
     }
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.GENERATED_CODE_VALIDATION);
+        return Set.of(WorkflowArtifact.COMPILE_RESULT, WorkflowArtifact.GENERATED_CODE_VALIDATION);
     }
 
     @Override
     public WorkflowArtifact input() {
-        return WorkflowArtifact.WRITTEN_FILES;
+        return WorkflowArtifact.PERSISTED_GENERATED_SOURCES;
     }
 
     @Override
     public WorkflowArtifact output() {
-        return WorkflowArtifact.GENERATED_CODE_VALIDATION;
+        return WorkflowArtifact.COMPILE_RESULT;
     }
 
     @Override
@@ -53,7 +53,9 @@ public class GeneratedCodeCompileAgent implements WorkflowAgent,
         if (store == null) {
             return state.getWrittenFiles();
         }
-        return (List<String>) store.get(WorkflowArtifact.WRITTEN_FILES).orElse(state.getWrittenFiles());
+        return (List<String>) store.get(WorkflowArtifact.PERSISTED_GENERATED_SOURCES)
+                .or(() -> store.get(WorkflowArtifact.WRITTEN_FILES))
+                .orElse(state.getWrittenFiles());
     }
 
     @Override

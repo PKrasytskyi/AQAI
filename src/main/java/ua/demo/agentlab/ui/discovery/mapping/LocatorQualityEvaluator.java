@@ -113,6 +113,8 @@ public class LocatorQualityEvaluator {
             base = 0.78d;
         } else if (strategy == LocatorStrategy.CSS && sameOriginRouteHref(normalized, element, origin)) {
             base = 0.78d;
+        } else if (strategy == LocatorStrategy.CSS && semanticSpaClassLocator(normalized)) {
+            base = 0.78d;
         } else if (strategy == LocatorStrategy.CSS && shortStableCss(normalized)) {
             base = 0.60d;
         } else if (strategy == LocatorStrategy.XPATH && risks.contains("external-link-text-xpath")) {
@@ -195,6 +197,23 @@ public class LocatorQualityEvaluator {
                 || value.contains("[href=")
                 || value.contains("[placeholder=")
                 || value.contains("[type=");
+    }
+
+    private boolean semanticSpaClassLocator(String value) {
+        if (value.length() > 90 || value.contains(" > ") || !value.contains(".")) {
+            return false;
+        }
+        return containsAny(value,
+                "dropdown",
+                "breadcrumb",
+                "topbar",
+                "dashboard",
+                "header",
+                "title",
+                "menu",
+                "logout",
+                "button",
+                "link");
     }
 
     private boolean isFormField(PageElementModel element) {

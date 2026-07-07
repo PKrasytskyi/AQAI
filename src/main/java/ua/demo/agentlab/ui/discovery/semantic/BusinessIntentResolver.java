@@ -33,7 +33,8 @@ public class BusinessIntentResolver {
                 element.ariaLabel(),
                 element.role(),
                 element.text(),
-                element.href()
+                element.href(),
+                element.cssClass()
         ));
         String actionEvidence = normalize(actions.stream().map(ActionCandidate::action).toList().toString());
         Map<String, BusinessIntentCandidate> intents = new LinkedHashMap<>();
@@ -45,6 +46,10 @@ public class BusinessIntentResolver {
         }
         if (containsAny(elementEvidence, "logout", "log out", "sign out") || containsAny(actionEvidence, "logout")) {
             add(intents, "LOGOUT", 0.92d, "business-context:logout-control", false);
+        }
+        if (containsAny(elementEvidence, "user_menu_trigger", "userdropdown", "user menu", "dropdown")
+                || containsAny(actionEvidence, "open_menu")) {
+            add(intents, "OPEN_USER_MENU", 0.86d, "business-context:user-menu", false);
         }
         if (containsAny(elementEvidence + " " + pageEvidence, "search")) {
             add(intents, "SEARCH", 0.88d, "business-context:search-control", false);

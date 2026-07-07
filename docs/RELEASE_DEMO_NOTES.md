@@ -12,7 +12,7 @@ Highlights:
 - deterministic Page Object Java writer from validated contracts;
 - mapper knowledge split into raw, curated, and prompt-ready evidence;
 - environment-based secret configuration;
-- dedicated unit-test source root: `src/test/unit/tests`;
+- unit tests under standard Maven test source root: `src/test/java/unit/tests`;
 - API MVP with endpoint evidence, client/DTO/test specs, quality gates, and RestAssured/TestNG writer;
 - API CRUD demo mode.
 

@@ -48,8 +48,16 @@ public class ElementClassifier {
         if ("button".equals(tag) || "button".equals(role)) {
             return "BUTTON";
         }
+        if (tag.matches("h[1-6]")) {
+            return "HEADING";
+        }
         if ("a".equals(tag) && !element.href().isBlank()) {
             return "LINK";
+        }
+        if (("span".equals(tag) || "div".equals(tag))
+                && containsAny(element.cssClass() + " " + element.ariaLabel() + " " + element.role(),
+                "dropdown", "menu-trigger", "user-menu", "profile-menu")) {
+            return "BUTTON";
         }
         if ("select".equals(tag)) {
             return "DROPDOWN";
@@ -110,6 +118,12 @@ public class ElementClassifier {
         }
         if (containsAny(text, "logout", "sign out", "signout")) {
             return "LOGOUT";
+        }
+        if ("HEADING".equals(technicalType)) {
+            return containsAny(text, "dashboard") ? "DASHBOARD_HEADING" : "PAGE_HEADING";
+        }
+        if (containsAny(text, "userdropdown", "user dropdown", "profile menu", "user menu")) {
+            return "USER_MENU_TRIGGER";
         }
         if (containsAny(text, "add to cart", "add-to-cart", "/cart/add", "buy")) {
             return "ADD_TO_CART";

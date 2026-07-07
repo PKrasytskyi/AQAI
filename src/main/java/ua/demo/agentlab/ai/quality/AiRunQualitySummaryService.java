@@ -70,6 +70,14 @@ public class AiRunQualitySummaryService {
         double runtimeFlakyRiskScore = doubleArtifact(input, "ui.runtime.feedback.flaky.risk.score", 0.0d);
         int componentPageCount = intArtifact(input, "ui.component.page.count", 0);
         int componentScopedLocatorCount = intArtifact(input, "ui.component.scoped.locator.count", 0);
+        boolean neo4jHit = booleanArtifact(input, "ui.knowledge.retrieval.neo4j.hit", false);
+        boolean qdrantHit = booleanArtifact(input, "ui.knowledge.retrieval.qdrant.hit", false);
+        String retrievalMode = stringArtifact(input, "ui.knowledge.retrieval.mode",
+                normalizedRetrievalMode(stringArtifact(input, "page.knowledge.cache.retrieval.mode", "unknown")));
+        boolean stableCacheUsed = booleanArtifact(input, "ui.knowledge.retrieval.stable.cache.used",
+                retrievalMode.equals("stable-page-cache"));
+        int staleEvidenceRejected = intArtifact(input, "ui.knowledge.retrieval.stale.evidence.rejected", 0);
+        String vectorUnavailableReason = stringArtifact(input, "ui.knowledge.retrieval.vector.unavailable.reason", "");
         double averageLocatorScore = averageLocatorScore(locatorCandidates);
         int qualityScore = qualityScore(
                 canonicalTestCases,
@@ -91,7 +99,10 @@ public class AiRunQualitySummaryService {
                 averageLocatorScore,
                 runtimeFeedbackIssues,
                 runtimeLocatorPassRate,
-                runtimeFlakyRiskScore
+                runtimeFlakyRiskScore,
+                qdrantHit,
+                vectorUnavailableReason,
+                staleEvidenceRejected
         );
         return new AiRunQualitySummary(
                 runId(input),
@@ -110,6 +121,12 @@ public class AiRunQualitySummaryService {
                 fallbackLocators,
                 promptBlockingIssues,
                 round2(averageLocatorScore),
+                neo4jHit,
+                qdrantHit,
+                retrievalMode,
+                stableCacheUsed,
+                staleEvidenceRejected,
+                vectorUnavailableReason,
                 qualityScore
         );
     }
@@ -132,6 +149,12 @@ public class AiRunQualitySummaryService {
                 0,
                 0,
                 0.0d,
+                false,
+                false,
+                "unknown",
+                false,
+                0,
+                "",
                 0
         );
     }
@@ -298,6 +321,24 @@ public class AiRunQualitySummaryService {
         }
     }
 
+    private boolean booleanArtifact(AiRunQualitySummaryInput input, String key, boolean defaultValue) {
+        String value = input.artifacts().get(key);
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        return Boolean.parseBoolean(value.trim());
+    }
+
+    private String stringArtifact(AiRunQualitySummaryInput input, String key, String defaultValue) {
+        String value = input.artifacts().get(key);
+        return value == null || value.isBlank() ? defaultValue : value.trim();
+    }
+
+    private String normalizedRetrievalMode(String value) {
+        String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replace('_', '-');
+        return normalized.isBlank() ? "unknown" : normalized;
+    }
+
     private int qualityScore(
             int canonicalTestCases,
             int expectedResultsNeedsReview,
@@ -318,7 +359,10 @@ public class AiRunQualitySummaryService {
             double averageLocatorScore,
             int runtimeFeedbackIssues,
             double runtimeLocatorPassRate,
-            double runtimeFlakyRiskScore
+            double runtimeFlakyRiskScore,
+            boolean qdrantHit,
+            String vectorUnavailableReason,
+            int staleEvidenceRejected
     ) {
         double score = 100.0d;
         if (canonicalTestCases > 0) {
@@ -359,6 +403,11 @@ public class AiRunQualitySummaryService {
         }
         score -= Math.min(10.0d, runtimeFlakyRiskScore * 10.0d);
         score -= Math.min(10.0d, runtimeFeedbackIssues * 2.0d);
+        if (!qdrantHit && vectorUnavailableReason != null && !vectorUnavailableReason.isBlank()
+                && !vectorUnavailableReason.equalsIgnoreCase("vector retrieval disabled")) {
+            score -= 5.0d;
+        }
+        score -= Math.min(10.0d, staleEvidenceRejected * 2.0d);
         return (int) Math.round(Math.max(0.0d, Math.min(100.0d, score)));
     }
 

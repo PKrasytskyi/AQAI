@@ -119,7 +119,9 @@ public class PageObjectCapabilityContractFormatter {
             return;
         }
         if (containsAny(normalized, "logout", "signout")) {
+            contract.ownedActions.add("openUserMenu()");
             contract.ownedActions.add("logout()");
+            contract.requiredLocators.add("userMenuTrigger");
             contract.requiredLocators.add("logoutLink");
             return;
         }
@@ -195,6 +197,14 @@ public class PageObjectCapabilityContractFormatter {
                 || containsAny(contract.route, "login", "auth/login"));
     }
 
+    private boolean isAuthenticatedAreaContractPage(Contract contract) {
+        if (contract == null) {
+            return false;
+        }
+        String evidence = (contract.pageName + " " + contract.route + " " + contract.capability).toLowerCase(Locale.ROOT);
+        return containsAny(evidence, "dashboard", "authenticated", "secure");
+    }
+
     private String methodSuffix(String value) {
         String normalized = value == null ? "" : value.replaceAll("[^A-Za-z0-9]+", " ").trim();
         if (normalized.isBlank()) {
@@ -262,9 +272,31 @@ public class PageObjectCapabilityContractFormatter {
         if (targetPage) {
             contract.ownedAssertionTestCases.add(testCase.id());
             testCase.assertionIntents().forEach(intent -> addOwnedAssertion(contract, intent));
+            addTargetOwnedActions(contract, testCase);
             addTextDrivenTargetAssertions(contract, testCase);
             addPrerequisite(contract, testCase);
         }
+    }
+
+    private void addTargetOwnedActions(Contract contract, CanonicalTestCase testCase) {
+        if (testCase == null) {
+            return;
+        }
+        boolean protectedTarget = isAuthenticatedAreaContractPage(contract)
+                || normalizedText(testCase).contains("authenticated")
+                || normalizedText(testCase).contains("dashboard");
+        if (!protectedTarget) {
+            return;
+        }
+        testCase.operationIntents().forEach(intent -> {
+            if (intent != null && intent.kind() == UiOperationKind.LOGOUT) {
+                contract.ownedActionTestCases.add(testCase.id());
+                contract.ownedActions.add("openUserMenu()");
+                contract.ownedActions.add("logout()");
+                contract.requiredLocators.add("userMenuTrigger");
+                contract.requiredLocators.add("logoutLink");
+            }
+        });
     }
 
     private void addOwnedAction(Contract contract, UiOperationIntent intent, CanonicalTestCase testCase) {
@@ -273,6 +305,7 @@ public class PageObjectCapabilityContractFormatter {
         }
         switch (intent.kind()) {
             case AUTHENTICATE -> addAuthenticationContract(contract);
+            case ENTER_TEXT -> addEnterTextContract(contract, intent);
             case SUBMIT_FORM -> contract.ownedActions.add("submitForm()");
             case OPEN_DETAILS -> contract.ownedActions.add("openEntityDetails(String entityKey)");
             case OPEN_TARGET_CONTAINER, OPEN_DESTINATION_CONTAINER -> contract.ownedActions.add("openTargetContainer()");
@@ -280,7 +313,12 @@ public class PageObjectCapabilityContractFormatter {
             case REMOVE_ENTITY_FROM_CONTAINER, REMOVE_ITEM_FROM_CONTAINER -> contract.ownedActions.add("removeEntityFromContainer(String entityKey)");
             case SEARCH -> contract.ownedActions.add("search(String query)");
             case FILTER -> contract.ownedActions.add("filter(String value)");
-            case LOGOUT -> contract.ownedActions.add("logout()");
+            case LOGOUT -> {
+                contract.ownedActions.add("openUserMenu()");
+                contract.ownedActions.add("logout()");
+                contract.requiredLocators.add("userMenuTrigger");
+                contract.requiredLocators.add("logoutLink");
+            }
             case UPLOAD_FILE -> contract.ownedActions.add("uploadFile(String path)");
             case DOWNLOAD_FILE -> contract.ownedActions.add("downloadFile()");
             case INSPECT_COLLECTION, INSPECT_LISTING, INSPECT_ITEM_CARDS ->
@@ -291,6 +329,23 @@ public class PageObjectCapabilityContractFormatter {
             }
         }
         addTextDrivenSourceActions(contract, testCase);
+    }
+
+    private void addEnterTextContract(Contract contract, UiOperationIntent intent) {
+        String key = intent.dataKey() == null ? "" : intent.dataKey().trim();
+        if (key.equalsIgnoreCase("username")) {
+            contract.ownedActions.add("enterUsername(String username)");
+            contract.requiredLocators.add("usernameInput");
+            return;
+        }
+        if (key.equalsIgnoreCase("password")) {
+            contract.ownedActions.add("enterPassword(String password)");
+            contract.requiredLocators.add("passwordInput");
+            return;
+        }
+        String methodStem = key.isBlank() ? "Value" : Character.toUpperCase(key.charAt(0)) + key.substring(1);
+        contract.ownedActions.add("enter" + methodStem + "(String " + (key.isBlank() ? "value" : key) + ")");
+        contract.requiredLocators.add((key.isBlank() ? "value" : key) + "Input");
     }
 
     private void addOwnedAssertion(Contract contract, AssertionIntent intent) {
@@ -322,16 +377,18 @@ public class PageObjectCapabilityContractFormatter {
             contract.ownedAssertions.add("hasAuthenticationEntryPointToLogin()");
         }
         if (text.contains("logout")) {
+            contract.ownedActions.add("openUserMenu()");
             contract.ownedActions.add("logout()");
+            contract.requiredLocators.add("userMenuTrigger");
             contract.requiredLocators.add("logoutLink");
         }
     }
 
     private void addTextDrivenTargetAssertions(Contract contract, CanonicalTestCase testCase) {
         String text = normalizedText(testCase);
-        if (text.contains("welcome")) {
-            contract.ownedAssertions.add("hasWelcomeMessage()");
-            contract.requiredLocators.add("welcomeMessageOrHeading");
+        if (text.contains("dashboard heading") || text.contains("successful login state")) {
+            contract.ownedAssertions.add("isDashboardHeadingVisible()");
+            contract.requiredLocators.add("dashboardHeading");
         }
         if (text.contains("authenticated area") || text.contains("secure area")) {
             contract.ownedAssertions.add("isAuthenticatedAreaVisible()");

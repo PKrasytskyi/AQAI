@@ -614,27 +614,18 @@ public class AiPromptContextFormatter {
         }
         StringBuilder builder = new StringBuilder();
         var retrieval = context.retrievalContext();
-        builder.append("Qdrant evidence: ").append(retrieval.vectorMatches().size()).append(System.lineSeparator());
-        retrieval.vectorMatches().stream().limit(3).forEach(match -> builder
-                .append("- artifact=").append(match.metadata() == null ? "" : match.metadata().artifactName())
-                .append(" | tags=").append(match.metadata() == null ? List.of() : match.metadata().tags())
-                .append(" | evidence=").append(truncate(match.text(), 180))
-                .append(System.lineSeparator()));
-        builder.append("Neo4j evidence: ").append(retrieval.graphMatches().size()).append(System.lineSeparator());
-        retrieval.graphMatches().stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        match -> match.pageId() + "|" + match.relationType(),
-                        match -> match,
-                        (left, right) -> left,
-                        java.util.LinkedHashMap::new
-                ))
-                .values()
-                .stream()
-                .limit(3)
-                .forEach(match -> builder.append("- pageId=").append(match.pageId())
-                        .append(" | relation=").append(match.relationType())
-                        .append(" | nodeType=").append(match.nodeType())
-                        .append(System.lineSeparator()));
+        builder.append("retrievalMode=").append(retrieval.retrievalMode()).append(System.lineSeparator());
+        builder.append("neo4jHit=").append(retrieval.neo4jHit())
+                .append(" | qdrantHit=").append(retrieval.qdrantHit())
+                .append(" | stableCacheUsed=").append(retrieval.stableCacheUsed())
+                .append(System.lineSeparator());
+        builder.append("staleEvidenceRejected=").append(retrieval.staleEvidenceRejected())
+                .append(" | vectorUnavailableReason=")
+                .append(retrieval.vectorUnavailableReason().isBlank() ? "none" : retrieval.vectorUnavailableReason())
+                .append(System.lineSeparator());
+        builder.append("Graph evidence count: ").append(retrieval.graphMatches().size()).append(System.lineSeparator());
+        builder.append("Vector evidence count: ").append(retrieval.vectorMatches().size()).append(System.lineSeparator());
+        builder.append("Raw retrieved text is intentionally excluded from POM prompts; retrieval is used only before prompt as ranking/enrichment metadata.");
         return builder.toString().stripTrailing();
     }
 

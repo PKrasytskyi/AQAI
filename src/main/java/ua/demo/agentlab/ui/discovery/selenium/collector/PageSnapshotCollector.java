@@ -31,6 +31,7 @@ public class PageSnapshotCollector {
     private final PageScanner pageScanner;
     private final DomParser domParser;
     private final RuntimeLocatorCountCollector runtimeLocatorCountCollector;
+    private final DropdownInteractionSnapshotExpander dropdownInteractionSnapshotExpander;
 
     public PageSnapshotCollector(
             InteractiveElementExtractor interactiveElementExtractor,
@@ -41,7 +42,8 @@ public class PageSnapshotCollector {
                 formStructureExtractor,
                 new PageScanner(),
                 new DomParser(),
-                new RuntimeLocatorCountCollector()
+                new RuntimeLocatorCountCollector(),
+                new DropdownInteractionSnapshotExpander()
         );
     }
 
@@ -51,7 +53,8 @@ public class PageSnapshotCollector {
             PageScanner pageScanner,
             DomParser domParser
     ) {
-        this(interactiveElementExtractor, formStructureExtractor, pageScanner, domParser, new RuntimeLocatorCountCollector());
+        this(interactiveElementExtractor, formStructureExtractor, pageScanner, domParser,
+                new RuntimeLocatorCountCollector(), new DropdownInteractionSnapshotExpander(domParser));
     }
 
     public PageSnapshotCollector(
@@ -60,6 +63,18 @@ public class PageSnapshotCollector {
             PageScanner pageScanner,
             DomParser domParser,
             RuntimeLocatorCountCollector runtimeLocatorCountCollector
+    ) {
+        this(interactiveElementExtractor, formStructureExtractor, pageScanner, domParser,
+                runtimeLocatorCountCollector, new DropdownInteractionSnapshotExpander(domParser));
+    }
+
+    public PageSnapshotCollector(
+            InteractiveElementExtractor interactiveElementExtractor,
+            FormStructureExtractor formStructureExtractor,
+            PageScanner pageScanner,
+            DomParser domParser,
+            RuntimeLocatorCountCollector runtimeLocatorCountCollector,
+            DropdownInteractionSnapshotExpander dropdownInteractionSnapshotExpander
     ) {
         if (interactiveElementExtractor == null) {
             throw new IllegalArgumentException("interactiveElementExtractor cannot be null");
@@ -76,19 +91,25 @@ public class PageSnapshotCollector {
         if (runtimeLocatorCountCollector == null) {
             throw new IllegalArgumentException("runtimeLocatorCountCollector cannot be null");
         }
+        if (dropdownInteractionSnapshotExpander == null) {
+            throw new IllegalArgumentException("dropdownInteractionSnapshotExpander cannot be null");
+        }
         this.interactiveElementExtractor = interactiveElementExtractor;
         this.formStructureExtractor = formStructureExtractor;
         this.pageScanner = pageScanner;
         this.domParser = domParser;
         this.runtimeLocatorCountCollector = runtimeLocatorCountCollector;
+        this.dropdownInteractionSnapshotExpander = dropdownInteractionSnapshotExpander;
     }
 
     public DiscoveredPageSnapshot collect(WebDriver driver, String pageIdHint, DiscoveredPageEvidence evidence) {
         RawPageSnapshot rawPageSnapshot = pageScanner.scan(driver, evidence);
-        List<RawElement> rawElements = runtimeLocatorCountCollector.enrich(driver, domParser.parse(rawPageSnapshot));
+        List<RawElement> parsedElements = new ArrayList<>(domParser.parse(rawPageSnapshot));
+        parsedElements.addAll(dropdownInteractionSnapshotExpander.expand(driver));
+        List<RawElement> rawElements = runtimeLocatorCountCollector.enrich(driver, parsedElements);
         String currentUrl = driver.getCurrentUrl();
         String title = driver.getTitle();
-        List<String> headings = extractTexts(driver, "h1, h2, h3");
+        List<String> headings = extractTexts(driver, "h1, h2, h3, h4, h5, h6");
         List<DiscoveredInteractiveElement> links = interactiveElementExtractor.extractLinks(driver);
         List<DiscoveredInteractiveElement> buttons = interactiveElementExtractor.extractButtons(driver);
         List<DiscoveredForm> forms = formStructureExtractor.extractForms(driver);

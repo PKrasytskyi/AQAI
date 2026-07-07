@@ -94,7 +94,9 @@ public class WorkflowCoreModuleFactory {
                 persistence.filePersistenceAgent(),
                 validation.generatedUiContractValidationAgent(),
                 validation.generatedCodeCompileAgent(),
-                validation.generatedCodeReviewAgent()
+                validation.generatedCodeReviewAgent(),
+                validation.generatedUiSmokeAgent(),
+                validation.runtimeFeedbackDbUpdateAgent()
         );
     }
 }

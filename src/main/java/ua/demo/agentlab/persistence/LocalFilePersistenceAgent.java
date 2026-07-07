@@ -27,28 +27,29 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.PAGE_OBJECT_FILES);
+        return Set.of(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES);
     }
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.WRITTEN_FILES);
+        return Set.of(WorkflowArtifact.PERSISTED_GENERATED_SOURCES, WorkflowArtifact.WRITTEN_FILES);
     }
 
     @Override
     public WorkflowArtifact input() {
-        return WorkflowArtifact.PAGE_OBJECT_FILES;
+        return WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES;
     }
 
     @Override
     public WorkflowArtifact output() {
-        return WorkflowArtifact.WRITTEN_FILES;
+        return WorkflowArtifact.PERSISTED_GENERATED_SOURCES;
     }
 
     @Override
     public GeneratedUiSources inputFrom(PipelineArtifactStore store, WorkflowState state) {
         return new GeneratedUiSources(
-                store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.PAGE_OBJECT_FILES)
+                store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES)
+                        .or(() -> store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.PAGE_OBJECT_FILES))
                         .map(value -> (java.util.List<GeneratedSourceFile>) value)
                         .orElse(List.of()),
                 store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.UI_TEST_FILES)

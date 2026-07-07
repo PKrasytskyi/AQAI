@@ -27,7 +27,7 @@ Implemented today:
 - API client/DTO/test specs with RestAssured/TestNG writer;
 - API quality gate for endpoint evidence, assertions, source roots, path params, and mutation safety;
 - API demo mode via `--api`, including controlled full CRUD flow generation when the endpoint set supports it;
-- unit tests under `src/test/unit/tests`.
+- unit tests under `src/test/java/unit/tests`.
 
 Current AI mode can continue from deterministic POM contract prompt generation to validated `pom-contract-v1` and deterministic Page Object Java output. Direct LLM-backed Java writing is not used for Page Objects; Java method bodies are owned by the deterministic writer path.
 

@@ -2,6 +2,7 @@ package ua.demo.agentlab.app.workflow;
 
 import ua.demo.agentlab.ai.assertions.agent.AssertionContractAgent;
 import ua.demo.agentlab.ai.context.AiContextAssembler;
+import ua.demo.agentlab.ai.context.DbStableLocatorEvidenceService;
 import ua.demo.agentlab.ai.context.UiKnowledgeRetrievalService;
 import ua.demo.agentlab.ai.expectationenrichment.agent.TestCaseExpectationEnrichmentAgent;
 import ua.demo.agentlab.ai.expectationenrichment.service.OpenAiTestCaseExpectationEnrichmentClient;
@@ -46,7 +47,8 @@ public class AiPromptModuleFactory {
         );
         AiContextAssembler aiContextAssembler = new AiContextAssembler(
                 core.canonicalInteractionLayer(),
-                uiKnowledgeRetrievalService
+                uiKnowledgeRetrievalService,
+                new DbStableLocatorEvidenceService(new PropertiesNeo4jRuntimeConfig())
         );
         return new AiPromptModule(
                 flowScopedKnowledgeAgent(core, uiKnowledgeRetrievalService),

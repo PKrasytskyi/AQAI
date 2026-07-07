@@ -1,7 +1,6 @@
 package ua.demo.agentlab.ui.discovery.runtime.bidi;
 
 import ua.demo.agentlab.ui.discovery.runtime.RuntimeEventNormalizer;
-import ua.demo.agentlab.ui.discovery.runtime.SpaStateTransitionDetector;
 import ua.demo.agentlab.ui.discovery.runtime.model.ConsoleLogEvent;
 import ua.demo.agentlab.ui.discovery.runtime.model.DomMutationEvent;
 import ua.demo.agentlab.ui.discovery.runtime.model.NavigationEvent;
@@ -16,7 +15,7 @@ import java.util.Locale;
 public class BiDiEventNormalizer {
 
     private final RuntimeEventNormalizer normalizer = new RuntimeEventNormalizer();
-    private final SpaStateTransitionDetector stateTransitionDetector = new SpaStateTransitionDetector();
+    private final RuntimeStateTransitionBuilder stateTransitionBuilder = new RuntimeStateTransitionBuilder();
 
     public RuntimeEvidenceBundle normalize(List<BiDiRuntimeEvent> events) {
         if (events == null || events.isEmpty()) {
@@ -31,6 +30,8 @@ public class BiDiEventNormalizer {
         int consoleIndex = 1;
         int navigationIndex = 1;
         int mutationIndex = 1;
+        int lifecycleEvents = 0;
+        int networkIdleEvents = 0;
         for (BiDiRuntimeEvent event : events) {
             String type = event.eventType().toLowerCase(Locale.ROOT);
             if (type.contains("network") && type.contains("request")) {
@@ -47,7 +48,7 @@ public class BiDiEventNormalizer {
                         String.valueOf(event.timestamp()),
                         "bidi"
                 ));
-            } else if (type.contains("network")) {
+            } else if (type.contains("network") && (type.contains("response") || type.contains("completed") || type.contains("failed"))) {
                 String url = event.attributes().getOrDefault("url", "");
                 String eventId = "bidi-network-" + networkIndex++;
                 networkResponses.add(new NetworkResponseEvent(
@@ -62,6 +63,8 @@ public class BiDiEventNormalizer {
                         String.valueOf(event.timestamp()),
                         "bidi"
                 ));
+            } else if (type.contains("network") && type.contains("idle")) {
+                networkIdleEvents++;
             } else if (type.contains("log") || type.contains("console")) {
                 consoleLogs.add(new ConsoleLogEvent(
                         "bidi-console-" + consoleIndex++,
@@ -72,6 +75,8 @@ public class BiDiEventNormalizer {
                         event.timestamp(),
                         "bidi"
                 ));
+            } else if (type.contains("lifecycle")) {
+                lifecycleEvents++;
             } else if (type.contains("navigation")) {
                 String fromUrl = event.attributes().getOrDefault("fromUrl", event.pageUrl());
                 String toUrl = event.attributes().getOrDefault("url", event.pageUrl());
@@ -105,14 +110,16 @@ public class BiDiEventNormalizer {
                 navigationEvents,
                 domMutations,
                 List.of(),
-                stateTransitionDetector.detect(navigationEvents),
+                stateTransitionBuilder.build(navigationEvents, events),
                 List.of(
                         "collector=bidi-event-normalizer",
                         "rawEvents=" + events.size(),
                         "networkRequests=" + networkRequests.size(),
                         "networkResponses=" + networkResponses.size(),
                         "navigationEvents=" + navigationEvents.size(),
-                        "domMutations=" + domMutations.size()
+                        "domMutations=" + domMutations.size(),
+                        "lifecycleEvents=" + lifecycleEvents,
+                        "networkIdleEvents=" + networkIdleEvents
                 )
         );
     }
