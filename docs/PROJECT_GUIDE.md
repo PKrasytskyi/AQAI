@@ -22,6 +22,7 @@ Implemented today:
 - AI enrichment for PageModel/expected-result metadata;
 - deterministic POM contract prompt generation with prompt quality linter;
 - `pom-contract-v1` model and deterministic Java writer path for Page Objects;
+- generated-source persistence, compile/review validation, generated UI smoke, and runtime-feedback update stages;
 - run quality summary and artifact diff;
 - API endpoint evidence ingestion from OpenAPI, network scan, and configured endpoint seeds;
 - API client/DTO/test specs with RestAssured/TestNG writer;
@@ -29,7 +30,9 @@ Implemented today:
 - API demo mode via `--api`, including controlled full CRUD flow generation when the endpoint set supports it;
 - unit tests under `src/test/java/unit/tests`.
 
-Current AI mode can continue from deterministic POM contract prompt generation to validated `pom-contract-v1` and deterministic Page Object Java output. Direct LLM-backed Java writing is not used for Page Objects; Java method bodies are owned by the deterministic writer path.
+Current AI mode can continue from deterministic POM contract prompt generation to validated `pom-contract-v1`, deterministic Page Object Java output, source persistence, compile/review, and generated-source smoke validation. Direct LLM-backed Java writing is not used for Page Objects; Java method bodies are owned by the deterministic writer path.
+
+Repository defaults are intentionally conservative: AI, RAG, Neo4j, and Qdrant integrations are disabled until enabled through JVM properties, environment-aware local overrides, or ignored local config.
 
 ## 3. Main Workflows
 
@@ -59,6 +62,11 @@ flowchart TD
     P --> Q["pom-contract-v1 JSON"]
     Q --> R["PomContractQualityGate"]
     R --> S["DeterministicPomJavaWriter"]
+    S --> T["FilePersistenceAgent"]
+    T --> U["GeneratedCodeCompileAgent"]
+    U --> V["GeneratedCodeReviewAgent"]
+    V --> W["GeneratedUiSmokeAgent"]
+    W --> X["RuntimeFeedbackDbUpdateAgent"]
 ```
 
 ### API MVP Workflow
@@ -123,6 +131,15 @@ Useful UI run artifacts:
 - `target/ai-run/page-object-spec/<Page>-prompt.txt` - final compact/debug POM contract prompt.
 - `target/ai-run/page-object-spec/<Page>-pom-contract.json` - parsed POM contract consumed by the deterministic Java writer.
 - `target/ai-run/page-object-spec/<Page>-scope-trace.json` - page, route, and requirement scoping diagnostics.
+- `target/ai-run/validation/generated-ui-smoke-result.json` - generated-source smoke result after POM source persistence, compile, and review.
+
+Golden UI slice status:
+
+- `requirements/valid-login-requirement.md` is the current golden requirement fixture.
+- LoginPage has confirmed field/button locators and stable generated POM methods.
+- DashboardPage has confirmed authenticated route, user-menu trigger, and logout-link evidence when authenticated discovery succeeds.
+- Dashboard heading remains a coverage gap unless discovery confirms a stable heading locator.
+- Full live-browser smoke execution is still the next hardening target after generated-source smoke.
 
 Local secrets should be supplied by environment variables or JVM properties. `framework.properties` uses placeholders such as `${API_AUTH_TOKEN}` and `${TEST_VALID_USERNAME}` rather than real credentials.
 

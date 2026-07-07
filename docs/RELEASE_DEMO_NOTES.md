@@ -10,8 +10,10 @@ Highlights:
 - deterministic UI Page Object prompt generation;
 - `pom-contract-v1` Page Object contract planning;
 - deterministic Page Object Java writer from validated contracts;
+- generated Page Object source persistence followed by compile, review, smoke, and runtime-feedback stages;
 - mapper knowledge split into raw, curated, and prompt-ready evidence;
 - environment-based secret configuration;
+- AI/RAG/knowledge-store integrations disabled by default and enabled explicitly for demos;
 - unit tests under standard Maven test source root: `src/test/java/unit/tests`;
 - API MVP with endpoint evidence, client/DTO/test specs, quality gates, and RestAssured/TestNG writer;
 - API CRUD demo mode.
@@ -29,6 +31,12 @@ $env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD="local-neo4j-password"
 mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md"
 ```
 
+Because repository defaults are safe/offline by default, enable AI/RAG/knowledge-store switches explicitly for a full local demo:
+
+```powershell
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md" "-Dopenai.enabled=true" "-Dai.page-object.llm.enabled=true" "-Drag.enabled=true" "-Dknowledge.graph.enabled=true" "-Dknowledge.vector.enabled=true"
+```
+
 Main artifacts:
 
 ```text
@@ -43,7 +51,15 @@ Expected current behavior:
 
 - `LoginPage` should use confirmed username/password/login-button locators.
 - `LoginPage` should be eligible for Neo4j page knowledge cache reuse after a stable run.
-- `DashboardPage` should be discovered, but welcome/logout evidence may still appear as coverage gaps until authenticated-area evidence is strengthened.
+- `DashboardPage` should be discovered after authentication.
+- `DashboardPage` should include confirmed route evidence plus user-menu trigger and logout-link evidence when the authenticated page is reachable.
+- `DashboardPage` should expose `openUserMenu()` and `logout()` from the POM contract when those locators are confirmed.
+- Dashboard heading assertions should remain coverage gaps if no confirmed heading locator exists.
+
+Known demo boundary:
+
+- `target/ai-run/validation/generated-ui-smoke-result.json` currently represents generated-source smoke validation over persisted POM files and compile/review readiness. It is not yet the final live browser smoke scenario.
+- The next platform-hardening step is a live browser smoke artifact for `open login -> login -> dashboard route/header -> open user menu -> logout visible/action`.
 
 ## API CRUD Demo Run
 

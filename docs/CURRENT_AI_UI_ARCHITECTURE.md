@@ -44,6 +44,11 @@ flowchart TD
     P --> PC[pom-contract-v1 JSON]
     PC --> PW[PomContractPageObjectWriterAgent]
     PW --> S[Deterministic Page Object Java + prompts/traces]
+    S --> FS[FilePersistenceAgent]
+    FS --> CV[GeneratedCodeCompileAgent]
+    CV --> RV[GeneratedCodeReviewAgent]
+    RV --> SM[GeneratedUiSmokeAgent]
+    SM --> FB[RuntimeFeedbackDbUpdateAgent]
 
     I -. OpenAI, optional .-> AI1[Expected-result selection]
     L -. OpenAI only for cache misses .-> AI2[PageModel metadata]
@@ -861,22 +866,28 @@ The latest reviewed local AI run while this document was updated used `requireme
 
 | Signal | Observed value |
 |---|---:|
-| Run id | `587219cc-db6c-3b3c-af49-d11fe8644477` |
-| Requirements | 39 |
-| Canonical test cases | 20 |
-| Expected results resolved | 20 |
+| Run id | `42a79c7d-5a49-3746-8dac-8dc1c6f64441` |
+| Requirements | 43 |
+| Canonical test cases | 24 |
+| Expected results resolved | 24 |
 | Expected results marked `needs-review` | 0 |
-| Mapped pages | 2 |
+| Mapped pages | 4 |
 | POM prompts | LoginPage, DashboardPage |
-| Confirmed locators | 17 |
+| Confirmed locators | 70 |
 | Prompt pages without allowed locators | 0 |
 | Prompt blocking issues | 0 |
-| Qdrant docs returned for current run | 40 |
-| Qdrant page-enrichment docs | 2 |
-| LoginPage cache status | Neo4j HIT |
-| DashboardPage cache status | MISS because the page fingerprint changed |
+| Neo4j retrieval | HIT |
+| Qdrant retrieval | HIT |
+| Retrieval mode | current-run |
+| Stable cache used | false |
+| Low-confidence locators | 0 |
+| Quality score | 82 |
 
-LoginPage is the current golden vertical slice: discovery finds confirmed username/password/login-button locators, the prompt is compact, `pom-contract-v1` is validated, and deterministic Java generation produces a stable `LoginPage` POM. DashboardPage is also discovered and prompted, but authenticated-area welcome/logout evidence remains weaker and should continue to be treated as a mapper/enrichment improvement area.
+LoginPage is the current strongest part of the golden vertical slice: discovery finds confirmed username/password/login-button locators, the prompt is compact, `pom-contract-v1` is validated, and deterministic Java generation produces a stable `LoginPage` POM.
+
+DashboardPage is now part of the same slice when authenticated discovery succeeds. It has confirmed route evidence plus user-menu trigger and logout-link evidence, so the POM contract can expose `openUserMenu()`, `logout()`, route assertion, and logout visibility. Dashboard heading validation is not forced without a confirmed heading locator and remains a coverage gap.
+
+The generated-source smoke artifact currently validates persisted generated POM files together with compile/review readiness. A full live browser smoke scenario for `open login -> login -> dashboard -> user menu -> logout` is still the next hardening step before calling the slice fully end-to-end.
 
 ## 10. Artifacts to Review After Each AI Run
 

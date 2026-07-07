@@ -387,7 +387,7 @@ AI quality still depends on:
 - precision of page/action discovery;
 - strictness of output parsing.
 
-The LoginPage POM flow is now stable enough for a golden demo slice. DashboardPage is discovered and prompted, but still needs stronger authenticated-area evidence for welcome/logout assertions. UI test generation remains prompt-only/disabled until its contract-first writer is ready.
+The LoginPage POM flow is now stable enough for the golden demo slice. DashboardPage also participates in that slice when authenticated discovery succeeds: route evidence, user-menu trigger, and logout link can become confirmed POM evidence. Dashboard heading validation remains a coverage gap unless discovery confirms a stable heading locator. UI test generation remains prompt-only/disabled until its contract-first writer is ready.
 
 ## 9. Main Packages Worth Knowing
 

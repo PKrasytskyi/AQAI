@@ -31,6 +31,8 @@ RequirementDocument
   -> POM Contract Prompts
   -> pom-contract-v1 Validation
   -> Deterministic Page Object Java Writer
+  -> Generated Source Persistence
+  -> Compile / Review / Smoke Validation
   -> Quality Summary / Artifact Diff
 ```
 
@@ -159,12 +161,29 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.
 AI enrichment / prompt-review run:
 
 ```powershell
+$env:OPENAI_API_KEY="..."
+$env:TEST_VALID_USERNAME="..."
+$env:TEST_VALID_PASSWORD="..."
+$env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD="local-neo4j-password"
+
 mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md"
+```
+
+AI/RAG/knowledge-store features are disabled by default in `framework.properties` for repository safety. Enable them explicitly for a local AI run, for example with JVM properties:
+
+```powershell
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md" "-Dopenai.enabled=true" "-Dai.page-object.llm.enabled=true" "-Drag.enabled=true" "-Dknowledge.graph.enabled=true" "-Dknowledge.vector.enabled=true"
 ```
 
 Current AI mode records deterministic POM contract prompts and enrichment artifacts. When `ai.page-object.llm.enabled=true`, the LLM returns only `pom-contract-v1` JSON. It does not write Java bodies. Java Page Objects are produced by `DeterministicPomJavaWriter` from the validated contract.
 
-The current golden UI slice is `requirements/valid-login-requirement.md`: LoginPage discovery, confirmed username/password/login-button locators, Neo4j/Qdrant knowledge use, `pom-contract-v1`, and deterministic LoginPage POM generation. DashboardPage is discovered and prompted, but authenticated-area welcome/logout evidence is still a known improvement area.
+The current golden UI slice is `requirements/valid-login-requirement.md`: LoginPage discovery, confirmed username/password/login-button locators, DashboardPage discovery, confirmed dashboard route, user-menu trigger and logout link evidence, Neo4j/Qdrant knowledge use when enabled, `pom-contract-v1`, deterministic POM generation, source persistence, compile/review, and generated-source smoke validation.
+
+Current golden-slice limitations:
+
+- Dashboard heading evidence is not forced when no confirmed heading locator exists; it remains a coverage gap.
+- The generated-source smoke gate validates generated POM files, compile/review readiness, and structural interaction contracts. A full browser smoke scenario for `open login -> login -> dashboard route/header -> open user menu -> logout` is the next hardening step.
+- Run quality score is intentionally conservative: it should exceed 90 only when confirmed locators, compile, review, and smoke evidence are all strong.
 
 POM prompts are compact by default: they contain the page capability contract, page-owned required actions/assertions, allowed locators, baseline API signatures, and the `pom-contract-v1` output schema. Full diagnostic prompt evidence can be enabled with `-Dai.page-object.prompt.mode=debug` or `-Dai.prompt.debug=true`.
 
