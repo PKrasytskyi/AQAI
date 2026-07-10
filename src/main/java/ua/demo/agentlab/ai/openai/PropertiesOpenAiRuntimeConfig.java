@@ -70,6 +70,11 @@ public class PropertiesOpenAiRuntimeConfig implements OpenAiRuntimeConfig {
     }
 
     @Override
+    public boolean pageEnrichmentLlmEnabled() {
+        return Boolean.parseBoolean(readValue("ai.page-enrichment.llm.enabled", "true"));
+    }
+
+    @Override
     public boolean uiTestLlmEnabled() {
         return Boolean.parseBoolean(readValue("ai.ui-test.llm.enabled", "false"));
     }

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "pom-contract-v1",
+  "page": {
+    "name": "LoginPage",
+    "route": "/auth/login",
+    "capability": "AUTHENTICATION",
+    "openMethod": "openLogin"
+  },
+  "locators": [],
+  "actions": [
+    {"methodName": "login", "body": "driver.findElement(By.name(\"username\")).sendKeys(username);"}
+  ],
+  "assertions": [],
+  "coverageGaps": [{"reason": "missing locator"}],
+  "rejectedSuggestions": []
+}
+

@@ -406,6 +406,9 @@ public class PomScopeSanitizer {
             if ((isLoginPage(targetPage) || containsAny(normalize(targetPage), "auth")) && id.equals("submitButton")) {
                 id = "loginButton";
             }
+            if (id.equals("userMenuTrigger") && isDropdownMenuItemLocator(locator)) {
+                continue;
+            }
             PromptReadyLocator ready = new PromptReadyLocator(
                     id,
                     firstNonBlank(locator.elementName(), id),
@@ -430,6 +433,17 @@ public class PomScopeSanitizer {
         return bestById.values().stream()
                 .sorted(Comparator.comparing(PromptReadyLocator::id))
                 .toList();
+    }
+
+    private boolean isDropdownMenuItemLocator(PromptLocatorEvidence locator) {
+        String value = normalize(locator.value());
+        return containsAny(value,
+                "oxd-userdropdown-link",
+                "a[href",
+                "href=",
+                "auth/logout",
+                "help/support",
+                "updatepassword");
     }
 
     private int compareLocator(PromptReadyLocator left, PromptReadyLocator right) {

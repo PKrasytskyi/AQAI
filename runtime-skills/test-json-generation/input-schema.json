@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/test-json-generation/input-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "testCase", "pageApis", "assertionContracts"],
+  "properties": {
+    "schemaVersion": {"const": "test-json-generation-input.v1"},
+    "testCase": {"type": "object"},
+    "pageApis": {"type": "array", "items": {"type": "object"}},
+    "assertionContracts": {"type": "array", "items": {"type": "object"}},
+    "dataRequirements": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}
+

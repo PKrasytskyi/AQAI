@@ -134,6 +134,9 @@ public class LocatorEvidenceSelector {
             return java.util.Optional.empty();
         }
         String element = firstNonBlank(extractToken(value, "element="), semanticNameFromLocatorValue(locatorValue));
+        if (isDropdownMenuItemMisclassifiedAsTrigger(element, locatorValue)) {
+            return java.util.Optional.empty();
+        }
         String href = extractToken(value, "href=");
         return java.util.Optional.of(new PromptLocatorEvidence(
                 fieldHint(element),
@@ -223,8 +226,11 @@ public class LocatorEvidenceSelector {
 
     private String semanticNameFromLocatorValue(String locatorValue) {
         String normalized = locatorValue == null ? "" : locatorValue.trim();
-        if (normalized.contains("oxd-userdropdown-tab") || normalized.contains("userdropdown")) {
+        if (normalized.contains("oxd-userdropdown-tab")) {
             return "User menu trigger";
+        }
+        if (normalized.contains("oxd-userdropdown-link")) {
+            return "dropdown menu item";
         }
         if (normalized.contains("auth/logout")) {
             return "Logout";
@@ -238,6 +244,14 @@ public class LocatorEvidenceSelector {
         normalized = normalized.replaceAll("^[\"'\\[]+|[\"'\\]]+$", "");
         normalized = normalized.replaceAll("[^A-Za-z0-9]+", " ").trim();
         return normalized.isBlank() ? "element" : normalized;
+    }
+
+    private boolean isDropdownMenuItemMisclassifiedAsTrigger(String element, String locatorValue) {
+        String evidence = (element + " " + locatorValue).toLowerCase(Locale.ROOT);
+        return evidence.contains("user menu trigger")
+                && (evidence.contains("oxd-userdropdown-link")
+                || evidence.contains("a[href")
+                || evidence.contains("href="));
     }
 
     private List<PromptLocatorEvidence> mappedKnowledgeLocators(MappedPage targetPage) {

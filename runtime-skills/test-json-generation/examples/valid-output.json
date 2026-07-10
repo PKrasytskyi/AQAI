@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "ui-test-spec-v1",
+  "tests": [
+    {
+      "scenarioId": "REQ-015",
+      "className": "REQ015ValidLoginTest",
+      "testMethodName": "shouldAuthenticateValidUser",
+      "steps": [
+        {"page": "LoginPage", "method": "openLogin"},
+        {"page": "LoginPage", "method": "login", "data": "validCredentials"}
+      ],
+      "assertions": [
+        {"page": "DashboardPage", "method": "isOnDashboardRoute", "type": "TRUE"}
+      ],
+      "dataRequirements": ["validCredentials"]
+    }
+  ]
+}
+

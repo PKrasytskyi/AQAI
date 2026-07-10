@@ -1,0 +1,9 @@
+id: self-healing-locator
+version: 1.0.0
+purpose: Select a replacement locator after runtime locator failure.
+input_schema: input-schema.json
+output_schema: output-schema.json
+prompt: prompt.md
+rules: rules.md
+owner: ui-platform
+

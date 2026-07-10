@@ -70,6 +70,41 @@ public class DeterministicPomJavaWriterTest {
         Assert.assertTrue(component.contains("child(adminLink).click();"));
     }
 
+    @Test
+    public void writerEmitsOnlyReferencedPageLocators() {
+        DeterministicPomJavaWriter writer = new DeterministicPomJavaWriter("ua.demo.agentlab.ui.generated.pages");
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("LoginPage", "/login", "AUTHENTICATION_FORM", "openLogin"),
+                List.of(
+                        new PomLocatorSpec("usernameInput", "username input", "name", "username", "input", 0.9d),
+                        new PomLocatorSpec("password", "password duplicate", "name", "password", "password", 0.8d),
+                        new PomLocatorSpec("passwordInput", "password input", "css", "input[type='password']", "password", 0.9d),
+                        new PomLocatorSpec("loginButton", "login button", "css", "button[type='submit']", "button", 0.8d)
+                ),
+                List.of(new PomActionSpec(
+                        "login",
+                        List.of(
+                                new AiMethodParameterSpec("String", "username"),
+                                new AiMethodParameterSpec("String", "password")
+                        ),
+                        List.of(
+                                new PomStepSpec(PomStepAction.CLEAR_AND_TYPE, "usernameInput", "username", "", ""),
+                                new PomStepSpec(PomStepAction.CLEAR_AND_TYPE, "passwordInput", "password", "", ""),
+                                new PomStepSpec(PomStepAction.CLICK, "loginButton", "", "", "")
+                        )
+                )),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+
+        String content = writer.write(List.of(contract)).get(0).content();
+
+        Assert.assertTrue(content.contains("private final By passwordInput"));
+        Assert.assertFalse(content.contains("private final By password ="));
+    }
+
     private PomContractSpec loginContract() {
         return new PomContractSpec(
                 "pom-contract-v1",

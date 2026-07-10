@@ -205,6 +205,10 @@ public class PomContractSpecParser extends StructuredOutputParserSupport {
         node.remove("evidenceSource");
         node.remove("rationale");
         node.remove("description");
+        node.remove("note");
+        node.remove("notes");
+        node.remove("comment");
+        node.remove("comments");
         node.remove("risks");
     }
 
@@ -216,10 +220,14 @@ public class PomContractSpecParser extends StructuredOutputParserSupport {
         }
         ArrayNode sanitized = objectMapper.createArrayNode();
         for (JsonNode item : coverageNode) {
+            String gap = "";
             if (item.isTextual()) {
-                sanitized.add(item.asText());
+                gap = item.asText();
             } else if (item.isObject()) {
-                sanitized.add(coverageGapText(item));
+                gap = coverageGapText(item);
+            }
+            if (keepCoverageGap(root, gap)) {
+                sanitized.add(gap);
             }
         }
         root.set("coverageGaps", sanitized);
@@ -348,6 +356,53 @@ public class PomContractSpecParser extends StructuredOutputParserSupport {
             builder.append(detail);
         }
         return builder.isEmpty() ? item.toString() : builder.toString();
+    }
+
+    private boolean keepCoverageGap(ObjectNode root, String gap) {
+        if (gap == null || gap.isBlank()) {
+            return false;
+        }
+        String pageName = text(root.path("page"), "name").toLowerCase(java.util.Locale.ROOT);
+        String normalizedGap = gap.toLowerCase(java.util.Locale.ROOT);
+        if (pageName.contains("login")) {
+            if (normalizedGap.contains("logout")
+                    || normalizedGap.contains("authenticated area")
+                    || normalizedGap.contains("post-login")
+                    || normalizedGap.contains("dashboard")
+                    || normalizedGap.contains("dropped unsupported pom action step")
+                    || normalizedGap.contains("lack explicit expected")) {
+                return false;
+            }
+            if (normalizedGap.contains("form_visible") && hasCompositeVisibleAssertion(root, "login")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean hasCompositeVisibleAssertion(ObjectNode root, String hint) {
+        JsonNode assertions = root.path("assertions");
+        if (!assertions.isArray()) {
+            return false;
+        }
+        for (JsonNode assertionNode : assertions) {
+            String methodName = text(assertionNode, "methodName").toLowerCase(java.util.Locale.ROOT);
+            if (!hint.isBlank() && !methodName.contains(hint)) {
+                continue;
+            }
+            int visibleChecks = 0;
+            for (JsonNode checkNode : assertionNode.path("checks")) {
+                String check = text(checkNode, "check");
+                String normalized = normalizeCheck(check);
+                if ("VISIBLE".equals(normalized)) {
+                    visibleChecks++;
+                }
+            }
+            if (visibleChecks >= 2) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String inferRole(String id, String value) {

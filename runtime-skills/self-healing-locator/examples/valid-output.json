@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "self-healing-locator-result.v1",
+  "decision": "needs-review",
+  "replacementLocator": {"strategy": "css", "value": "button.oxd-button"},
+  "confidence": 0.82,
+  "rationale": "Candidate is similar but below auto-replacement threshold."
+}
+

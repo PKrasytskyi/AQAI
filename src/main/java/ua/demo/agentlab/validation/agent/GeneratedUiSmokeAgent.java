@@ -14,6 +14,8 @@ import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 import ua.demo.agentlab.validation.GeneratedCodeValidationResult;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeResult;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeService;
+import ua.demo.agentlab.validation.smoke.LiveLoginDashboardSmokeService;
+import ua.demo.agentlab.validation.smoke.LiveUiSmokeResult;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,11 +26,13 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
         PipelineAgent<GeneratedUiSmokeAgent.Input, GeneratedUiSmokeResult> {
 
     private final GeneratedUiSmokeService smokeService;
+    private final LiveLoginDashboardSmokeService liveSmokeService;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .enable(SerializationFeature.INDENT_OUTPUT);
 
     public GeneratedUiSmokeAgent(GeneratedUiSmokeService smokeService) {
         this.smokeService = smokeService == null ? new GeneratedUiSmokeService() : smokeService;
+        this.liveSmokeService = new LiveLoginDashboardSmokeService();
     }
 
     @Override
@@ -110,9 +114,18 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
         state.addArtifact("generated.ui.smoke.files.checked", String.valueOf(output.filesChecked()));
         state.addArtifact("generated.ui.smoke.issue.count", String.valueOf(output.issues().size()));
         writeSmokeArtifact(output, state);
+        LiveUiSmokeResult liveSmoke = liveSmokeService.smoke(new GeneratedUiSources(
+                state.getPageObjectFiles(),
+                state.getUiTestFiles()
+        ));
+        writeLiveSmokeArtifact(liveSmoke, state);
         state.addFinding(output.summary());
+        state.addFinding(liveSmoke.summary());
         if (!output.passed()) {
             state.fail("Generated UI smoke validation failed: " + output.summary());
+        }
+        if (liveSmoke.failed()) {
+            state.fail("Generated UI live smoke validation failed: " + liveSmoke.summary());
         }
     }
 
@@ -125,6 +138,20 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
             state.addArtifact("generated.ui.smoke.artifact", artifact.toString());
         } catch (Exception exception) {
             state.addFinding("Failed to write generated UI smoke artifact: " + exception.getMessage());
+        }
+    }
+
+    private void writeLiveSmokeArtifact(LiveUiSmokeResult output, WorkflowState state) {
+        try {
+            Path outputDir = Path.of("target", "ai-run", "validation");
+            Files.createDirectories(outputDir);
+            Path artifact = outputDir.resolve("live-ui-smoke-result.json");
+            objectMapper.writeValue(artifact.toFile(), output);
+            state.addArtifact("generated.ui.live.smoke.status", output.status().name());
+            state.addArtifact("generated.ui.live.smoke.issue.count", String.valueOf(output.issues().size()));
+            state.addArtifact("generated.ui.live.smoke.artifact", artifact.toString());
+        } catch (Exception exception) {
+            state.addFinding("Failed to write live UI smoke artifact: " + exception.getMessage());
         }
     }
 

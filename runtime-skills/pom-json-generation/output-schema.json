@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/pom-json-generation/output-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "page", "locators", "actions", "assertions", "coverageGaps", "rejectedSuggestions"],
+  "properties": {
+    "schemaVersion": {"const": "pom-contract-v1"},
+    "page": {
+      "type": "object",
+      "required": ["name", "route", "capability", "openMethod"],
+      "properties": {
+        "name": {"type": "string"},
+        "route": {"type": "string"},
+        "capability": {"type": "string"},
+        "openMethod": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "locators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "strategy", "value", "role", "elementName", "stabilityScore"],
+        "properties": {
+          "id": {"type": "string"},
+          "strategy": {"type": "string"},
+          "value": {"type": "string"},
+          "role": {"type": "string"},
+          "elementName": {"type": "string"},
+          "stabilityScore": {"type": "number", "minimum": 0, "maximum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "actions": {"type": "array", "items": {"type": "object"}},
+    "assertions": {"type": "array", "items": {"type": "object"}},
+    "coverageGaps": {"type": "array", "items": {"type": "string"}},
+    "rejectedSuggestions": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}
+

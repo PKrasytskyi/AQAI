@@ -262,9 +262,9 @@ Run with explicit output directory:
 mvn --batch-mode "-Dexec.mainClass=ua.demo.agentlab.app.RepositoryIntelligenceRunner" exec:java "-Dexec.args=. target/repository-intelligence"
 ```
 
-## To Enable Automatic Qdrant Indexing
+## To Configure Automatic Qdrant Indexing
 
-RAG is disabled by default. Set the following in a local override, environment, or JVM properties when Qdrant indexing is desired:
+The checked-in demo profile enables RAG. Keep the following values configured when Qdrant indexing is desired, or override `rag.enabled=false` for no-RAG runs:
 
 ```properties
 rag.enabled=<true>

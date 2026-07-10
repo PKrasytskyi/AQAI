@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "test-json-generation-input.v1",
+  "testCase": {"id": "REQ-015", "title": "Valid user can authenticate"},
+  "pageApis": [{"page": "LoginPage", "methods": ["openLogin", "login"]}, {"page": "DashboardPage", "methods": ["isOnDashboardRoute"]}],
+  "assertionContracts": [{"type": "URL_CONTAINS", "expectedValue": "/dashboard/index"}],
+  "dataRequirements": ["validCredentials"]
+}
+

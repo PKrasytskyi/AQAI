@@ -39,6 +39,10 @@ public class AiRunQualitySummaryTest {
                 false,
                 "unknown",
                 false,
+                "without-db",
+                0,
+                0,
+                0,
                 0,
                 "",
                 100
@@ -173,7 +177,49 @@ public class AiRunQualitySummaryTest {
         Assert.assertFalse(summary.qdrantHit());
         Assert.assertEquals(summary.retrievalMode(), "stable-page-cache");
         Assert.assertTrue(summary.stableCacheUsed());
+        Assert.assertEquals(summary.dbUsageMode(), "partial-db");
         Assert.assertEquals(summary.staleEvidenceRejected(), 3);
         Assert.assertEquals(summary.vectorUnavailableReason(), "embedding key missing");
+    }
+
+    @Test
+    public void summaryMarksStableCacheUsedWhenPageKnowledgeCacheHits() {
+        AiRunQualitySummary summary = new AiRunQualitySummaryService().summarize(new AiRunQualitySummaryInput(
+                null,
+                null,
+                null,
+                MappedUiKnowledge.empty(),
+                Map.of(
+                        "ui.knowledge.retrieval.mode", "current-run",
+                        "page.knowledge.cache.hit.count", "2"
+                )
+        ));
+
+        Assert.assertEquals(summary.retrievalMode(), "current-run");
+        Assert.assertTrue(summary.stableCacheUsed());
+        Assert.assertEquals(summary.dbUsageMode(), "partial-db");
+    }
+
+    @Test
+    public void summaryExposesPageEnrichmentModeCounters() {
+        AiRunQualitySummary summary = new AiRunQualitySummaryService().summarize(new AiRunQualitySummaryInput(
+                null,
+                null,
+                null,
+                MappedUiKnowledge.empty(),
+                Map.of(
+                        "ui.knowledge.retrieval.neo4j.hit", "true",
+                        "ui.knowledge.retrieval.qdrant.hit", "true",
+                        "ui.knowledge.retrieval.stable.cache.used", "true",
+                        "page.enrichment.generated.count", "2",
+                        "page.enrichment.cache.hit.count", "1",
+                        "page.enrichment.openai.count", "2"
+                )
+        ));
+
+        Assert.assertEquals(summary.dbUsageMode(), "with-db");
+        Assert.assertEquals(summary.pageEnrichmentGenerated(), 2);
+        Assert.assertEquals(summary.pageEnrichmentCacheHits(), 1);
+        Assert.assertEquals(summary.pageEnrichmentOpenAiCalls(), 2);
     }
 }

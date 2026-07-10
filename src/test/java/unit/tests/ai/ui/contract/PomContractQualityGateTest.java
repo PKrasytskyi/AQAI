@@ -96,7 +96,10 @@ public class PomContractQualityGateTest {
                         new PomActionSpec(
                                 "logout",
                                 List.of(),
-                                List.of(new PomStepSpec(PomStepAction.CLICK, "logoutLink", "", "", ""))
+                                List.of(
+                                        new PomStepSpec(PomStepAction.CLICK, "userMenu", "", "", ""),
+                                        new PomStepSpec(PomStepAction.CLICK, "logoutLink", "", "", "")
+                                )
                         )
                 ),
                 List.of(new PomAssertionSpec(
@@ -112,6 +115,35 @@ public class PomContractQualityGateTest {
         PomContractQualityReport report = gate.validate(contract);
 
         Assert.assertFalse(report.hasBlockingIssues(), report.issues().toString());
+    }
+
+    @Test
+    public void blocksDropdownMenuItemAsUserMenuTrigger() {
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("DashboardPage", "/dashboard/index", "AUTHENTICATED_AREA", "openDashboard"),
+                List.of(
+                        confirmedLocator("userMenuTrigger", "User menu trigger", "css", "a.oxd-userdropdown-link", "button"),
+                        confirmedLocator("logoutLink", "Logout", "css", "a[href*='logout']", "link")
+                ),
+                List.of(new PomActionSpec(
+                        "logout",
+                        List.of(),
+                        List.of(
+                                new PomStepSpec(PomStepAction.CLICK, "userMenuTrigger", "", "", ""),
+                                new PomStepSpec(PomStepAction.CLICK, "logoutLink", "", "", "")
+                        )
+                )),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+
+        PomContractQualityReport report = gate.validate(contract);
+
+        Assert.assertTrue(report.hasBlockingIssues());
+        Assert.assertTrue(report.issues().stream()
+                .anyMatch(issue -> "POM_PROTECTED_PAGE_MENU_TRIGGER_LOCATOR".equals(issue.ruleId())));
     }
 
     @Test

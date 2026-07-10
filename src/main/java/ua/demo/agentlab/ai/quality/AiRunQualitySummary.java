@@ -21,6 +21,10 @@ public record AiRunQualitySummary(
         boolean qdrantHit,
         String retrievalMode,
         boolean stableCacheUsed,
+        String dbUsageMode,
+        int pageEnrichmentGenerated,
+        int pageEnrichmentCacheHits,
+        int pageEnrichmentOpenAiCalls,
         int staleEvidenceRejected,
         String vectorUnavailableReason,
         int qualityScore
@@ -45,6 +49,10 @@ public record AiRunQualitySummary(
                 ? Math.max(0.0d, Math.min(1.0d, averageLocatorScore))
                 : 0.0d;
         retrievalMode = retrievalMode == null || retrievalMode.isBlank() ? "unknown" : retrievalMode.trim();
+        dbUsageMode = dbUsageMode == null || dbUsageMode.isBlank() ? "unknown" : dbUsageMode.trim();
+        pageEnrichmentGenerated = Math.max(0, pageEnrichmentGenerated);
+        pageEnrichmentCacheHits = Math.max(0, pageEnrichmentCacheHits);
+        pageEnrichmentOpenAiCalls = Math.max(0, pageEnrichmentOpenAiCalls);
         staleEvidenceRejected = Math.max(0, staleEvidenceRejected);
         vectorUnavailableReason = vectorUnavailableReason == null ? "" : vectorUnavailableReason.trim();
         qualityScore = Math.max(0, Math.min(100, qualityScore));

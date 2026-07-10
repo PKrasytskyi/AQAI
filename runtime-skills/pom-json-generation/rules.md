@@ -1,0 +1,11 @@
+# Rules
+- Generate only page-owned actions and page-owned assertions.
+- Do not use full canonical/scoped test cases as POM input; test cases belong to test-json-generation.
+- Do not write Java, Selenium, WebDriver, WebElement, By, waits, or helper calls.
+- Use only CONFIRMED allowed locators supplied in the input.
+- Do not use candidate or fallback locators in actions or assertions.
+- Do not create cross-page flows.
+- Do not expose locators to tests.
+- Use coverageGaps for missing locators, unresolved expected values, unclear routes, or wrong page ownership.
+- coverageGaps and rejectedSuggestions must be arrays of strings.
+- Invalid: adding fields outside output-schema.json.

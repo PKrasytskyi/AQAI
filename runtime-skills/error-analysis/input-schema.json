@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/error-analysis/input-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "failureLog"],
+  "properties": {
+    "schemaVersion": {"const": "error-analysis-input.v1"},
+    "failureLog": {"type": "string"},
+    "stacktrace": {"type": "string"},
+    "screenshotSummary": {"type": "string"},
+    "domState": {"type": "string"},
+    "previousSuccessfulRun": {"type": "object"}
+  },
+  "additionalProperties": false
+}
+

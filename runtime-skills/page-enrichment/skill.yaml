@@ -1,0 +1,9 @@
+id: page-enrichment
+version: 1.0.0
+purpose: Enrich mapper-approved page evidence with concise semantic metadata.
+input_schema: input-schema.json
+output_schema: output-schema.json
+prompt: prompt.md
+rules: rules.md
+owner: ui-platform
+

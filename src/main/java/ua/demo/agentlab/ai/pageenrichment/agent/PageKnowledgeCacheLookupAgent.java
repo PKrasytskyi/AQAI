@@ -25,7 +25,7 @@ import java.util.Set;
 public class PageKnowledgeCacheLookupAgent implements WorkflowAgent,
         PipelineAgent<PageKnowledgeCacheLookupInput, PageKnowledgeCacheLookupOutput> {
 
-    private static final double MIN_CACHE_CONFIDENCE = 0.80d;
+    private static final double MIN_CACHE_CONFIDENCE = 0.75d;
 
     private final PageKnowledgeCacheQueryService cacheQueryService;
     private final PageKnowledgeFingerprintCalculator fingerprintCalculator = new PageKnowledgeFingerprintCalculator();

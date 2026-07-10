@@ -32,7 +32,7 @@ Implemented today:
 
 Current AI mode can continue from deterministic POM contract prompt generation to validated `pom-contract-v1`, deterministic Page Object Java output, source persistence, compile/review, and generated-source smoke validation. Direct LLM-backed Java writing is not used for Page Objects; Java method bodies are owned by the deterministic writer path.
 
-Repository defaults are intentionally conservative: AI, RAG, Neo4j, and Qdrant integrations are disabled until enabled through JVM properties, environment-aware local overrides, or ignored local config.
+The checked-in profile is demo-oriented: AI, RAG, Neo4j, and Qdrant switches are enabled, while secrets and service availability still come from environment variables or JVM properties. Disable these switches explicitly for deterministic or no-DB comparison runs.
 
 ## 3. Main Workflows
 

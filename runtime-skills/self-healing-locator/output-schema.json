@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/self-healing-locator/output-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "decision", "replacementLocator", "confidence", "rationale"],
+  "properties": {
+    "schemaVersion": {"const": "self-healing-locator-result.v1"},
+    "decision": {"enum": ["replace", "needs-review", "reject"]},
+    "replacementLocator": {"type": ["object", "null"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "rationale": {"type": "string"}
+  },
+  "additionalProperties": false
+}
+

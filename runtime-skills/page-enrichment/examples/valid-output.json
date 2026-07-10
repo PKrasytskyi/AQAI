@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "page-model-enrichment-record.v1",
+  "pageId": "login",
+  "pageName": "LoginPage",
+  "route": "/auth/login",
+  "businessIntent": "authentication",
+  "pageSummary": "LoginPage exposes the authentication form required by scoped login requirements.",
+  "supportedActions": ["login"],
+  "stableLocators": ["usernameInput"],
+  "preconditions": ["Application is available"],
+  "postconditions": ["Login form is visible"],
+  "risks": [],
+  "coverageGaps": [],
+  "requirementTraceability": ["REQ-011", "REQ-012"],
+  "confidenceScore": 0.86
+}
+

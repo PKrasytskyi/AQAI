@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/self-healing-locator/input-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "oldLocator", "failureReason", "candidates"],
+  "properties": {
+    "schemaVersion": {"const": "self-healing-locator-input.v1"},
+    "oldLocator": {"type": "object"},
+    "failureReason": {"type": "string"},
+    "candidates": {"type": "array", "items": {"type": "object"}},
+    "runtimeEvidence": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}
+

@@ -128,8 +128,12 @@ public class DeterministicPomJavaWriter {
     }
 
     private List<PomLocatorSpec> pageLocators(PomContractSpec contract) {
+        Set<String> referencedLocatorIds = referencedLocatorIds(contract);
         Map<String, PomLocatorSpec> locators = new LinkedHashMap<>();
         for (PomLocatorSpec locator : contract.locators()) {
+            if (!referencedLocatorIds.isEmpty() && !referencedLocatorIds.contains(locator.id())) {
+                continue;
+            }
             locators.putIfAbsent(locator.id(), locator);
         }
         for (PomComponentSpec component : contract.components()) {
@@ -143,6 +147,31 @@ public class DeterministicPomJavaWriter {
                     .ifPresent(locator -> locators.put(locator.id(), locator));
         }
         return new ArrayList<>(locators.values());
+    }
+
+    private Set<String> referencedLocatorIds(PomContractSpec contract) {
+        Set<String> ids = new LinkedHashSet<>();
+        for (PomActionSpec action : contract.actions()) {
+            for (PomStepSpec step : action.steps()) {
+                if (!step.locator().isBlank()) {
+                    ids.add(step.locator());
+                }
+            }
+        }
+        for (PomAssertionSpec assertion : contract.assertions()) {
+            for (PomCheckSpec check : assertion.checks()) {
+                if (!check.locator().isBlank()) {
+                    ids.add(check.locator());
+                }
+            }
+        }
+        for (PomComponentSpec component : contract.components()) {
+            String rootLocatorId = componentRootLocatorId(component);
+            if (!rootLocatorId.isBlank() && hasComponentBehavior(component)) {
+                ids.add(rootLocatorId);
+            }
+        }
+        return ids;
     }
 
     private List<GeneratedSourceFile> writeComponents(PomContractSpec contract) {

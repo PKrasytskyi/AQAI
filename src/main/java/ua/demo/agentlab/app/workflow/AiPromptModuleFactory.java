@@ -13,6 +13,8 @@ import ua.demo.agentlab.ai.flow.FlowScopedKnowledgeAgent;
 import ua.demo.agentlab.ai.flow.FlowScopedKnowledgeRefreshAgent;
 import ua.demo.agentlab.ai.flow.FlowScopedKnowledgeService;
 import ua.demo.agentlab.ai.openai.PropertiesOpenAiRuntimeConfig;
+import ua.demo.agentlab.ai.openai.OpenAiRuntimeConfig;
+import ua.demo.agentlab.ai.openai.OpenAiRuntimeConfigRagAdapter;
 import ua.demo.agentlab.ai.pageenrichment.agent.PageKnowledgeCacheLookupAgent;
 import ua.demo.agentlab.ai.pageenrichment.agent.PageModelEnrichmentAgent;
 import ua.demo.agentlab.ai.pageenrichment.cache.PageKnowledgeCacheQueryService;
@@ -55,7 +57,7 @@ public class AiPromptModuleFactory {
                 new TestCaseExpectationEnrichmentAgent(expectationEnrichmentClient(ragRuntimeConfig)),
                 new AssertionContractAgent(),
                 new PageKnowledgeCacheLookupAgent(new PageKnowledgeCacheQueryService(new PropertiesNeo4jRuntimeConfig())),
-                new PageModelEnrichmentAgent(pageModelEnrichmentClient(ragRuntimeConfig)),
+                new PageModelEnrichmentAgent(pageModelEnrichmentClient(openAiRuntimeConfig)),
                 flowScopedKnowledgeRefreshAgent(core, uiKnowledgeRetrievalService),
                 new AiContextAssemblyAgent(aiContextAssembler),
                 new AiPageObjectSpecAgent(
@@ -94,9 +96,9 @@ public class AiPromptModuleFactory {
         );
     }
 
-    private PageModelEnrichmentClient pageModelEnrichmentClient(RagRuntimeConfig ragRuntimeConfig) {
-        return openAiAvailable(ragRuntimeConfig)
-                ? new OpenAiPageModelEnrichmentClient(ragRuntimeConfig)
+    private PageModelEnrichmentClient pageModelEnrichmentClient(OpenAiRuntimeConfig openAiRuntimeConfig) {
+        return pageEnrichmentOpenAiAvailable(openAiRuntimeConfig)
+                ? new OpenAiPageModelEnrichmentClient(new OpenAiRuntimeConfigRagAdapter(openAiRuntimeConfig))
                 : new RuleBasedPageModelEnrichmentClient();
     }
 
@@ -110,5 +112,13 @@ public class AiPromptModuleFactory {
         return ragRuntimeConfig.enabled()
                 && ragRuntimeConfig.openAiApiKey() != null
                 && !ragRuntimeConfig.openAiApiKey().isBlank();
+    }
+
+    private boolean pageEnrichmentOpenAiAvailable(OpenAiRuntimeConfig openAiRuntimeConfig) {
+        return openAiRuntimeConfig != null
+                && openAiRuntimeConfig.enabled()
+                && openAiRuntimeConfig.pageEnrichmentLlmEnabled()
+                && openAiRuntimeConfig.apiKey() != null
+                && !openAiRuntimeConfig.apiKey().isBlank();
     }
 }

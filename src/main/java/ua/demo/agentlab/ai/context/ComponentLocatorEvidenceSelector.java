@@ -210,6 +210,17 @@ public class ComponentLocatorEvidenceSelector {
         if (locator == null) {
             return false;
         }
+        String value = normalize(locator.value());
+        if (containsAny(value,
+                "a[href",
+                "href=",
+                "oxd-userdropdown-link",
+                "logout",
+                "support",
+                "about",
+                "change password")) {
+            return false;
+        }
         String evidence = normalize(String.join(" ",
                 locator.fieldHint(),
                 locator.elementName(),

@@ -6,6 +6,7 @@ import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentInput;
 import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentRecord;
 import ua.demo.agentlab.ai.rag.config.RagRuntimeConfig;
 import ua.demo.agentlab.ai.rag.openai.OpenAiResponseGenerationClient;
+import ua.demo.agentlab.ai.runtime.skill.RuntimeSkillPromptLoader;
 import ua.demo.agentlab.ai.schema.LlmOutputSchemaValidator;
 import ua.demo.agentlab.ai.schema.LlmOutputSchemaVersion;
 
@@ -18,6 +19,7 @@ public class OpenAiPageModelEnrichmentClient implements PageModelEnrichmentClien
 
     private final PageModelEnrichmentClient baselineClient;
     private final OpenAiResponseGenerationClient generationClient;
+    private final RuntimeSkillPromptLoader skillPromptLoader;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final LlmOutputSchemaValidator schemaValidator = new LlmOutputSchemaValidator();
     private List<String> lastFailures = List.of();
@@ -27,8 +29,17 @@ public class OpenAiPageModelEnrichmentClient implements PageModelEnrichmentClien
     }
 
     OpenAiPageModelEnrichmentClient(RagRuntimeConfig config, PageModelEnrichmentClient baselineClient) {
+        this(config, baselineClient, new RuntimeSkillPromptLoader());
+    }
+
+    OpenAiPageModelEnrichmentClient(
+            RagRuntimeConfig config,
+            PageModelEnrichmentClient baselineClient,
+            RuntimeSkillPromptLoader skillPromptLoader
+    ) {
         this.generationClient = new OpenAiResponseGenerationClient(config);
         this.baselineClient = baselineClient == null ? new RuleBasedPageModelEnrichmentClient() : baselineClient;
+        this.skillPromptLoader = skillPromptLoader == null ? new RuntimeSkillPromptLoader() : skillPromptLoader;
     }
 
     @Override
@@ -55,8 +66,8 @@ public class OpenAiPageModelEnrichmentClient implements PageModelEnrichmentClien
 
     private String prompt(PageModelEnrichmentInput input, PageModelEnrichmentRecord baseline) throws Exception {
         return """
-                # Goal
-                Enrich exactly one discovered UI page model for a Selenium Page Object prompt.
+                # Runtime Skill Contract
+                %s
 
                 # Context
                 This is already page-owned mapper evidence selected by current requirements. It is not repository source code.
@@ -82,7 +93,8 @@ public class OpenAiPageModelEnrichmentClient implements PageModelEnrichmentClien
 
                 # Notes
                 Enrichment is metadata only. Do not generate Java code or tests.
-                """.formatted(objectMapper.writeValueAsString(promptInput(input)),
+                """.formatted(skillPromptLoader.promptBlock("page-enrichment"),
+                objectMapper.writeValueAsString(promptInput(input)),
                 LlmOutputSchemaVersion.PAGE_MODEL_ENRICHMENT_RECORD,
                 LlmOutputSchemaVersion.PAGE_MODEL_ENRICHMENT_RECORD,
                 input.pageId(), input.pageName(), input.route());
