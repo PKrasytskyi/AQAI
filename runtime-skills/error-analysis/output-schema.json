@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/error-analysis/output-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "classification", "suspectedRootCause", "evidence", "recommendedAction", "confidence"],
+  "properties": {
+    "schemaVersion": {"const": "error-analysis-result.v1"},
+    "classification": {"enum": ["locator-failure", "assertion-failure", "environment-failure", "data-failure", "app-defect", "generation-defect", "unknown"]},
+    "suspectedRootCause": {"type": "string"},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "recommendedAction": {"type": "string"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+  },
+  "additionalProperties": false
+}
+

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "error-analysis-result.v1",
+  "classification": "app-defect",
+  "suspectedRootCause": "The application is broken.",
+  "evidence": [],
+  "recommendedAction": "Fix app.",
+  "confidence": 1.0
+}
+

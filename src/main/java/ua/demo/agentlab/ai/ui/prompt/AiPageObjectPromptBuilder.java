@@ -1,6 +1,7 @@
 package ua.demo.agentlab.ai.ui.prompt;
 
 import ua.demo.agentlab.ai.context.AiContextPackage;
+import ua.demo.agentlab.ai.runtime.skill.RuntimeSkillPromptLoader;
 import ua.demo.agentlab.ai.schema.LlmOutputSchemaVersion;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
 import ua.demo.agentlab.ui.UiTestScenario;
@@ -13,13 +14,19 @@ public class AiPageObjectPromptBuilder {
     private final PageObjectCapabilityContractFormatter capabilityContractFormatter =
             new PageObjectCapabilityContractFormatter();
     private final PageObjectPromptMode promptMode;
+    private final RuntimeSkillPromptLoader skillPromptLoader;
 
     public AiPageObjectPromptBuilder() {
         this(PageObjectPromptMode.fromRuntime());
     }
 
     public AiPageObjectPromptBuilder(PageObjectPromptMode promptMode) {
+        this(promptMode, new RuntimeSkillPromptLoader());
+    }
+
+    AiPageObjectPromptBuilder(PageObjectPromptMode promptMode, RuntimeSkillPromptLoader skillPromptLoader) {
         this.promptMode = promptMode == null ? PageObjectPromptMode.COMPACT : promptMode;
+        this.skillPromptLoader = skillPromptLoader == null ? new RuntimeSkillPromptLoader() : skillPromptLoader;
     }
 
     public PageObjectPromptMode promptMode() {
@@ -63,10 +70,8 @@ public class AiPageObjectPromptBuilder {
             String exampleCapability
     ) {
         return """
-                # Role
-                You are a Page Object Contract Planner.
-                Return only pom-contract-v1 JSON.
-                You do not write Java.
+                # Runtime Skill Contract
+                %s
 
                 # Task
                 Build one POM contract for:
@@ -107,9 +112,6 @@ public class AiPageObjectPromptBuilder {
                 Page capability contract:
                 %s
 
-                Scoped test cases:
-                %s
-
                 Required POM contract:
                 %s
 
@@ -146,12 +148,12 @@ public class AiPageObjectPromptBuilder {
                   "rejectedSuggestions": []
                 }
                 """.formatted(
+                skillPromptLoader.promptBlock("pom-json-generation"),
                 examplePageName,
                 exampleRoute,
                 exampleCapability == null || exampleCapability.isBlank() ? "UNKNOWN" : exampleCapability,
                 formatter.summarizeCompactContext(context),
                 capabilityContractFormatter.format(context, pageName, pageScenarios, baselineSpec),
-                formatter.summarizeScopedPomTestCases(context, pageName, pageScenarios),
                 formatter.summarizePromptRequiredContract(context, pageName, pageScenarios),
                 formatter.summarizeAllowedPromptLocators(context),
                 summarizeBaselineSpec(baselineSpec),
@@ -172,12 +174,8 @@ public class AiPageObjectPromptBuilder {
             String exampleOpenMethod
     ) {
         return """
-                # Role
-                You are a Page Object Contract Planner.
-
-                You do not write Java.
-                You do not write Selenium code.
-                You only convert scoped UI knowledge into a deterministic Page Object contract.
+                # Runtime Skill Contract
+                %s
 
                 # Goal
                 Generate exactly one deterministic POM contract for the scoped Selenium page capability confirmed by mapper evidence: %s.
@@ -300,6 +298,7 @@ public class AiPageObjectPromptBuilder {
                 - assertion cannot be backed by mapper evidence;
                 - required action belongs to another page.
                 """.formatted(
+                skillPromptLoader.promptBlock("pom-json-generation"),
                 examplePageName,
                 formatter.summarize(context, pageName),
                 capabilityContractFormatter.format(context, pageName, baselineSpec),

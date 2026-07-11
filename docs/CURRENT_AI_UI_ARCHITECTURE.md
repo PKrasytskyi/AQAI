@@ -812,7 +812,7 @@ Allowed locators:
 - loginButton | strategy=css | value=button[type='submit'] | evidenceType=CONFIRMED_LOCATOR
 ```
 
-See `target/ai-run/page-object-spec/LoginPage-prompt.txt` and `LoginPage-pom-contract.json` after a local run. The LLM output is a contract; Java is written by `DeterministicPomJavaWriter`.
+See `target/ai-run/page-objects/LoginPage-prompt.txt` and `LoginPage-pom-contract.json` after a local run. The LLM output is a contract; Java is written by `DeterministicPomJavaWriter`.
 
 ## 8. Persistence and Retrieval
 
@@ -887,7 +887,9 @@ LoginPage is the current strongest part of the golden vertical slice: discovery 
 
 DashboardPage is now part of the same slice when authenticated discovery succeeds. It has confirmed route evidence plus user-menu trigger and logout-link evidence, so the POM contract can expose `openUserMenu()`, `logout()`, route assertion, and logout visibility. Dashboard heading validation is not forced without a confirmed heading locator and remains a coverage gap.
 
-The generated-source smoke artifact currently validates persisted generated POM files together with compile/review readiness. A full live browser smoke scenario for `open login -> login -> dashboard -> user menu -> logout` is still the next hardening step before calling the slice fully end-to-end.
+The generated-source smoke artifact validates persisted generated POM files together with compile/review readiness. The live browser smoke path is now profile/capability-driven: it resolves the generated authentication source page and authenticated target page from generated source evidence plus `ProjectProfile` routes, then executes reusable phases: open source page, satisfy authentication preconditions, validate target route, execute optional user-menu action, and validate logout/post-action route. The current live scenario proves the authentication/logout vertical slice; broader smoke phases remain future work. The smoke and contract gates support both dropdown-mediated logout flows such as OrangeHRM and direct logout-link flows such as `the-internet.herokuapp.com`.
+
+The test suite also includes a non-OrangeHRM onboarding acceptance fixture that runs the deterministic chain from project profile and requirement fixture through synthetic discovery, canonical UI planning, `PomContractSpec`, deterministic Java generation, compile-status artifact, and generated-source smoke validation.
 
 ## 10. Artifacts to Review After Each AI Run
 
@@ -898,15 +900,16 @@ The generated-source smoke artifact currently validates persisted generated POM 
 | `target/ai-run/expectations/assertion-contracts.json` | Typed assertion contracts consumed by POM and test prompts. |
 | `target/ai-run/enrichment/page-model-enrichments.json` | Page intent, safe locator facts, risks, traceability, and requirement provenance. |
 | `target/ai-run/enrichment/page-model-enrichment-report.json` | Number of OpenAI records and page-level fallback failures. |
-| `target/ai-run/flow-scoped-knowledge/flow-scoped-knowledge-package.json` | Requirement-scoped mapper/retrieval context. |
+| `target/ai-run/run-summary.md` | Compact review entry point for the current run. |
+| `target/ai-run/debug/flow-scoped-knowledge/flow-scoped-knowledge-package.json` | Requirement-scoped mapper/retrieval context when `ai.debug.artifacts=true`. |
 | `target/discovery/component-model.json` | Component boundaries and global/component-scoped locator validation for SPA-heavy pages. |
 | `target/discovery/semantic-action-model.json` | Deterministic semantic elements, action candidates, and business-intent candidates before POM prompt generation. |
-| `target/ai-run/context/ai-context-package.json` | Full prompt-ready state before per-page slicing. |
-| `target/ai-run/page-object-spec/<Page>-scope-trace.json` | Accepted/rejected scenarios, matched pages, PageModels, and route collisions. |
-| `target/ai-run/page-object-spec/<Page>-prompt.txt` | Exact POM prompt for LLM quality review. |
-| `target/ai-run/page-object-spec/<Page>-prompt-trace.json` | Prompt path, length, and scope metadata. |
-| `target/ai-run/page-object-spec/<Page>-pom-contract-response.txt` | Raw LLM response when POM contract LLM mode is enabled. |
-| `target/ai-run/page-object-spec/<Page>-pom-contract.json` | Parsed and schema-validated `pom-contract-v1` artifact consumed by the deterministic Java writer. |
+| `target/ai-run/debug/context/ai-context-package.json` | Full prompt-ready state before per-page slicing when `ai.debug.artifacts=true`. |
+| `target/ai-run/debug/page-object-spec/<Page>-scope-trace.json` | Accepted/rejected scenarios, matched pages, PageModels, and route collisions when `ai.debug.artifacts=true`. |
+| `target/ai-run/page-objects/<Page>-prompt.txt` | Exact compact POM prompt for LLM quality review. |
+| `target/ai-run/debug/page-object-spec/<Page>-prompt-trace.json` | Prompt path, length, and scope metadata when `ai.debug.artifacts=true`. |
+| `target/ai-run/debug/page-object-spec/<Page>-pom-contract-response.txt` | Raw LLM response when POM contract LLM mode is enabled and `ai.debug.artifacts=true`. |
+| `target/ai-run/page-objects/<Page>-pom-contract.json` | Parsed and schema-validated `pom-contract-v1` artifact consumed by the deterministic Java writer. |
 
 ## 11. Configuration and Secrets
 

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "self-healing-locator-result.v1",
+  "decision": "replace",
+  "replacementLocator": {"strategy": "xpath", "value": "//*[@id='root']/div/div[3]/button"},
+  "confidence": 0.99,
+  "rationale": "Looks clickable."
+}
+

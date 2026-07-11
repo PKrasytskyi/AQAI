@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/test-json-generation/output-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "tests"],
+  "properties": {
+    "schemaVersion": {"const": "ui-test-spec-v1"},
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["scenarioId", "className", "testMethodName", "steps", "assertions", "dataRequirements"],
+        "properties": {
+          "scenarioId": {"type": "string"},
+          "className": {"type": "string"},
+          "testMethodName": {"type": "string"},
+          "steps": {"type": "array", "items": {"type": "object"}},
+          "assertions": {"type": "array", "items": {"type": "object"}},
+          "dataRequirements": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
+

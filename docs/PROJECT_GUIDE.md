@@ -32,7 +32,7 @@ Implemented today:
 
 Current AI mode can continue from deterministic POM contract prompt generation to validated `pom-contract-v1`, deterministic Page Object Java output, source persistence, compile/review, and generated-source smoke validation. Direct LLM-backed Java writing is not used for Page Objects; Java method bodies are owned by the deterministic writer path.
 
-Repository defaults are intentionally conservative: AI, RAG, Neo4j, and Qdrant integrations are disabled until enabled through JVM properties, environment-aware local overrides, or ignored local config.
+The checked-in profile is demo-oriented: AI, RAG, Neo4j, and Qdrant switches are enabled, while secrets and service availability still come from environment variables or JVM properties. Disable these switches explicitly for deterministic or no-DB comparison runs.
 
 ## 3. Main Workflows
 
@@ -128,9 +128,10 @@ Runtime artifacts belong under `target/` and are ignored by Git.
 Useful UI run artifacts:
 
 - `target/discovery/semantic-action-model.json` - deterministic semantic elements, action candidates, and business-intent candidates before POM prompt generation.
-- `target/ai-run/page-object-spec/<Page>-prompt.txt` - final compact/debug POM contract prompt.
-- `target/ai-run/page-object-spec/<Page>-pom-contract.json` - parsed POM contract consumed by the deterministic Java writer.
-- `target/ai-run/page-object-spec/<Page>-scope-trace.json` - page, route, and requirement scoping diagnostics.
+- `target/ai-run/run-summary.md` - compact review entry point for the current run.
+- `target/ai-run/page-objects/<Page>-prompt.txt` - final compact POM contract prompt.
+- `target/ai-run/page-objects/<Page>-pom-contract.json` - parsed POM contract consumed by the deterministic Java writer.
+- `target/ai-run/debug/page-object-spec/<Page>-scope-trace.json` - page, route, and requirement scoping diagnostics when `ai.debug.artifacts=true`.
 - `target/ai-run/validation/generated-ui-smoke-result.json` - generated-source smoke result after POM source persistence, compile, and review.
 
 Golden UI slice status:

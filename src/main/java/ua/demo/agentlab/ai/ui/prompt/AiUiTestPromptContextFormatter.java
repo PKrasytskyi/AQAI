@@ -146,23 +146,17 @@ public class AiUiTestPromptContextFormatter {
     }
 
     private String summarizeConfiguredRoutes(ua.demo.agentlab.config.ProjectProfile profile) {
-        List<String> routes = new java.util.ArrayList<>();
-        addRoute(routes, "home", profile.homeRoute());
-        addRoute(routes, "login", profile.loginRoute());
-        addRoute(routes, "authenticated", profile.authenticatedRoute());
-        addRoute(routes, "security", profile.securityRoute());
-        addRoute(routes, "details", profile.detailsRoute());
-        addRoute(routes, "form", profile.formRoute());
-        addRoute(routes, "catalog", profile.catalogRoute());
-        addRoute(routes, "products", profile.productsRoute());
-        addRoute(routes, "cart", profile.cartRoute());
-        return routes.isEmpty() ? "none configured" : String.join(", ", routes);
-    }
-
-    private void addRoute(List<String> routes, String name, String route) {
-        if (route != null && !route.isBlank()) {
-            routes.add(name + "=" + route);
+        if (profile == null) {
+            return "none configured";
         }
+        List<String> routes = new ua.demo.agentlab.ui.catalog.ConfirmedPageSourceResolver()
+                .resolve(profile)
+                .allPages()
+                .stream()
+                .map(page -> page.capability().name() + "=" + page.route())
+                .distinct()
+                .toList();
+        return routes.isEmpty() ? "none configured" : String.join(", ", routes);
     }
 
     private String normalize(String value) {

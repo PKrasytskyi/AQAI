@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "self-healing-locator-input.v1",
+  "oldLocator": {"id": "loginButton", "strategy": "css", "value": "button[type='submit']"},
+  "failureReason": "NoSuchElementException",
+  "candidates": [{"strategy": "css", "value": "button.oxd-button", "similarity": 0.91}],
+  "runtimeEvidence": ["same form context"]
+}
+

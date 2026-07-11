@@ -1,27 +1,19 @@
 package ua.demo.agentlab.config;
 
-import java.io.InputStream;
-import java.util.Properties;
-
 public class PropertiesProjectProfileLoader implements ProjectProfileLoader {
 
-    private final Properties properties = new Properties();
+    private final RuntimeProperties properties;
 
     public PropertiesProjectProfileLoader() {
         this("framework.properties");
     }
 
     public PropertiesProjectProfileLoader(String resourceName) {
-        try (InputStream input = Thread.currentThread()
-                .getContextClassLoader()
-                .getResourceAsStream(resourceName)) {
-            if (input == null) {
-                throw new IllegalStateException("Cannot find project profile resource: " + resourceName);
-            }
-            properties.load(input);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Failed to load project profile resource: " + resourceName, exception);
-        }
+        this(new RuntimeProperties(resourceName));
+    }
+
+    public PropertiesProjectProfileLoader(RuntimeProperties properties) {
+        this.properties = properties == null ? new RuntimeProperties() : properties;
     }
 
     @Override
@@ -48,65 +40,16 @@ public class PropertiesProjectProfileLoader implements ProjectProfileLoader {
         );
     }
 
+    @Override
+    public String defaultRequirementLocation() {
+        return readText("project.requirements.file", "");
+    }
+
     private String readText(String key, String fallback) {
-        String systemValue = System.getProperty(key);
-        if (systemValue != null && !systemValue.isBlank()) {
-            return resolvePlaceholders(systemValue.trim());
-        }
-
-        String envKey = key.toUpperCase().replace('.', '_').replace('-', '_');
-        String envValue = System.getenv(envKey);
-        if (envValue != null && !envValue.isBlank()) {
-            return resolvePlaceholders(envValue.trim());
-        }
-
-        String propertyValue = properties.getProperty(key);
-        if (propertyValue != null && !propertyValue.isBlank()) {
-            return resolvePlaceholders(propertyValue.trim());
-        }
-
-        return resolvePlaceholders(fallback);
+        return properties.readValue(key, fallback);
     }
 
     private String readOptionalText(String key) {
         return readText(key, "");
-    }
-
-    private String resolvePlaceholders(String value) {
-        if (value == null || value.isBlank()) {
-            return value;
-        }
-        String resolved = value;
-        for (int index = 0; index < 8; index++) {
-            int start = resolved.indexOf("${");
-            if (start < 0) {
-                return resolved;
-            }
-            int end = resolved.indexOf('}', start);
-            if (end < 0) {
-                return resolved;
-            }
-            String key = resolved.substring(start + 2, end).trim();
-            String replacement = readRawValue(key);
-            if (replacement == null) {
-                replacement = "";
-            }
-            resolved = resolved.substring(0, start) + replacement + resolved.substring(end + 1);
-        }
-        return resolved;
-    }
-
-    private String readRawValue(String key) {
-        String systemValue = System.getProperty(key);
-        if (systemValue != null && !systemValue.isBlank()) {
-            return systemValue.trim();
-        }
-        String envKey = key.toUpperCase().replace('.', '_').replace('-', '_');
-        String envValue = System.getenv(envKey);
-        if (envValue != null && !envValue.isBlank()) {
-            return envValue.trim();
-        }
-        String propertyValue = properties.getProperty(key);
-        return propertyValue == null || propertyValue.isBlank() ? null : propertyValue.trim();
     }
 }

@@ -172,6 +172,15 @@ public class GraphPageKnowledgeWriter implements PageKnowledgeWriter {
                     WHEN coalesce(toFloat(l.qualityScore), 0.0) <= locator.qualityScore THEN 'ACTIVE'
                     ELSE coalesce(l.status, 'ACTIVE')
                   END,
+                  l.validationStatus = CASE
+                    WHEN coalesce(l.validationStatus, '') = 'PASSED' THEN l.validationStatus
+                    ELSE locator.validationStatus
+                  END,
+                  l.lastSuccessfulSmoke = coalesce(l.lastSuccessfulSmoke, locator.lastSuccessfulSmoke),
+                  l.demotionReason = CASE
+                    WHEN coalesce(toFloat(l.qualityScore), 0.0) <= locator.qualityScore THEN ''
+                    ELSE coalesce(l.demotionReason, '')
+                  END,
                   l.qualityScore = CASE
                     WHEN coalesce(toFloat(l.qualityScore), 0.0) <= locator.qualityScore THEN locator.qualityScore
                     ELSE toFloat(l.qualityScore)
@@ -257,6 +266,9 @@ public class GraphPageKnowledgeWriter implements PageKnowledgeWriter {
         payload.put("qualityScore", locator.stabilityScore());
         payload.put("runtimePassRate", 1.0d);
         payload.put("flakyRate", 0.0d);
+        payload.put("validationStatus", "PENDING");
+        payload.put("lastSuccessfulSmoke", "");
+        payload.put("demotionReason", "");
         payload.put("sourceTrace", "neo4j-stable-locator:" + page.pageId() + ":" + elementId);
         payload.put("risks", String.join(",", locator.risks()));
         return payload;

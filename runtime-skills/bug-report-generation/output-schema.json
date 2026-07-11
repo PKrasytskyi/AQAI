@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/bug-report-generation/output-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "title", "environment", "stepsToReproduce", "actualResult", "expectedResult", "evidence", "severity"],
+  "properties": {
+    "schemaVersion": {"const": "bug-report-draft.v1"},
+    "title": {"type": "string"},
+    "environment": {"type": "string"},
+    "stepsToReproduce": {"type": "array", "items": {"type": "string"}},
+    "actualResult": {"type": "string"},
+    "expectedResult": {"type": "string"},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "severity": {"enum": ["low", "medium", "high", "critical"]}
+  },
+  "additionalProperties": false
+}
+

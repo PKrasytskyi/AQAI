@@ -421,7 +421,7 @@ Status legend:
 17. [ ] Expose UI traceability summary in workflow artifacts and reporting.
 18. [x] Reach stable `mvn compile`.
 19. [x] Reach stable `mvn test-compile`.
-20. [ ] Execute a targeted generated UI smoke suite successfully.
+20. [x] Execute a targeted generated UI smoke suite successfully.
 21. [ ] Validate at least 3-5 generated end-to-end UI flows against the demo target.
 22. [ ] Add evidence collection foundation for UI test failures: screenshot, page source, stack trace, environment metadata.
 23. [x] Keep compile and review gates mandatory for generated UI code.
@@ -465,21 +465,453 @@ This track is the step-by-step implementation plan for the current main objectiv
 2. [x] Add a generic project profile model that captures base URL, auth type, selector policy, framework policy, output settings, and test data source.
 3. [x] Add a UI discovery layer that can inspect a target site and propose pages, links, forms, and candidate locators.
 4. [x] Introduce a canonical page/flow model that sits between raw discovery and generated page objects.
-5. [~] Refactor UI planning so that scenario-to-page mapping can come from discovery + profile, not only from hardcoded keyword rules.
-6. [ ] Refactor templates so they consume generic page/flow metadata instead of assuming one demo target.
-7. [ ] Stabilize one end-to-end onboarding flow: `project profile -> requirements -> discovery -> UI plan -> generated code -> compile -> smoke run`.
+5. [x] Refactor UI planning so that scenario-to-page mapping can come from discovery + profile, not only from hardcoded keyword rules.
+6. [x] Refactor templates so they consume generic page/flow metadata instead of assuming one demo target.
+7. [x] Stabilize one end-to-end onboarding flow: `project profile -> requirements -> discovery -> UI plan -> generated code -> compile -> smoke run`.
 8. [ ] Restore OpenAI only after step 7 is stable and connect it first to planning, ambiguity detection, and controlled discovery assistance.
 9. [ ] Keep AI out of framework plumbing generation when deterministic templates already cover the need.
 10. [ ] Add human approval gates for ambiguous locator selection, inferred assertions, and healing proposals.
 
+### Track E. DB-Backed Artifact Reuse and QA Knowledge Graph
+
+This track captures the next DB evolution step: move from using Neo4j/Qdrant mainly as a page knowledge cache to using Neo4j as an artifact registry for validated generated outputs.
+
+#### Goal
+
+For identical stable inputs, the platform should skip unnecessary LLM calls and reuse already validated artifacts:
+
+`same input + same page/context/config/schema -> stable POM contract exists -> skip LLM -> reuse artifact -> collect saved token metrics`
+
+The later expansion is broader semantic reuse:
+
+`new requirement -> find reusable known pages/components/capabilities/states/flows -> generate only missing parts`
+
+#### Current State
+
+- `[x]` Page-level knowledge cache exists for page enrichment.
+- `[x]` Stable locator evidence can be queried from Neo4j and used before prompt assembly.
+- `[x]` DB impact comparison reports LLM calls, token estimates, DB hits, cache hits, and compile readiness.
+- `[ ]` There is no dedicated artifact registry for POM contracts.
+- `[ ]` POM contract generation does not yet check a stable artifact fingerprint before calling the LLM.
+- `[ ]` Neo4j does not yet model `Run -> PRODUCED/REUSED -> Artifact` for generated POM contracts.
+- `[ ]` Flow reuse is not yet modeled as a first-class graph capability.
+
+#### Complexity Assessment
+
+Overall complexity: **High**, but suitable for staged implementation.
+
+The highest-risk parts are:
+
+- deterministic fingerprinting of POM contract inputs;
+- safe invalidation of stale artifacts;
+- inserting reuse before the LLM call without bypassing quality gates;
+- preserving universal behavior across projects instead of optimizing only for Login/Dashboard;
+- producing trustworthy token-saved metrics.
+
+#### Phase E0: Terminology and Boundaries
+
+Define and keep these concepts separate:
+
+- `Artifact`: generated or persisted output, such as POM contract, API spec, prompt package, quality summary, or test data plan.
+- `Knowledge`: structured application facts, such as page, route, locator, component, capability, state, assertion, or flow.
+- `ArtifactRegistry`: metadata store for artifacts, fingerprints, quality status, file paths, and reuse counters.
+- `QA Knowledge Graph`: graph of pages, flows, components, states, capabilities, and their relationships.
+- `ReusePolicy`: deterministic decision layer deciding `REUSE_STABLE`, `CALL_LLM`, or `FORCE_REFRESH`.
+- `ReusePlanner`: later semantic planner that decides which known paths/components/artifacts can support a new requirement.
+
+Rule: `POM contract JSON reuse` belongs to the Artifact Reuse Layer. `Login/Dashboard path reuse` belongs to the QA Knowledge Graph.
+
+#### Phase E1: Neo4j Artifact Registry MVP
+
+Add a minimal but future-ready graph schema.
+
+Required node types:
+
+- `Artifact`
+- `Page`
+- `Run`
+- `QualityGate`
+
+Future node types should be compatible with the schema, but not required for the first implementation:
+
+- `Requirement`
+- `TestCase`
+- `Route`
+- `Component`
+- `Capability`
+- `Flow`
+- `State`
+- `Locator`
+- `Assertion`
+- `ApiEndpoint`
+
+Required `Artifact` metadata:
+
+- `artifactId`
+- `artifactType`
+- `targetType`
+- `targetId`
+- `fingerprint`
+- `schemaVersion`
+- `promptTemplateVersion`
+- `model`
+- `temperature`
+- `status`
+- `qualityScore`
+- `writerSucceeded`
+- `compileSucceeded`
+- `filePath`
+- `createdAt`
+- `lastUsedAt`
+- `reuseCount`
+
+Required relationships:
+
+- `(:Artifact)-[:GENERATED_FOR]->(:Page)`
+- `(:Run)-[:PRODUCED]->(:Artifact)`
+- `(:Run)-[:REUSED]->(:Artifact)`
+- `(:Artifact)-[:VALIDATED_BY]->(:QualityGate)`
+
+Required constraints:
+
+- unique `Artifact.artifactId`
+- unique `Page.pageId`
+- unique `Run.runId`
+- unique `QualityGate.gateId`
+- later: composite unique key for `artifactType + targetId + fingerprint`
+
+#### Phase E2: Artifact Fingerprint Builder
+
+Add deterministic fingerprinting before LLM generation.
+
+For POM contracts, fingerprint should include:
+
+- `targetPageId`
+- `route`
+- `pageCapabilityContractHash`
+- `approvedLocatorsHash`
+- `requiredActionsHash`
+- `requiredAssertionsHash`
+- `expectedResultBundleHash`
+- `promptTemplateVersion`
+- `pomContractSchemaVersion`
+- `modelName`
+- `temperature`
+- `generationMode`
+- `retrievalMode`
+
+Fingerprint must not include:
+
+- `runId`
+- `createdAt`
+- temporary file paths
+- LLM request id
+- debug-only diagnostics
+- token counts
+
+Implementation classes:
+
+- `ArtifactFingerprint`
+- `ArtifactFingerprintBuilder<T>`
+- `PomContractFingerprintBuilder`
+
+Canonicalization is mandatory:
+
+- stable-sort locators, actions, assertions, and expected values;
+- normalize whitespace;
+- remove timestamps and run-specific fields;
+- hash canonical JSON/string with SHA-256.
+
+#### Phase E3: File-Backed Stable Artifact Store
+
+Neo4j should store metadata and relationships. The full artifact content should stay in files.
+
+Recommended structure:
+
+```text
+target/ai-run-history/
+  stable/
+    pom-contracts/
+      LoginPage.<fingerprint>.pom-contract.json
+    prompt-context/
+      LoginPage.<fingerprint>.context.json
+    flow-contracts/
+      AUTH_LOGIN_TO_DASHBOARD.<fingerprint>.flow.json
+```
+
+Neo4j stores `Artifact.filePath`, not the whole JSON body.
+
+#### Phase E4: Reuse Policy Before LLM
+
+Insert the reuse decision before `OpenAiResponseGenerationClient.generate(...)`.
+
+New flow:
+
+```text
+PomContractGenerationInput
+ -> PomContractFingerprintBuilder
+ -> ArtifactRegistry.findStableArtifact(...)
+ -> ArtifactReusePolicy.decide(...)
+ -> if REUSE_STABLE: load artifact JSON
+ -> if CALL_LLM: call LLM
+ -> schema validation
+ -> PomContractQualityGate
+ -> DeterministicPomJavaWriter
+ -> compile/review/smoke
+ -> save/update ArtifactRegistry
+```
+
+Initial decisions:
+
+- `FORCE_REFRESH` when config explicitly disables reuse for the run.
+- `REUSE_STABLE` when stable artifact exists for `artifactType + targetId + fingerprint`.
+- `CALL_LLM` when no stable artifact exists.
+- `REGENERATE_SCHEMA_CHANGED` when schema version differs.
+- `REGENERATE_PREVIOUS_INVALID` when previous artifact failed validation.
+
+#### Phase E5: Artifact Lifecycle
+
+Do not mark an artifact as stable immediately after LLM output.
+
+Required lifecycle:
+
+```text
+GENERATED
+ -> SCHEMA_VALIDATED
+ -> QUALITY_VALIDATED
+ -> WRITER_VALIDATED
+ -> COMPILE_VALIDATED
+ -> SMOKE_VALIDATED
+ -> STABLE
+```
+
+MVP can mark `STABLE` after `WRITER_VALIDATED + COMPILE_VALIDATED`, but only if smoke validation is not configured for that run. When smoke is enabled, smoke failure must prevent stable reuse.
+
+#### Phase E6: Run Metrics and DB Impact Reporting
+
+Extend run-level metrics with artifact reuse:
+
+```json
+{
+  "artifactReuse": {
+    "enabled": true,
+    "llmCallsExecuted": 2,
+    "llmCallsSkipped": 2,
+    "artifactCacheHits": 2,
+    "artifactCacheMisses": 1,
+    "tokensSavedEstimate": 3826,
+    "reuseByArtifactType": {
+      "POM_CONTRACT": {
+        "hits": 2,
+        "misses": 0
+      }
+    }
+  }
+}
+```
+
+DB impact comparison should distinguish:
+
+- page enrichment cache hit;
+- stable locator reuse;
+- POM contract artifact reuse;
+- flow reuse;
+- LLM calls executed;
+- LLM calls skipped;
+- actual OpenAI token usage when available;
+- tokenizer-estimated saved tokens when exact usage is unavailable.
+
+#### Phase E7: FlowContract MVP
+
+After POM contract reuse works, add minimal flow reuse.
+
+Start with:
+
+- `AUTH_LOGIN_TO_DASHBOARD`
+- `LOGOUT_TO_LOGIN`
+
+Minimum graph:
+
+- `(:Flow)-[:STARTS_AT]->(:Page)`
+- `(:Flow)-[:ENDS_AT]->(:Page)`
+- `(:Flow)-[:REQUIRES_STATE]->(:State)`
+- `(:Flow)-[:PRODUCES_STATE]->(:State)`
+- `(:Flow)-[:USES_ARTIFACT]->(:Artifact)`
+
+Initial states:
+
+- `unauthenticated`
+- `authenticated`
+- `userMenuOpen`
+
+#### Phase E8: Reuse Planner MVP
+
+Add a simple rule-based planner before semantic retrieval:
+
+```text
+NormalizedRequirement
+ -> ReusePlanner
+ -> known precondition flow decisions
+ -> missing page/component/capability decisions
+```
+
+Example output:
+
+```json
+{
+  "requirementId": "REQ-DASHBOARD-REPORTS-001",
+  "targetPage": "DashboardPage",
+  "preconditions": [
+    {
+      "type": "FLOW",
+      "id": "AUTH_LOGIN_TO_DASHBOARD",
+      "decision": "REUSE_STABLE"
+    }
+  ],
+  "missingKnowledge": [
+    {
+      "type": "COMPONENT",
+      "id": "Dashboard.ReportsPanel",
+      "decision": "DISCOVER"
+    }
+  ]
+}
+```
+
+#### Phase E9: Qdrant Semantic Layer
+
+Add semantic matching only after Neo4j exact artifact reuse is reliable.
+
+Qdrant should provide candidates, not final reuse decisions.
+
+Good embedding targets:
+
+- requirement text;
+- capability description;
+- flow description;
+- component purpose;
+- assertion intent.
+
+Flow:
+
+```text
+New requirement
+ -> Qdrant candidate capabilities/flows
+ -> Neo4j exact graph expansion
+ -> ReusePlanner decision
+```
+
+#### Phase E10: Invalidation Policy
+
+Reuse must be blocked when:
+
+- fingerprint changed;
+- schema version changed;
+- prompt template version changed;
+- writer version changed;
+- quality gate failed;
+- compile failed;
+- smoke validation failed;
+- page fingerprint changed;
+- required actions/assertions changed;
+- manual force refresh is enabled.
+
+Artifact statuses:
+
+- `STABLE`
+- `STALE`
+- `INVALIDATED`
+- `NEEDS_REVIEW`
+
+#### Phase E11: Config Flags
+
+Add safe rollout flags:
+
+```properties
+ai.artifact-reuse.enabled=true
+ai.artifact-reuse.pom-contract.enabled=true
+ai.artifact-reuse.flow-contract.enabled=false
+ai.artifact-reuse.test-data.enabled=false
+ai.artifact-reuse.policy=strict
+ai.artifact-reuse.force-refresh=false
+ai.artifact-reuse.explain-decisions=true
+ai.semantic-reuse.enabled=false
+```
+
+#### Exit Criteria
+
+- repeated identical POM contract input skips the LLM;
+- reused artifact still passes schema, quality, deterministic writer, compile, and smoke gates;
+- run summary shows LLM calls executed vs skipped;
+- DB impact report shows token savings from artifact reuse separately from page enrichment cache reuse;
+- Neo4j contains `Run -> REUSED/PRODUCED -> Artifact` relationships;
+- stale or failed artifacts are never reused silently.
+
+#### Primary Risks and Controls
+
+- Fingerprint instability: use canonicalization tests and golden fixtures.
+- Stale artifact reuse: require lifecycle status and invalidation checks.
+- Over-trusting DB cache: every reused POM contract still goes through local validation and writer/compile gates.
+- Graph schema drift: add constraints and schema version fields.
+- Token metrics inflation: count skipped calls from stored previous prompt/response token metadata, not guessed row totals.
+- Product overfitting: keep target identifiers generic and route/capability based; avoid Login/Dashboard-only logic outside fixtures.
+
 ### Recommended Execution Order
 
-1. [ ] Finish Track A through stable compile, test-compile, and smoke execution.
-2. [ ] Execute Track D steps 1-7 to remove demo-target thinking from the UI architecture.
-3. [ ] Add traceability and evidence basics from Track A and Track C.
-4. [ ] Re-enable OpenAI according to Track B and Track D with strict boundaries.
-5. [ ] Expand AI usage only after deterministic UI generation is stable.
-6. [ ] Return to API, healing, approval, and broader execution tracks after the UI slice is product-stable.
+1. [x] Finish Track A through stable compile, test-compile, and smoke execution.
+2. [x] Execute Track D steps 1-7 to remove demo-target thinking from the UI architecture.
+3. [ ] Implement Track E phases E1-E6 for POM contract artifact reuse before expanding semantic reuse.
+4. [ ] Add traceability and evidence basics from Track A and Track C.
+5. [ ] Re-enable OpenAI according to Track B and Track D with strict boundaries.
+6. [ ] Expand AI usage only after deterministic UI generation and artifact reuse validation are stable.
+7. [ ] Return to API, healing, approval, and broader execution tracks after the UI slice is product-stable.
+
+### Closure Plan for Recommended Execution Order Item 2
+
+Item 2 is closed. Track D steps 1-7 now have verified implementation evidence across the golden OrangeHRM flow and a second The Internet authentication fixture.
+
+Current evidence:
+
+- compile and test-compile are stable through `mvn test`;
+- generated UI smoke passes for two page object files;
+- live browser smoke passes through the capability/profile-driven flow `open source page -> satisfy authentication preconditions -> validate dashboard route -> open user menu -> validate logout -> logout back to login`;
+- project profile, confirmed page registry, discovery, semantic model, prompt evidence, POM contract, deterministic writer, and smoke validation are wired for the current golden flow.
+- scenario page resolution, business flow route selection, and prompt route formatting now use confirmed profile/discovery/cache routes instead of direct catalog/details/cart fallback routes;
+- prompt route context now formats confirmed routes by `PageCapability`, not by legacy product route names such as `catalog`, `products`, `details`, or `cart`;
+- POM capability contract formatting now resolves route and capability from `PromptUiEvidence` and `ConfirmedPageRegistry` before falling back to mapped knowledge.
+- live browser smoke now runs through a profile/capability-driven runner with reusable phases: open source page, satisfy preconditions, validate target page, execute optional action, and validate postcondition;
+- a second authentication fixture exists for `the-internet.herokuapp.com` through `profiles/the-internet.project-profile.yaml` and `requirements/the-internet-valid-login-requirement.md`.
+- regression coverage now fails if unrelated POM prompts leak `ListingPage`, `DetailsPage`, `CartPage`, catalog/product fallback selectors, or unconfirmed profile routes;
+- onboarding acceptance coverage now exercises `project profile -> requirements -> discovery -> UI plan -> POM contract -> deterministic Java -> compile artifact -> generated-source smoke` for the The Internet authentication fixture.
+- the latest clean `with-db` run uses `stable-page-cache` with `neo4jHit=true`, `qdrantHit=true`, `stableCacheUsed=true`, `pageEnrichmentCacheHits=2`, and zero page-enrichment OpenAI calls;
+- the latest clean `with-db` run emits explicit validation artifacts: `persisted-generated-sources.json`, `generated-code-compile-result.json`, `generated-code-review-result.json`, `generated-ui-smoke-result.json`, `live-ui-smoke-result.json`, and `pom-source-traceability.json`;
+- prompt leakage checks confirm that `ListingPage`, `DetailsPage`, `CartPage`, catalog/product fallback labels, `/profile`, `openTargetContainer`, `addEntityToContainer`, and `removeEntityFromContainer` are absent from current POM prompts/contracts;
+- generated `LoginPage` and `DashboardPage` compile successfully and the review gate reports zero findings.
+
+Non-blocking follow-up items:
+
+- traceability is now present, but should be refined into `ownedRequirementIds`, `prerequisiteRequirementIds`, and `flowParticipantRequirementIds`;
+- LoginPage prompt ownership can still contain a non-blocking `logout()` suggestion from flow participation; the POM contract and generated Java correctly exclude it;
+- generated test flow remains prompt-only/limited, so the platform proves POM generation more strongly than generated test execution;
+- onboarding coverage should be expanded beyond authentication/logout once the next roadmap item starts.
+
+Plan to close item 2:
+
+1. [x] Replace remaining route/page fallback vocabulary with capability-only mapping where possible.
+2. [x] Make `ScenarioPageResolver`, `BusinessFlowResolver`, and prompt route formatting consume only confirmed profile/discovery/cache routes.
+3. [x] Refactor templates and prompt builders to consume `ConfirmedPageRegistry`, `PromptUiEvidence`, and capability contracts without project-specific page assumptions.
+4. [x] Convert `LiveLoginDashboardSmokeService` into a profile/capability-driven smoke runner with reusable phases: open source page, satisfy preconditions, validate target page, execute optional action, validate postcondition.
+5. [x] Add a second non-OrangeHRM fixture, preferably `the-internet.herokuapp.com` authentication, to prove the flow is not tuned to one product.
+6. [x] Add regression tests that fail if `ListingPage`, `DetailsPage`, `CartPage`, catalog/product fallback selectors, or unconfirmed profile routes appear in POM prompts for unrelated projects.
+7. [x] Add a final onboarding acceptance test: `project profile -> requirements -> discovery -> UI plan -> POM contract -> deterministic Java -> compile -> smoke`.
+
+Exit criteria for item 2:
+
+- [x] Track D steps 5, 6, and 7 are marked `[x]`;
+- [x] at least two different project profiles pass the same onboarding flow;
+- [x] no unconfirmed route/page names are emitted into current POM prompt generation for unrelated projects;
+- [x] smoke runner is capability/profile based, not hardcoded to Login/Dashboard class names;
+- [x] generated artifacts include traceability from requirement id to page contract and generated source.
 
 ---
 

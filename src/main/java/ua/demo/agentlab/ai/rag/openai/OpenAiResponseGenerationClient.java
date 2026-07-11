@@ -1,6 +1,7 @@
 package ua.demo.agentlab.ai.rag.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import ua.demo.agentlab.ai.openai.OpenAiTokenUsage;
 import ua.demo.agentlab.ai.rag.config.RagRuntimeConfig;
 import ua.demo.agentlab.ai.rag.http.JsonHttpClient;
 
@@ -11,6 +12,7 @@ public class OpenAiResponseGenerationClient {
 
     private final RagRuntimeConfig config;
     private final JsonHttpClient httpClient;
+    private OpenAiTokenUsage lastUsage = OpenAiTokenUsage.EMPTY;
 
     public OpenAiResponseGenerationClient(RagRuntimeConfig config) {
         this(config, new JsonHttpClient());
@@ -48,6 +50,7 @@ public class OpenAiResponseGenerationClient {
                 ),
                 defaultHeaders()
         );
+        lastUsage = tokenUsage(response);
 
         String rawResponse = response.toPrettyString();
         String outputText = findOutputText(response);
@@ -59,6 +62,10 @@ public class OpenAiResponseGenerationClient {
         }
 
         return outputText.trim();
+    }
+
+    public OpenAiTokenUsage lastUsage() {
+        return lastUsage;
     }
 
     private String findOutputText(JsonNode root) {
@@ -187,6 +194,30 @@ public class OpenAiResponseGenerationClient {
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Authorization", "Bearer " + apiKey);
         return headers;
+    }
+
+    private OpenAiTokenUsage tokenUsage(JsonNode root) {
+        JsonNode usage = root == null ? null : root.path("usage");
+        if (usage == null || usage.isMissingNode()) {
+            return OpenAiTokenUsage.EMPTY;
+        }
+        int inputTokens = firstInt(usage, "input_tokens", "prompt_tokens");
+        int outputTokens = firstInt(usage, "output_tokens", "completion_tokens");
+        int totalTokens = firstInt(usage, "total_tokens", "totalTokens");
+        return new OpenAiTokenUsage(inputTokens, outputTokens, totalTokens);
+    }
+
+    private int firstInt(JsonNode node, String... fields) {
+        if (node == null) {
+            return 0;
+        }
+        for (String field : fields) {
+            JsonNode value = node.path(field);
+            if (value.canConvertToInt()) {
+                return value.asInt();
+            }
+        }
+        return 0;
     }
 
     private String trimTrailingSlash(String url) {

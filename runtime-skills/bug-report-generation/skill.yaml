@@ -1,0 +1,9 @@
+id: bug-report-generation
+version: 1.0.0
+purpose: Draft a concise bug report from validated failure evidence.
+input_schema: input-schema.json
+output_schema: output-schema.json
+prompt: prompt.md
+rules: rules.md
+owner: ui-platform
+

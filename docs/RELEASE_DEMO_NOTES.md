@@ -13,7 +13,7 @@ Highlights:
 - generated Page Object source persistence followed by compile, review, smoke, and runtime-feedback stages;
 - mapper knowledge split into raw, curated, and prompt-ready evidence;
 - environment-based secret configuration;
-- AI/RAG/knowledge-store integrations disabled by default and enabled explicitly for demos;
+- AI/RAG/knowledge-store integrations are demo-enabled in `framework.properties`, with secrets supplied through environment/JVM configuration;
 - unit tests under standard Maven test source root: `src/test/java/unit/tests`;
 - API MVP with endpoint evidence, client/DTO/test specs, quality gates, and RestAssured/TestNG writer;
 - API CRUD demo mode.
@@ -31,17 +31,18 @@ $env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD="local-neo4j-password"
 mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md"
 ```
 
-Because repository defaults are safe/offline by default, enable AI/RAG/knowledge-store switches explicitly for a full local demo:
+For a clean no-DB/no-RAG comparison run, disable RAG and knowledge-store switches explicitly:
 
 ```powershell
-mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md" "-Dopenai.enabled=true" "-Dai.page-object.llm.enabled=true" "-Drag.enabled=true" "-Dknowledge.graph.enabled=true" "-Dknowledge.vector.enabled=true"
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md" "-Drag.enabled=false" "-Dknowledge.graph.enabled=false" "-Dknowledge.vector.enabled=false"
 ```
 
 Main artifacts:
 
 ```text
-target/ai-run/page-object-spec/
-target/ai-run/context/
+target/ai-run/run-summary.md
+target/ai-run/page-objects/
+target/ai-run/debug/          # only when ai.debug.artifacts=true
 target/ai-run/enrichment/
 target/ai-run/quality/
 target/ai-run/need-review/
@@ -58,8 +59,9 @@ Expected current behavior:
 
 Known demo boundary:
 
-- `target/ai-run/validation/generated-ui-smoke-result.json` currently represents generated-source smoke validation over persisted POM files and compile/review readiness. It is not yet the final live browser smoke scenario.
-- The next platform-hardening step is a live browser smoke artifact for `open login -> login -> dashboard route/header -> open user menu -> logout visible/action`.
+- `target/ai-run/validation/generated-ui-smoke-result.json` represents generated-source smoke validation over persisted POM files and compile/review readiness.
+- `target/ai-run/validation/live-ui-smoke-result.json` represents the profile/capability-driven live browser smoke path for the authentication/logout vertical slice when `ui.live-smoke.enabled=true`.
+- Broader live smoke scenarios beyond authentication/logout remain future hardening work.
 
 ## API CRUD Demo Run
 

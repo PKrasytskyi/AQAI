@@ -3,6 +3,9 @@ package ua.demo.agentlab.ai.flow;
 import ua.demo.agentlab.futurefeat.testplan.model.TestScenario;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
 import ua.demo.agentlab.testcase.model.CanonicalTestCase;
+import ua.demo.agentlab.ui.catalog.ConfirmedPageCandidate;
+import ua.demo.agentlab.ui.catalog.ConfirmedPageRegistry;
+import ua.demo.agentlab.ui.catalog.ConfirmedPageSourceResolver;
 import ua.demo.agentlab.ui.catalog.PageCapability;
 
 import java.util.ArrayList;
@@ -27,9 +30,12 @@ public class BusinessFlowResolver {
                 "about", "blog", "contact", "footer", "header", "privacy", "policy", "terms", "career", "careers"
         ));
         List<String> notes = new ArrayList<>();
+        ConfirmedPageRegistry confirmedPages = input == null
+                ? new ConfirmedPageRegistry(List.of())
+                : new ConfirmedPageSourceResolver().resolve(input.projectProfile(), input.normalizedRequirementBundle(), List.of());
 
         if (input != null && input.projectProfile() != null) {
-            addIfPresent(targetRoutes, input.projectProfile().homeRoute());
+            addConfirmedRoute(targetRoutes, confirmedPages, PageCapability.NAVIGATION);
             addIfPresent(requiredTerms, input.projectProfile().projectName());
         }
 
@@ -52,6 +58,7 @@ public class BusinessFlowResolver {
 
         addProjectProfileRoutesForDetectedFlow(
                 input == null ? null : input.projectProfile(),
+                confirmedPages,
                 targetOperations,
                 targetRoutes,
                 targetCapabilities,
@@ -253,13 +260,13 @@ public class BusinessFlowResolver {
                 + String.join(" ", testCase.requirementRefs()));
         tokenize(text).forEach(requiredTerms::add);
         extractRoutes(text).forEach(targetRoutes::add);
-        addIfPresent(targetRoutes, testCase.route());
-        addIfPresent(targetRoutes, testCase.sourceRoute());
+        addRouteIfPresent(targetRoutes, testCase.route());
+        addRouteIfPresent(targetRoutes, testCase.sourceRoute());
 
         testCase.operationIntents().forEach(intent -> {
             if (intent != null && intent.kind() != null) {
                 targetOperations.add(intent.kind().name());
-                addIfPresent(targetRoutes, intent.target());
+                addRouteIfPresent(targetRoutes, intent.target());
                 addCapabilityForOperation(targetCapabilities, intent.kind().name());
             }
         });
@@ -311,6 +318,7 @@ public class BusinessFlowResolver {
 
     private void addProjectProfileRoutesForDetectedFlow(
             ua.demo.agentlab.config.ProjectProfile profile,
+            ConfirmedPageRegistry confirmedPages,
             Set<String> targetOperations,
             Set<String> targetRoutes,
             Set<PageCapability> targetCapabilities,
@@ -326,9 +334,10 @@ public class BusinessFlowResolver {
                 || requiredTerms.contains("credentials")
                 || requiredTerms.contains("welcome");
         if (authenticationFlow) {
-            addIfPresent(targetRoutes, profile.loginRoute());
-            addIfPresent(targetRoutes, profile.authenticatedRoute());
-            addIfPresent(targetRoutes, profile.securityRoute());
+            addConfirmedRoute(targetRoutes, confirmedPages, PageCapability.AUTHENTICATION);
+            addConfirmedRoute(targetRoutes, confirmedPages, PageCapability.DASHBOARD);
+            addConfirmedRoute(targetRoutes, confirmedPages, PageCapability.AUTHENTICATED_AREA);
+            addConfirmedRoute(targetRoutes, confirmedPages, PageCapability.SECURITY);
             targetCapabilities.add(PageCapability.AUTHENTICATION);
             targetCapabilities.add(PageCapability.AUTHENTICATED_AREA);
             targetPageNames.add(PageCapability.AUTHENTICATION.defaultPageName());
@@ -341,7 +350,7 @@ public class BusinessFlowResolver {
                 || targetOperations.contains("ADD_ENTITY_TO_CONTAINER")
                 || targetOperations.contains("REMOVE_ENTITY_FROM_CONTAINER");
         if (containerFlow) {
-            addIfPresent(targetRoutes, profile.cartRoute());
+            addConfirmedRoute(targetRoutes, confirmedPages, PageCapability.CONTAINER);
             targetCapabilities.add(PageCapability.CONTAINER);
         }
 
@@ -350,7 +359,7 @@ public class BusinessFlowResolver {
                 || targetOperations.contains("FILTER")
                 || targetOperations.contains("SORT");
         if (listingFlow) {
-            addIfPresent(targetRoutes, profile.catalogRoute());
+            addConfirmedRoute(targetRoutes, confirmedPages, PageCapability.RECORD_LIST);
             targetCapabilities.add(PageCapability.RECORD_LIST);
         }
     }
@@ -391,6 +400,26 @@ public class BusinessFlowResolver {
         if (!normalized.isBlank()) {
             values.add(normalized);
         }
+    }
+
+    private void addRouteIfPresent(Set<String> values, String value) {
+        String normalized = normalize(value);
+        if (!normalized.isBlank() && normalized.startsWith("/")) {
+            values.add(normalized);
+        }
+    }
+
+    private void addConfirmedRoute(
+            Set<String> targetRoutes,
+            ConfirmedPageRegistry confirmedPages,
+            PageCapability capability
+    ) {
+        if (confirmedPages == null || capability == null) {
+            return;
+        }
+        confirmedPages.findByCapability(capability)
+                .map(ConfirmedPageCandidate::route)
+                .ifPresent(route -> addRouteIfPresent(targetRoutes, route));
     }
 
     private String normalize(String value) {

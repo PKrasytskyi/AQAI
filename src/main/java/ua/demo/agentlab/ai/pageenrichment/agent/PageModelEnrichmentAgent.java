@@ -1,6 +1,7 @@
 package ua.demo.agentlab.ai.pageenrichment.agent;
 
 import ua.demo.agentlab.ai.pageenrichment.cache.PageKnowledgeCacheEntry;
+import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentFailure;
 import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentInput;
 import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentRecord;
 import ua.demo.agentlab.ai.pageenrichment.service.PageModelEnrichedKnowledgeAssembler;
@@ -131,12 +132,48 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         List<String> failures = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
                 ? openAiClient.lastFailures()
                 : List.of();
+        var failureDetails = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
+                ? openAiClient.lastFailureDetails()
+                : List.<PageModelEnrichmentFailure>of();
+        int openAiAttempts = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
+                ? openAiClient.lastAttempts()
+                : 0;
+        int openAiSuccesses = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
+                ? openAiClient.lastSuccesses()
+                : 0;
+        int openAiFailures = Math.max(0, openAiAttempts - openAiSuccesses);
+        int openAiFallbacks = openAiFailures;
+        int promptChars = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
+                ? openAiClient.lastPromptChars()
+                : 0;
+        int responseChars = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
+                ? openAiClient.lastResponseChars()
+                : 0;
+        int actualInputTokens = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
+                ? openAiClient.lastActualInputTokens()
+                : 0;
+        int actualOutputTokens = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
+                ? openAiClient.lastActualOutputTokens()
+                : 0;
+        int actualTotalTokens = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
+                ? openAiClient.lastActualTotalTokens()
+                : 0;
         return new PageModelEnrichmentOutput(
                 records,
                 cachedRecords,
                 generatedRecords,
                 knowledgeAssembler.merge(selectedKnowledge, records),
-                failures
+                failures,
+                failureDetails,
+                openAiAttempts,
+                openAiSuccesses,
+                openAiFailures,
+                openAiFallbacks,
+                promptChars,
+                responseChars,
+                actualInputTokens,
+                actualOutputTokens,
+                actualTotalTokens
         );
     }
 

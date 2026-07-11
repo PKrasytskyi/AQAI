@@ -416,7 +416,10 @@ public class PromptUiEvidenceBuilderTest {
                 "dashboard",
                 "Dashboard with user menu",
                 List.of("openUserMenu", "logout"),
-                List.of("css=span.oxd-userdropdown-tab (stability=0.78, sameOrigin=true, element=User menu trigger, relevance=requirement, dependency=required-for-logout-menu-flow)"),
+                List.of(
+                        "css=span.oxd-userdropdown-tab (stability=0.78, sameOrigin=true, element=User menu trigger, relevance=requirement, dependency=required-for-logout-menu-flow)",
+                        "css=a.oxd-userdropdown-link (stability=0.78, sameOrigin=true, element=User menu trigger, relevance=requirement, dependency=required-for-logout-menu-flow)"
+                ),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -453,6 +456,8 @@ public class PromptUiEvidenceBuilderTest {
                 .anyMatch(locator -> locator.fieldHint().equals("userMenuTrigger")
                         && locator.value().equals("span.oxd-userdropdown-tab")
                         && locator.evidenceType() == LocatorEvidenceType.CONFIRMED_LOCATOR));
+        Assert.assertFalse(evidence.requiredLocators().stream()
+                .anyMatch(locator -> locator.value().equals("a.oxd-userdropdown-link")));
     }
 
     private MappedPage loginPageWithPromotedLocator() {

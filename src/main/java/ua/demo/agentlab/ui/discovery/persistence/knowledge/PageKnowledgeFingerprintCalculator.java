@@ -1,7 +1,6 @@
 package ua.demo.agentlab.ui.discovery.persistence.knowledge;
 
 import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
-import ua.demo.agentlab.ui.discovery.mapping.model.MappedAction;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedElement;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedField;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedForm;
@@ -23,18 +22,14 @@ public class PageKnowledgeFingerprintCalculator {
                 safe(page.pageName()),
                 safe(page.pageType()),
                 safe(page.urlPattern()),
-                safe(page.title()),
                 page.elements().stream()
-                        .sorted(Comparator.comparing(MappedElement::elementId))
+                        .filter(this::hasStableFingerprintEvidence)
+                        .sorted(Comparator.comparing(this::elementSortKey))
                         .map(this::elementFingerprint)
                         .collect(Collectors.joining("|")),
                 page.forms().stream()
                         .sorted(Comparator.comparing(MappedForm::formId))
                         .map(this::formFingerprint)
-                        .collect(Collectors.joining("|")),
-                page.actions().stream()
-                        .sorted(Comparator.comparing(MappedAction::actionId))
-                        .map(this::actionFingerprint)
                         .collect(Collectors.joining("|"))
         );
         return sha256(payload);
@@ -42,16 +37,11 @@ public class PageKnowledgeFingerprintCalculator {
 
     private String elementFingerprint(MappedElement element) {
         return String.join(":",
-                safe(element.elementId()),
-                safe(element.semanticName()),
                 safe(element.elementType()),
                 safe(element.role()),
-                safe(element.text()),
-                String.valueOf(element.clickable()),
-                String.valueOf(element.visible()),
-                element.supportedActions().stream().sorted().collect(Collectors.joining(",")),
                 element.locatorCandidates().stream()
-                        .sorted(Comparator.comparing(LocatorCandidate::value))
+                        .filter(this::stableLocatorEvidence)
+                        .sorted(Comparator.comparing(locator -> locator.strategy().wireName() + "=" + locator.value()))
                         .map(this::locatorFingerprint)
                         .collect(Collectors.joining(","))
         );
@@ -63,9 +53,7 @@ public class PageKnowledgeFingerprintCalculator {
                 safe(locator.value()),
                 safe(locator.href()),
                 safe(locator.originHost()),
-                String.valueOf(locator.sameOrigin()),
-                String.valueOf(locator.uniqueOnPage()),
-                String.valueOf(locator.stableAcrossRuns())
+                String.valueOf(locator.sameOrigin())
         );
     }
 
@@ -86,15 +74,41 @@ public class PageKnowledgeFingerprintCalculator {
         );
     }
 
-    private String actionFingerprint(MappedAction action) {
-        return String.join(":",
-                safe(action.actionId()),
-                safe(action.actionName()),
-                safe(action.actionType()),
-                safe(action.sourceElementId()),
-                safe(action.targetPageId()),
-                safe(action.description())
-        );
+    private boolean hasStableFingerprintEvidence(MappedElement element) {
+        return element != null
+                && element.locatorCandidates().stream().anyMatch(this::stableLocatorEvidence);
+    }
+
+    private boolean stableLocatorEvidence(LocatorCandidate locator) {
+        return locator != null
+                && !locator.strategy().isBlank()
+                && !safe(locator.value()).isBlank()
+                && locator.sameOrigin()
+                && locator.stabilityScore() >= 0.75d
+                && !transientMenuLocator(locator);
+    }
+
+    private boolean transientMenuLocator(LocatorCandidate locator) {
+        String value = safe(locator.value()).toLowerCase(java.util.Locale.ROOT);
+        String href = safe(locator.href()).toLowerCase(java.util.Locale.ROOT);
+        return value.contains("oxd-userdropdown-link")
+                || value.contains("/auth/logout")
+                || value.contains("/help/support")
+                || value.contains("/pim/updatepassword")
+                || href.contains("/auth/logout")
+                || href.contains("/help/support")
+                || href.contains("/pim/updatepassword")
+                || value.equals("a[href='#']")
+                || value.equals("a[href=\"#\"]");
+    }
+
+    private String elementSortKey(MappedElement element) {
+        return element.locatorCandidates().stream()
+                .filter(this::stableLocatorEvidence)
+                .map(locator -> locator.strategy().wireName() + "=" + locator.value())
+                .sorted()
+                .findFirst()
+                .orElse(safe(element.semanticName()) + ":" + safe(element.elementType()));
     }
 
     private String sha256(String value) {

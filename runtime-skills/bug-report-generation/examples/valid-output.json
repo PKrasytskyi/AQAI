@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "bug-report-draft.v1",
+  "title": "Valid login does not redirect user to dashboard",
+  "environment": "Chrome, https://example.test",
+  "stepsToReproduce": ["Open login page", "Submit valid credentials"],
+  "actualResult": "User remains on login page",
+  "expectedResult": "User is redirected to dashboard",
+  "evidence": ["screenshot: login-after-submit.png"],
+  "severity": "high"
+}
+

@@ -74,8 +74,37 @@ public class AiRunQualitySummaryService {
         boolean qdrantHit = booleanArtifact(input, "ui.knowledge.retrieval.qdrant.hit", false);
         String retrievalMode = stringArtifact(input, "ui.knowledge.retrieval.mode",
                 normalizedRetrievalMode(stringArtifact(input, "page.knowledge.cache.retrieval.mode", "unknown")));
-        boolean stableCacheUsed = booleanArtifact(input, "ui.knowledge.retrieval.stable.cache.used",
-                retrievalMode.equals("stable-page-cache"));
+        int pageKnowledgeCacheHits = intArtifact(input, "page.knowledge.cache.hit.count", 0);
+        boolean stableCacheUsed = booleanArtifact(input, "ui.knowledge.retrieval.stable.cache.used", false)
+                || pageKnowledgeCacheHits > 0
+                || retrievalMode.equals("stable-page-cache");
+        if (stableCacheUsed && "current-run".equals(retrievalMode)) {
+            retrievalMode = "stable-page-cache";
+        }
+        String dbUsageMode = dbUsageMode(neo4jHit, qdrantHit, stableCacheUsed);
+        int pageEnrichmentGenerated = intArtifact(input, "page.enrichment.generated.count", 0);
+        int pageEnrichmentCacheHits = intArtifact(
+                input,
+                "page.enrichment.cache.hit.count",
+                pageKnowledgeCacheHits
+        );
+        int pageEnrichmentOpenAiCalls = intArtifact(input, "page.enrichment.openai.count", 0);
+        int pageEnrichmentOpenAiAttempts = intArtifact(
+                input,
+                "page.enrichment.openai.attempt.count",
+                pageEnrichmentOpenAiCalls
+        );
+        int pageEnrichmentOpenAiSuccesses = intArtifact(
+                input,
+                "page.enrichment.openai.success.count",
+                pageEnrichmentOpenAiCalls
+        );
+        int pageEnrichmentOpenAiFailures = intArtifact(input, "page.enrichment.openai.failure.count", 0);
+        int pageEnrichmentOpenAiFallbacks = intArtifact(
+                input,
+                "page.enrichment.openai.fallback.count",
+                pageEnrichmentOpenAiFailures
+        );
         int staleEvidenceRejected = intArtifact(input, "ui.knowledge.retrieval.stale.evidence.rejected", 0);
         String vectorUnavailableReason = stringArtifact(input, "ui.knowledge.retrieval.vector.unavailable.reason", "");
         double averageLocatorScore = averageLocatorScore(locatorCandidates);
@@ -125,6 +154,14 @@ public class AiRunQualitySummaryService {
                 qdrantHit,
                 retrievalMode,
                 stableCacheUsed,
+                dbUsageMode,
+                pageEnrichmentGenerated,
+                pageEnrichmentCacheHits,
+                pageEnrichmentOpenAiCalls,
+                pageEnrichmentOpenAiAttempts,
+                pageEnrichmentOpenAiSuccesses,
+                pageEnrichmentOpenAiFailures,
+                pageEnrichmentOpenAiFallbacks,
                 staleEvidenceRejected,
                 vectorUnavailableReason,
                 qualityScore
@@ -153,6 +190,14 @@ public class AiRunQualitySummaryService {
                 false,
                 "unknown",
                 false,
+                "without-db",
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
                 0,
                 "",
                 0
@@ -337,6 +382,16 @@ public class AiRunQualitySummaryService {
     private String normalizedRetrievalMode(String value) {
         String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replace('_', '-');
         return normalized.isBlank() ? "unknown" : normalized;
+    }
+
+    private String dbUsageMode(boolean neo4jHit, boolean qdrantHit, boolean stableCacheUsed) {
+        if (neo4jHit && qdrantHit && stableCacheUsed) {
+            return "with-db";
+        }
+        if (!neo4jHit && !qdrantHit && !stableCacheUsed) {
+            return "without-db";
+        }
+        return "partial-db";
     }
 
     private int qualityScore(

@@ -78,7 +78,13 @@ public class DbStableLocatorEvidenceService {
             }
             Map<String, String> properties = properties(row.get(0));
             double score = parseDouble(properties.get("qualityScore"), 0.0d);
+            double runtimePassRate = parseDouble(properties.get("runtimePassRate"), 0.0d);
+            double flakyRate = parseDouble(properties.get("flakyRate"), 1.0d);
+            String validationStatus = properties.getOrDefault("validationStatus", "");
             if (score < MIN_CONFIRMED_SCORE
+                    || runtimePassRate < 0.90d
+                    || flakyRate > 0.10d
+                    || !"PASSED".equalsIgnoreCase(validationStatus)
                     || !"CONFIRMED_LOCATOR".equals(properties.getOrDefault("evidenceType", ""))
                     || !"true".equalsIgnoreCase(properties.getOrDefault("sameOrigin", "false"))) {
                 continue;
@@ -104,6 +110,9 @@ public class DbStableLocatorEvidenceService {
                             "db-route:" + properties.getOrDefault("route", ""),
                             "db-stable-locator:" + properties.getOrDefault("locatorId", ""),
                             "db-last-seen:" + properties.getOrDefault("lastSeen", ""),
+                            "db-validation-status:" + validationStatus,
+                            "db-runtime-pass-rate:" + runtimePassRate,
+                            "db-flaky-rate:" + flakyRate,
                             "evidenceType:CONFIRMED_LOCATOR"
                     )
             ));
@@ -127,6 +136,9 @@ public class DbStableLocatorEvidenceService {
                   AND l.pageFingerprintHash = $pageFingerprintHash
                   AND coalesce(l.status, 'ACTIVE') = 'ACTIVE'
                   AND l.evidenceType = 'CONFIRMED_LOCATOR'
+                  AND coalesce(l.validationStatus, '') = 'PASSED'
+                  AND coalesce(toFloat(l.runtimePassRate), 0.0) >= 0.90
+                  AND coalesce(toFloat(l.flakyRate), 1.0) <= 0.10
                 RETURN properties(l)
                 ORDER BY coalesce(toFloat(l.qualityScore), 0.0) DESC,
                          coalesce(toFloat(l.runtimePassRate), 0.0) DESC,

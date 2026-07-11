@@ -18,37 +18,66 @@ public class ApiGenerationAgentTest {
 
     @Test
     public void preparesApiGenerationArtifactsFromConfiguredEndpointSeed() {
+        String previousPreview = System.getProperty("api.preview.enabled");
+        System.clearProperty("api.preview.enabled");
         WorkflowState state = new WorkflowState(
                 "Generate API automation preview",
                 new RequirementInput(SourceType.FILE, "requirements/api.md")
         );
 
-        ApiGenerationAgent agent = new ApiGenerationAgent();
-        ApiGenerationResult result = agent.execute(
-                agent.inputFrom(PipelineArtifactStore.from(state), state),
-                WorkflowRunEnvelope.from(state)
-        );
-        agent.applyOutput(result, state);
+        try {
+            ApiGenerationAgent agent = new ApiGenerationAgent();
+            ApiGenerationResult result = agent.execute(
+                    agent.inputFrom(PipelineArtifactStore.from(state), state),
+                    WorkflowRunEnvelope.from(state)
+            );
+            agent.applyOutput(result, state);
 
-        Assert.assertEquals(state.getArtifacts().get("api.generation.completed"), "true");
-        Assert.assertEquals(state.getArtifacts().get("api.generated.source.persistable"), "true");
-        Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.endpoint.count")) > 0);
-        Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.client.spec.count")) > 0);
-        Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.crud.spec.count")) > 0);
-        Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.source.preview.count")) > 0);
-        Assert.assertEquals(state.getArtifacts().get("api.quality.blocking.count"), "0");
-        Assert.assertTrue(state.getApiSourceFiles().stream()
-                .allMatch(file -> file.relativePath().startsWith("src/main/java/")));
-        Assert.assertTrue(state.getApiTestFiles().stream()
-                .allMatch(file -> file.relativePath().startsWith("src/test/java/")));
-        Assert.assertTrue(state.getAiArtifactFiles().stream()
-                .anyMatch(path -> path.endsWith("api-endpoint-bundle.json")));
-        Assert.assertTrue(state.getAiArtifactFiles().stream()
-                .anyMatch(path -> path.endsWith("api-generation-spec.json")));
-        Assert.assertTrue(state.getAiArtifactFiles().stream()
-                .anyMatch(path -> path.endsWith("preview-UserClient.java")));
-        Assert.assertTrue(state.getAiArtifactFiles().stream()
-                .anyMatch(path -> path.endsWith("preview-UserCrudApiTest.java")));
+            Assert.assertEquals(state.getArtifacts().get("api.generation.completed"), "true");
+            Assert.assertEquals(state.getArtifacts().get("api.generated.source.persistable"), "true");
+            Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.endpoint.count")) > 0);
+            Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.client.spec.count")) > 0);
+            Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.crud.spec.count")) > 0);
+            Assert.assertTrue(Integer.parseInt(state.getArtifacts().get("api.source.preview.count")) > 0);
+            Assert.assertEquals(state.getArtifacts().get("api.quality.blocking.count"), "0");
+            Assert.assertTrue(state.getApiSourceFiles().stream()
+                    .allMatch(file -> file.relativePath().startsWith("src/main/java/")));
+            Assert.assertTrue(state.getApiTestFiles().stream()
+                    .allMatch(file -> file.relativePath().startsWith("src/test/java/")));
+            Assert.assertTrue(state.getAiArtifactFiles().stream()
+                    .anyMatch(path -> path.endsWith("api-endpoint-bundle.json")));
+            Assert.assertTrue(state.getAiArtifactFiles().stream()
+                    .anyMatch(path -> path.endsWith("api-generation-spec.json")));
+            Assert.assertFalse(state.getAiArtifactFiles().stream()
+                    .anyMatch(path -> path.contains("preview-") && path.endsWith(".java")));
+        } finally {
+            restoreProperty("api.preview.enabled", previousPreview);
+        }
+    }
+
+    @Test
+    public void writesApiPreviewArtifactsWhenExplicitlyEnabled() {
+        String previousPreview = System.getProperty("api.preview.enabled");
+        System.setProperty("api.preview.enabled", "true");
+        try {
+            WorkflowState state = new WorkflowState(
+                    "Generate API automation preview",
+                    new RequirementInput(SourceType.FILE, "requirements/api.md")
+            );
+            ApiGenerationAgent agent = new ApiGenerationAgent();
+            ApiGenerationResult result = agent.execute(
+                    agent.inputFrom(PipelineArtifactStore.from(state), state),
+                    WorkflowRunEnvelope.from(state)
+            );
+            agent.applyOutput(result, state);
+
+            Assert.assertTrue(state.getAiArtifactFiles().stream()
+                    .anyMatch(path -> path.contains("api-preview") && path.endsWith("preview-UserClient.java")));
+            Assert.assertTrue(state.getAiArtifactFiles().stream()
+                    .anyMatch(path -> path.contains("api-preview") && path.endsWith("preview-UserCrudApiTest.java")));
+        } finally {
+            restoreProperty("api.preview.enabled", previousPreview);
+        }
     }
 
     @Test
@@ -78,5 +107,13 @@ public class ApiGenerationAgentTest {
                 .anyMatch(path -> path.startsWith("src/test/java/ua/demo/agentlab/api/generated/tests/")));
         Assert.assertEquals(state.getArtifacts().get("api.generated.source.file.written"), String.valueOf(written.size()));
         Assert.assertEquals(state.getArtifacts().get("api.generated.source.persisted"), "true");
+    }
+
+    private void restoreProperty(String key, String value) {
+        if (value == null) {
+            System.clearProperty(key);
+        } else {
+            System.setProperty(key, value);
+        }
     }
 }

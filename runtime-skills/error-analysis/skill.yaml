@@ -1,0 +1,9 @@
+id: error-analysis
+version: 1.0.0
+purpose: Explain runtime or generation failures from logs, stack traces, screenshots, DOM state, and previous run evidence.
+input_schema: input-schema.json
+output_schema: output-schema.json
+prompt: prompt.md
+rules: rules.md
+owner: ui-platform
+

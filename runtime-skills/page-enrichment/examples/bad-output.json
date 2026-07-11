@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "page-model-enrichment-record.v1",
+  "pageId": "login",
+  "pageName": "LoginPage",
+  "route": "/auth/login",
+  "businessIntent": "dashboard and logout",
+  "pageSummary": "Invented unrelated dashboard behavior.",
+  "supportedActions": ["logout"],
+  "stableLocators": ["logoutLink"],
+  "preconditions": [],
+  "postconditions": [],
+  "risks": [],
+  "coverageGaps": [],
+  "requirementTraceability": ["REQ-999"],
+  "confidenceScore": 0.99
+}
+

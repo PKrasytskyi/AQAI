@@ -51,11 +51,14 @@ public class PomContractQualityGateTest {
     }
 
     @Test
-    public void blocksProtectedPageLogoutWithoutUserMenuPrerequisite() {
+    public void blocksProtectedPageLogoutWithoutUserMenuPrerequisiteWhenMenuEvidenceExists() {
         PomContractSpec contract = new PomContractSpec(
                 "pom-contract-v1",
                 new PomPageSpec("DashboardPage", "/dashboard/index", "AUTHENTICATED_AREA", "openDashboard"),
-                List.of(confirmedLocator("logoutLink", "Logout", "css", "a[href*='logout']", "link")),
+                List.of(
+                        confirmedLocator("userMenu", "User menu", "css", ".oxd-userdropdown-tab", "button"),
+                        confirmedLocator("logoutLink", "Logout", "css", "a[href*='logout']", "link")
+                ),
                 List.of(new PomActionSpec(
                         "logout",
                         List.of(),
@@ -75,7 +78,33 @@ public class PomContractQualityGateTest {
 
         Assert.assertTrue(report.hasBlockingIssues());
         Assert.assertTrue(report.issues().stream()
-                .anyMatch(issue -> "POM_PROTECTED_PAGE_FLOW_PREREQUISITE".equals(issue.ruleId())));
+                .anyMatch(issue -> "POM_PROTECTED_PAGE_LOGOUT_SEQUENCE".equals(issue.ruleId())));
+    }
+
+    @Test
+    public void acceptsProtectedPageDirectLogoutWhenNoUserMenuEvidenceExists() {
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("SecureAreaPage", "/secure", "AUTHENTICATED_AREA", "openSecureArea"),
+                List.of(confirmedLocator("logoutLink", "Logout", "css", "a[href='/logout']", "link")),
+                List.of(new PomActionSpec(
+                        "logout",
+                        List.of(),
+                        List.of(new PomStepSpec(PomStepAction.CLICK, "logoutLink", "", "", ""))
+                )),
+                List.of(new PomAssertionSpec(
+                        "isLogoutActionVisible",
+                        "boolean",
+                        List.of(new PomCheckSpec(PomCheckType.VISIBLE, "logoutLink", "", "", "", "")),
+                        "AND"
+                )),
+                List.of(),
+                List.of()
+        );
+
+        PomContractQualityReport report = gate.validate(contract);
+
+        Assert.assertFalse(report.hasBlockingIssues(), report.issues().toString());
     }
 
     @Test
@@ -96,7 +125,10 @@ public class PomContractQualityGateTest {
                         new PomActionSpec(
                                 "logout",
                                 List.of(),
-                                List.of(new PomStepSpec(PomStepAction.CLICK, "logoutLink", "", "", ""))
+                                List.of(
+                                        new PomStepSpec(PomStepAction.CLICK, "userMenu", "", "", ""),
+                                        new PomStepSpec(PomStepAction.CLICK, "logoutLink", "", "", "")
+                                )
                         )
                 ),
                 List.of(new PomAssertionSpec(
@@ -112,6 +144,35 @@ public class PomContractQualityGateTest {
         PomContractQualityReport report = gate.validate(contract);
 
         Assert.assertFalse(report.hasBlockingIssues(), report.issues().toString());
+    }
+
+    @Test
+    public void blocksDropdownMenuItemAsUserMenuTrigger() {
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("DashboardPage", "/dashboard/index", "AUTHENTICATED_AREA", "openDashboard"),
+                List.of(
+                        confirmedLocator("userMenuTrigger", "User menu trigger", "css", "a.oxd-userdropdown-link", "button"),
+                        confirmedLocator("logoutLink", "Logout", "css", "a[href*='logout']", "link")
+                ),
+                List.of(new PomActionSpec(
+                        "logout",
+                        List.of(),
+                        List.of(
+                                new PomStepSpec(PomStepAction.CLICK, "userMenuTrigger", "", "", ""),
+                                new PomStepSpec(PomStepAction.CLICK, "logoutLink", "", "", "")
+                        )
+                )),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+
+        PomContractQualityReport report = gate.validate(contract);
+
+        Assert.assertTrue(report.hasBlockingIssues());
+        Assert.assertTrue(report.issues().stream()
+                .anyMatch(issue -> "POM_PROTECTED_PAGE_MENU_TRIGGER_LOCATOR".equals(issue.ruleId())));
     }
 
     @Test

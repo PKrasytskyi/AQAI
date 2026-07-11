@@ -1,31 +1,19 @@
 package ua.demo.agentlab.core.config;
 
-import java.io.InputStream;
 import java.time.Duration;
 import java.util.Objects;
-import java.util.Properties;
+import ua.demo.agentlab.config.RuntimeProperties;
 
 public class PropertiesUiRuntimeConfig implements UiRuntimeConfig {
 
-    private final Properties properties = new Properties();
+    private final RuntimeProperties properties;
 
     public PropertiesUiRuntimeConfig() {
         this("framework.properties");
     }
 
     public PropertiesUiRuntimeConfig(String resourceName) {
-        try (InputStream input = Thread.currentThread()
-                .getContextClassLoader()
-                .getResourceAsStream(resourceName)) {
-
-            if (input == null) {
-                throw new IllegalStateException("Cannot find config resource: " + resourceName);
-            }
-
-            properties.load(input);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Failed to load config resource: " + resourceName, exception);
-        }
+        this.properties = new RuntimeProperties(resourceName);
     }
 
     @Override
@@ -75,22 +63,6 @@ public class PropertiesUiRuntimeConfig implements UiRuntimeConfig {
     }
 
     private String readValue(String key) {
-        String systemValue = System.getProperty(key);
-        if (systemValue != null && !systemValue.isBlank()) {
-            return systemValue.trim();
-        }
-
-        String envKey = key.toUpperCase().replace('.', '_').replace('-', '_');
-        String envValue = System.getenv(envKey);
-        if (envValue != null && !envValue.isBlank()) {
-            return envValue.trim();
-        }
-
-        String propertyValue = properties.getProperty(key);
-        if (propertyValue != null && !propertyValue.isBlank()) {
-            return propertyValue.trim();
-        }
-
-        return null;
+        return properties.readOptional(key, key.toUpperCase().replace('.', '_').replace('-', '_'));
     }
 }

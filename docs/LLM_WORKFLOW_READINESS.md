@@ -360,11 +360,12 @@ Optional:
 
 - `RAG_OPENAI_API_KEY`
 
-#### 2. Enable RAG explicitly
+#### 2. Configure RAG mode
 
-RAG is disabled by default for repository-safe local runs. Enable it only when Qdrant and credentials are configured:
+The checked-in demo profile enables RAG, but Qdrant/embedding retrieval still requires reachable services and credentials. Disable it explicitly for no-RAG comparison runs or keep it enabled when Qdrant and credentials are configured:
 
-- set `rag.enabled` to `true`
+- set `rag.enabled` to `false` for no-RAG runs
+- keep `rag.enabled=true` for DB/RAG demo runs
 
 #### 3. Start Qdrant
 

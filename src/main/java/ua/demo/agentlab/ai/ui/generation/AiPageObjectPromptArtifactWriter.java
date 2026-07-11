@@ -12,7 +12,8 @@ import java.util.Map;
 
 public class AiPageObjectPromptArtifactWriter {
 
-    private static final String STAGE = "page-object-spec";
+    private static final String STAGE = "page-objects";
+    private static final String LOGICAL_STAGE = "page-object-spec";
 
     private final AiRunArtifactWriter artifactWriter;
 
@@ -37,22 +38,24 @@ public class AiPageObjectPromptArtifactWriter {
         List<String> files = new ArrayList<>();
         Map<String, String> artifacts = new LinkedHashMap<>();
 
-        files.add(artifactWriter.writeJson(STAGE, draft.scope().fileStem() + "-scope-trace.json",
-                draft.scope().scopeTrace()).toString());
-        files.add(artifactWriter.writeJson(STAGE, draft.scope().fileStem() + "-prompt-quality-report.json",
-                qualityReport).toString());
+        artifactWriter.writeDebugJson(LOGICAL_STAGE, draft.scope().fileStem() + "-scope-trace.json",
+                draft.scope().scopeTrace()).map(Path::toString).ifPresent(files::add);
+        artifactWriter.writeDebugJson(LOGICAL_STAGE, draft.scope().fileStem() + "-prompt-quality-report.json",
+                qualityReport).map(Path::toString).ifPresent(files::add);
         Path promptPath = artifactWriter.writeText(STAGE, draft.scope().fileStem() + "-prompt.txt", draft.prompt());
         files.add(promptPath.toString());
 
         AiPromptTraceSnapshot traceSnapshot = new AiPromptTraceSnapshot(
-                STAGE,
+                LOGICAL_STAGE,
                 "page:" + draft.scope().fileStem(),
                 draft.scope().pageName(),
                 "page-object-spec",
                 promptPath.toString(),
                 traceMetadata(draft)
         );
-        files.add(artifactWriter.writeJson(STAGE, draft.scope().fileStem() + "-prompt-trace.json", traceSnapshot).toString());
+        artifactWriter.writeDebugJson(LOGICAL_STAGE, draft.scope().fileStem() + "-prompt-trace.json", traceSnapshot)
+                .map(Path::toString)
+                .ifPresent(files::add);
 
         artifacts.put(
                 "ai.page.object.prompt.quality." + draft.scope().fileStem() + ".blocking",
@@ -77,8 +80,16 @@ public class AiPageObjectPromptArtifactWriter {
         return artifactWriter.writeText(STAGE, fileName, content).toString();
     }
 
+    public java.util.Optional<String> writeDebugText(String fileName, String content) {
+        return artifactWriter.writeDebugText(LOGICAL_STAGE, fileName, content).map(Path::toString);
+    }
+
     public String writeJson(String fileName, Object payload) {
         return artifactWriter.writeJson(STAGE, fileName, payload).toString();
+    }
+
+    public java.util.Optional<String> writeDebugJson(String fileName, Object payload) {
+        return artifactWriter.writeDebugJson(LOGICAL_STAGE, fileName, payload).map(Path::toString);
     }
 
     private Map<String, Object> traceMetadata(AiPageObjectPromptDraft draft) {

@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 public class AiRunQualitySummaryWriter {
 
@@ -61,19 +62,90 @@ public class AiRunQualitySummaryWriter {
             WorkflowPipelineSnapshot snapshot
     ) {
         AiRunQualitySummary summary = summaryService.summarize(input);
-        Path snapshotPath = artifactWriter.writeJson("quality", "pipeline-snapshot.json", snapshot);
+        List<String> artifactFiles = new ArrayList<>();
+        artifactWriter.writeDebugJson("quality", "pipeline-snapshot.json", snapshot)
+                .map(Path::toString)
+                .ifPresent(artifactFiles::add);
         Path path = artifactWriter.writeJson("quality", "run-quality-summary.json", summary);
+        Path compactJson = artifactWriter.writeJson("", "run-summary.json", compactSummary(summary));
+        Path compactMarkdown = artifactWriter.writeText("", "run-summary.md", compactSummaryMarkdown(summary));
         AiRunArtifactDiffResult diffResult = artifactDiffWriter.write(summary);
         Map<String, String> artifacts = new LinkedHashMap<>();
         artifacts.put("ai.run.quality.summary.file", path.toString());
+        artifacts.put("ai.run.summary.file", compactJson.toString());
+        artifacts.put("ai.run.summary.markdown.file", compactMarkdown.toString());
         artifacts.put("ai.run.quality.score", String.valueOf(summary.qualityScore()));
         artifacts.put("ai.run.quality.prompt.blocking.issues", String.valueOf(summary.promptBlockingIssues()));
         artifacts.put("ai.run.artifact.diff.regressions", String.valueOf(diffResult.report().regressions().size()));
+        artifactFiles.add(path.toString());
+        artifactFiles.add(compactJson.toString());
+        artifactFiles.add(compactMarkdown.toString());
+        artifactFiles.add(diffResult.artifactFile());
         return new AiRunQualityArtifactResult(
                 summary,
                 diffResult.report(),
-                List.of(snapshotPath.toString(), path.toString(), diffResult.artifactFile()),
+                artifactFiles,
                 artifacts
+        );
+    }
+
+    private Map<String, Object> compactSummary(AiRunQualitySummary summary) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("runId", summary.runId());
+        values.put("qualityScore", summary.qualityScore());
+        values.put("requirements", summary.requirements());
+        values.put("canonicalTestCases", summary.canonicalTestCases());
+        values.put("mappedPages", summary.mappedPages());
+        values.put("confirmedLocators", summary.confirmedLocators());
+        values.put("candidateLocators", summary.candidateLocators());
+        values.put("fallbackLocators", summary.fallbackLocators());
+        values.put("lowConfidenceLocators", summary.lowConfidenceLocators());
+        values.put("promptBlockingIssues", summary.promptBlockingIssues());
+        values.put("expectedResultsNeedsReview", summary.expectedResultsNeedsReview());
+        values.put("neo4jHit", summary.neo4jHit());
+        values.put("qdrantHit", summary.qdrantHit());
+        values.put("retrievalMode", summary.retrievalMode());
+        values.put("stableCacheUsed", summary.stableCacheUsed());
+        values.put("pageEnrichmentOpenAiAttempts", summary.pageEnrichmentOpenAiAttempts());
+        values.put("pageEnrichmentOpenAiFailures", summary.pageEnrichmentOpenAiFailures());
+        return values;
+    }
+
+    private String compactSummaryMarkdown(AiRunQualitySummary summary) {
+        return """
+                # AI Run Summary
+
+                | Metric | Value |
+                | --- | --- |
+                | runId | %s |
+                | qualityScore | %d |
+                | requirements | %d |
+                | canonicalTestCases | %d |
+                | mappedPages | %d |
+                | confirmedLocators | %d |
+                | candidateLocators | %d |
+                | fallbackLocators | %d |
+                | promptBlockingIssues | %d |
+                | expectedResultsNeedsReview | %d |
+                | retrievalMode | %s |
+                | stableCacheUsed | %s |
+                | neo4jHit | %s |
+                | qdrantHit | %s |
+                """.formatted(
+                summary.runId(),
+                summary.qualityScore(),
+                summary.requirements(),
+                summary.canonicalTestCases(),
+                summary.mappedPages(),
+                summary.confirmedLocators(),
+                summary.candidateLocators(),
+                summary.fallbackLocators(),
+                summary.promptBlockingIssues(),
+                summary.expectedResultsNeedsReview(),
+                summary.retrievalMode(),
+                summary.stableCacheUsed(),
+                summary.neo4jHit(),
+                summary.qdrantHit()
         );
     }
 }

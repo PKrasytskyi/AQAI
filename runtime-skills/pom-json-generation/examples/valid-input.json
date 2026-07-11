@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "pom-json-generation-input.v1",
+  "page": {
+    "name": "LoginPage",
+    "route": "/auth/login",
+    "capability": "AUTHENTICATION",
+    "openMethod": "openLogin"
+  },
+  "ownedActions": ["enterUsername", "enterPassword", "clickLoginButton", "login"],
+  "ownedAssertions": ["route contains /auth/login", "username field visible", "password field visible"],
+  "allowedLocators": [
+    {"id": "usernameInput", "strategy": "name", "value": "username", "role": "input", "elementName": "Username", "stabilityScore": 0.88}
+  ],
+  "baselineSignatures": ["void login(String username, String password)"],
+  "coverageGaps": []
+}
+

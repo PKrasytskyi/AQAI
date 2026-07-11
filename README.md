@@ -64,6 +64,25 @@ Two root-package facades remain only for backward compatibility with older gener
 
 New generated API code imports the `ua.demo.agentlab.core.*` classes directly.
 
+## Runtime Skills
+
+LLM-facing task contracts live in:
+
+```text
+runtime-skills/
+```
+
+This package separates prompt/schema rules from Java orchestration code. The current skill set is:
+
+- `pom-json-generation` - structured `pom-contract-v1` output for deterministic POM Java writing.
+- `page-enrichment` - semantic enrichment over mapper-approved page evidence.
+- `test-json-generation` - structured UI test spec JSON, not Java code.
+- `self-healing-locator` - replacement locator review after runtime failures.
+- `error-analysis` - root-cause classification for failed runs/tests.
+- `bug-report-generation` - bug report drafts from validated evidence.
+
+Each skill owns `skill.yaml`, `prompt.md`, `input-schema.json`, `output-schema.json`, `rules.md`, and examples. `RuntimeSkillPromptLoader` loads these contracts for POM JSON generation and page enrichment prompt assembly, while page-specific evidence remains dynamically assembled by the Java pipeline.
+
 ## Requirements
 
 - Java 17
@@ -79,7 +98,7 @@ Default project configuration is in:
 ```text
 src/main/resources/framework.properties
 src/main/resources/test-data.properties
-src/main/resources/framework.example.properties
+src/main/resources/profiles/orangehrm.project-profile.yaml
 ```
 
 `framework.properties` is intentionally safe to keep in the repository: secret values are expressed as `${ENV_VAR}` placeholders and resolved at runtime from JVM properties, environment variables, or the loaded properties file. Do not commit local secrets. Use environment variables or ignored local override files for private values:
@@ -92,6 +111,39 @@ $env:API_AUTH_TOKEN="..."
 $env:TEST_VALID_USERNAME="..."
 $env:TEST_VALID_PASSWORD="..."
 ```
+
+Project-specific runtime values should live in a project profile:
+
+```properties
+project.profile.file=profiles/orangehrm.project-profile.yaml
+```
+
+The active profile can define project id/name/base URL, routes, UI runtime defaults, auth selectors/env names, AI switches, knowledge-store switches, and the default requirements file. Resolution order is:
+
+```text
+JVM system property > environment variable > project profile YAML > framework.properties > code fallback
+```
+
+If the CLI does not pass a requirement file, the runner uses `requirements.file` from the active project profile.
+
+Important runtime switches:
+
+```properties
+openai.enabled=true
+ai.page-enrichment.llm.enabled=true
+ai.page-object.llm.enabled=true
+ai.ui-test.llm.enabled=false
+rag.enabled=true
+knowledge.graph.enabled=true
+knowledge.vector.enabled=true
+```
+
+- `KNOWLEDGE_DB_STATUS=false` disables RAG, Neo4j, and Qdrant for a no-DB comparison run.
+- `KNOWLEDGE_DB_STATUS=true` enables RAG, Neo4j, and Qdrant for a DB-backed run.
+- `ai.page-enrichment.llm.enabled` controls whether page enrichment can call OpenAI.
+- `rag.enabled` controls retrieval/indexing behavior and must not be treated as the page-enrichment switch.
+- `knowledge.graph.enabled` and `knowledge.vector.enabled` control Neo4j/Qdrant persistence and retrieval availability.
+- Run summaries expose `dbUsageMode`, `neo4jHit`, `qdrantHit`, `stableCacheUsed`, and page-enrichment counters so DB/no-DB behavior is visible in artifacts.
 
 Ignored local override examples:
 
@@ -108,6 +160,18 @@ The platform can use:
 
 - Neo4j for graph page knowledge.
 - Qdrant for vector retrieval.
+
+DB-backed runs are reported as:
+
+- `with-db` when Neo4j hit, Qdrant hit, and stable cache reuse are all true.
+- `without-db` when all three are false.
+- `partial-db` for mixed states, for example Neo4j available but Qdrant disabled or embedding key missing.
+
+Page enrichment cache reuse is tracked separately through:
+
+- `pageEnrichmentGenerated`
+- `pageEnrichmentCacheHits`
+- `pageEnrichmentOpenAiCalls`
 
 Start both with:
 
@@ -169,10 +233,17 @@ $env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD="local-neo4j-password"
 mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md"
 ```
 
-AI/RAG/knowledge-store features are disabled by default in `framework.properties` for repository safety. Enable them explicitly for a local AI run, for example with JVM properties:
+The checked-in `framework.properties` is demo-oriented and enables AI/RAG/knowledge-store switches, while secrets still come from environment variables. For a clean no-DB/no-RAG comparison run, disable them explicitly with JVM properties:
 
 ```powershell
-mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md" "-Dopenai.enabled=true" "-Dai.page-object.llm.enabled=true" "-Drag.enabled=true" "-Dknowledge.graph.enabled=true" "-Dknowledge.vector.enabled=true"
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai requirements/valid-login-requirement.md" "-Drag.enabled=false" "-Dknowledge.graph.enabled=false" "-Dknowledge.vector.enabled=false"
+```
+
+Equivalent one-switch form:
+
+```powershell
+$env:KNOWLEDGE_DB_STATUS="false"
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--ai"
 ```
 
 Current AI mode records deterministic POM contract prompts and enrichment artifacts. When `ai.page-object.llm.enabled=true`, the LLM returns only `pom-contract-v1` JSON. It does not write Java bodies. Java Page Objects are produced by `DeterministicPomJavaWriter` from the validated contract.
@@ -206,25 +277,28 @@ More details:
 Runtime artifacts are generated under `target/` and are ignored by Git:
 
 ```text
-target/ai-run/context/
+target/ai-run/debug/
 target/ai-run/enrichment/
 target/ai-run/expectations/
 target/ai-run/need-review/
-target/ai-run/page-object-spec/
+target/ai-run/page-objects/
 target/ai-run/quality/
+target/ai-run/run-summary.json
+target/ai-run/run-summary.md
 target/ai-run-history/
 target/discovery/
 ```
 
 Key files:
 
-- `target/ai-run/page-object-spec/*-prompt.txt` - deterministic `pom-contract-v1` POM prompts.
-- `target/ai-run/page-object-spec/*-pom-contract.json` - validated POM contracts returned by the LLM when POM LLM mode is enabled.
-- `target/ai-run/page-object-spec/*-scope-trace.json` - page scope evidence.
+- `target/ai-run/run-summary.md` - compact run review summary.
+- `target/ai-run/page-objects/*-prompt.txt` - deterministic `pom-contract-v1` POM prompts.
+- `target/ai-run/page-objects/*-pom-contract.json` - validated POM contracts returned by the LLM when POM LLM mode is enabled.
 - `target/ai-run/expectations/test-case-expected-results.json` - resolved expected results.
 - `target/ai-run/need-review/expected-results-needs-review.json` - unresolved expected results for review.
 - `target/ai-run/quality/run-quality-summary.json` - run-level quality score.
 - `target/ai-run/quality/artifact-diff.json` - comparison against previous run artifacts.
+- `target/ai-run/debug/**` - scope traces, prompt traces, raw context packages, and pipeline snapshots when `ai.debug.artifacts=true`.
 
 ## Quality Gates
 

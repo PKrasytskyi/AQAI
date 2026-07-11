@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "bug-report-generation-input.v1",
+  "environment": {"browser": "Chrome", "baseUrl": "https://example.test"},
+  "steps": ["Open login page", "Submit valid credentials"],
+  "actualResult": "User remains on login page",
+  "expectedResult": "User is redirected to dashboard",
+  "evidence": ["screenshot: login-after-submit.png"],
+  "severitySignals": ["blocks authentication"]
+}
+

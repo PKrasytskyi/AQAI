@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/page-enrichment/input-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "page", "ownedRequirementIds", "allowedLocators"],
+  "properties": {
+    "schemaVersion": {"const": "page-enrichment-input.v1"},
+    "page": {"type": "object"},
+    "ownedRequirementIds": {"type": "array", "items": {"type": "string"}},
+    "ownedActions": {"type": "array", "items": {"type": "string"}},
+    "ownedAssertions": {"type": "array", "items": {"type": "string"}},
+    "semanticComponents": {"type": "array", "items": {"type": "string"}},
+    "allowedLocators": {"type": "array", "items": {"type": "object"}},
+    "runtimeEvidence": {"type": "array", "items": {"type": "string"}},
+    "knownGaps": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}
+

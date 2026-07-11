@@ -51,7 +51,7 @@ public class PomContractSpecParserTest {
         Assert.assertEquals(contract.actions().get(0).steps().get(0).valueFrom(), "username");
         Assert.assertEquals(contract.assertions().get(0).checks().get(0).check(), PomCheckType.VISIBLE);
         Assert.assertTrue(contract.coverageGaps().stream().anyMatch(gap -> gap.contains("CG-1")));
-        Assert.assertTrue(contract.coverageGaps().stream().anyMatch(gap -> gap.contains("logout")));
+        Assert.assertFalse(contract.coverageGaps().stream().anyMatch(gap -> gap.contains("logout")));
     }
 
     @Test
@@ -270,6 +270,7 @@ public class PomContractSpecParserTest {
                       "confidence": 0.91,
                       "requirementId": "REQ-017",
                       "ownerPage": "DashboardPage",
+                      "notes": "LLM explanation must not be part of the strict contract",
                       "checks": [
                         {
                           "check": "VISIBLE",
@@ -279,6 +280,7 @@ public class PomContractSpecParserTest {
                           "attribute": "",
                           "route": "",
                           "confidence": 0.91,
+                          "notes": "Check-level explanation must be stripped too",
                           "sourceReference": "requirements/valid-login-requirement.md [L28]"
                         }
                       ],
@@ -293,5 +295,41 @@ public class PomContractSpecParserTest {
         Assert.assertEquals(contract.assertions().size(), 1);
         Assert.assertEquals(contract.assertions().get(0).methodName(), "isDashboardVisible");
         Assert.assertEquals(contract.assertions().get(0).checks().get(0).check(), PomCheckType.VISIBLE);
+    }
+
+    @Test
+    public void removesLoginPageOutOfScopeCoverageNoise() {
+        PomContractSpec contract = new PomContractSpecParser().parse("""
+                {
+                  "schemaVersion": "pom-contract-v1",
+                  "page": {"name": "LoginPage", "route": "/auth/login", "capability": "AUTHENTICATION", "openMethod": "openLogin"},
+                  "locators": [
+                    {"id": "usernameInput", "elementName": "username", "strategy": "name", "value": "username", "role": "input", "stabilityScore": 0.87},
+                    {"id": "passwordInput", "elementName": "password", "strategy": "name", "value": "password", "role": "password", "stabilityScore": 0.87},
+                    {"id": "loginButton", "elementName": "login", "strategy": "css", "value": "button[type='submit']", "role": "button", "stabilityScore": 0.87}
+                  ],
+                  "actions": [],
+                  "assertions": [
+                    {
+                      "methodName": "isLoginFormVisible",
+                      "returnType": "boolean",
+                      "checks": [
+                        {"check": "VISIBLE", "locator": "usernameInput", "expectedValue": "", "valueFrom": "", "attribute": "", "route": ""},
+                        {"check": "VISIBLE", "locator": "passwordInput", "expectedValue": "", "valueFrom": "", "attribute": "", "route": ""}
+                      ],
+                      "combine": "AND"
+                    }
+                  ],
+                  "coverageGaps": [
+                    "No explicit logout locator evidence because logout belongs to authenticated area.",
+                    "FORM_VISIBLE unresolved as a single form locator but login field checks are available.",
+                    "REQ-016 and REQ-019 lack explicit expected values.",
+                    "Keep this real login page gap"
+                  ],
+                  "rejectedSuggestions": []
+                }
+                """);
+
+        Assert.assertEquals(contract.coverageGaps(), java.util.List.of("Keep this real login page gap"));
     }
 }

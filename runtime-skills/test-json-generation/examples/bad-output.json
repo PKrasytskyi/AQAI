@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "ui-test-spec-v1",
+  "tests": [
+    {
+      "scenarioId": "REQ-015",
+      "className": "BadTest",
+      "testMethodName": "bad",
+      "steps": [{"java": "driver.findElement(By.id(\"username\")).sendKeys(\"Admin\");"}],
+      "assertions": [],
+      "dataRequirements": []
+    }
+  ]
+}
+

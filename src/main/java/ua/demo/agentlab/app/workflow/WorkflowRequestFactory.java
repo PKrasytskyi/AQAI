@@ -29,9 +29,9 @@ public class WorkflowRequestFactory {
     }
 
     public WorkflowRequest create(String[] args) {
-        String requirementLocation = resolveRequirementLocation(args);
-        SourceType sourceType = detectSourceType(requirementLocation);
         ProjectProfile projectProfile = projectProfileLoader.loadDefaultProfile();
+        String requirementLocation = resolveRequirementLocation(args, projectProfileLoader.defaultRequirementLocation());
+        SourceType sourceType = detectSourceType(requirementLocation);
         return new WorkflowRequest(
                 requirementLocation,
                 sourceType,
@@ -40,11 +40,13 @@ public class WorkflowRequestFactory {
         );
     }
 
-    private String resolveRequirementLocation(String[] args) {
+    private String resolveRequirementLocation(String[] args, String profileRequirementLocation) {
         String requestedLocation = Arrays.stream(args == null ? new String[0] : args)
                 .filter(arg -> !arg.startsWith("--"))
                 .findFirst()
-                .orElse(DEFAULT_REQUIREMENT_LOCATION);
+                .orElseGet(() -> profileRequirementLocation == null || profileRequirementLocation.isBlank()
+                        ? DEFAULT_REQUIREMENT_LOCATION
+                        : profileRequirementLocation.trim());
 
         if (isMissingFileLocation(requestedLocation) && Files.exists(Path.of(DEFAULT_REQUIREMENT_LOCATION))) {
             System.err.println("Requirement file not found: " + requestedLocation

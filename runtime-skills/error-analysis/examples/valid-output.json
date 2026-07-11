@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "error-analysis-result.v1",
+  "classification": "locator-failure",
+  "suspectedRootCause": "Generated code used a locator id that was not present in the persisted Page Object.",
+  "evidence": ["NoSuchElementException references loginButton", "Login page screenshot is visible"],
+  "recommendedAction": "Verify POM locator id rehydration against PromptUiEvidence.",
+  "confidence": 0.82
+}
+

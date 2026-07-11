@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/page-enrichment/output-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "pageId", "pageName", "route", "businessIntent", "pageSummary", "supportedActions", "stableLocators", "preconditions", "postconditions", "risks", "coverageGaps", "requirementTraceability", "confidenceScore"],
+  "properties": {
+    "schemaVersion": {"const": "page-model-enrichment-record.v1"},
+    "pageId": {"type": "string"},
+    "pageName": {"type": "string"},
+    "route": {"type": "string"},
+    "businessIntent": {"type": "string"},
+    "pageSummary": {"type": "string"},
+    "supportedActions": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+    "stableLocators": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+    "preconditions": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+    "postconditions": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+    "risks": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+    "coverageGaps": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+    "requirementTraceability": {"type": "array", "items": {"type": "string"}},
+    "confidenceScore": {"type": "number", "minimum": 0, "maximum": 1}
+  },
+  "additionalProperties": false
+}
+

@@ -3,6 +3,7 @@ package ua.demo.agentlab.persistence;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.orchestration.pipeline.AiArtifactPublisher;
 import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
@@ -15,6 +16,7 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
         PipelineAgent<GeneratedUiSources, List<String>> {
 
     private final GeneratedFileWriter generatedFileWriter;
+    private final AiArtifactPublisher artifactPublisher = new AiArtifactPublisher();
 
     public LocalFilePersistenceAgent(GeneratedFileWriter generatedFileWriter){
         this.generatedFileWriter = generatedFileWriter;
@@ -81,12 +83,25 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
 
     @Override
     public void applyOutput(List<String> paths, WorkflowState state) {
-        for (String path : paths == null ? List.<String>of() : paths) {
+        List<String> persisted = paths == null ? List.of() : List.copyOf(paths);
+        for (String path : persisted) {
             state.addWrittenFile(path);
         }
-        int writtenCount = paths == null ? 0 : paths.size();
+        int writtenCount = persisted.size();
         state.addArtifact("generated.file.persisted", "true");
         state.addArtifact("generated.file.written", String.valueOf(writtenCount));
         state.addFinding("Generated file persisted: " + writtenCount);
+        artifactPublisher.writeJson(
+                state,
+                "validation",
+                "persisted-generated-sources.json",
+                new PersistedGeneratedSourcesArtifact(writtenCount, persisted)
+        );
+    }
+
+    private record PersistedGeneratedSourcesArtifact(
+            int filesWritten,
+            List<String> files
+    ) {
     }
 }

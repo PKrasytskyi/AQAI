@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 public class AiRunArtifactWriter {
 
@@ -22,6 +23,13 @@ public class AiRunArtifactWriter {
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to write AI text artifact for stage '%s'".formatted(stage), exception);
         }
+    }
+
+    public Optional<Path> writeDebugText(String stage, String fileName, String content) {
+        if (!debugArtifactsEnabled()) {
+            return Optional.empty();
+        }
+        return Optional.of(writeText(debugStage(stage), fileName, content));
     }
 
     public Path writeJson(String stage, String fileName, Object payload) {
@@ -41,10 +49,32 @@ public class AiRunArtifactWriter {
         }
     }
 
+    public Optional<Path> writeDebugJson(String stage, String fileName, Object payload) {
+        if (!debugArtifactsEnabled()) {
+            return Optional.empty();
+        }
+        return Optional.of(writeJson(debugStage(stage), fileName, payload));
+    }
+
+    public boolean debugArtifactsEnabled() {
+        String property = System.getProperty("ai.debug.artifacts");
+        if (property != null && !property.isBlank()) {
+            return Boolean.parseBoolean(property.trim());
+        }
+        String env = System.getenv("AI_DEBUG_ARTIFACTS");
+        return env != null && Boolean.parseBoolean(env.trim());
+    }
+
     private Path ensureStageDirectory(String stage) throws IOException {
-        Path directory = ROOT.resolve(sanitizeSegment(stage));
+        Path directory = stage == null || stage.isBlank()
+                ? ROOT
+                : ROOT.resolve(sanitizeSegment(stage));
         Files.createDirectories(directory);
         return directory;
+    }
+
+    private String debugStage(String stage) {
+        return "debug/" + sanitizeSegment(stage);
     }
 
     private String sanitizeFileName(String value) {

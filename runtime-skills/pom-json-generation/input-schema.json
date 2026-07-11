@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime-skills/pom-json-generation/input-schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "page", "ownedActions", "ownedAssertions", "allowedLocators"],
+  "properties": {
+    "schemaVersion": {"const": "pom-json-generation-input.v1"},
+    "page": {
+      "type": "object",
+      "required": ["name", "route", "capability"],
+      "properties": {
+        "name": {"type": "string"},
+        "route": {"type": "string"},
+        "capability": {"type": "string"},
+        "openMethod": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "ownedActions": {"type": "array", "items": {"type": "string"}},
+    "ownedAssertions": {"type": "array", "items": {"type": "string"}},
+    "allowedLocators": {"type": "array", "items": {"type": "object"}},
+    "baselineSignatures": {"type": "array", "items": {"type": "string"}},
+    "coverageGaps": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}
+

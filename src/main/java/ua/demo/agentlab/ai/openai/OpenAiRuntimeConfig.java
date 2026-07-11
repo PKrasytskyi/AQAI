@@ -20,6 +20,10 @@ public interface OpenAiRuntimeConfig {
         return false;
     }
 
+    default boolean pageEnrichmentLlmEnabled() {
+        return false;
+    }
+
     default boolean uiTestLlmEnabled() {
         return false;
     }

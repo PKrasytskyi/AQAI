@@ -1,0 +1,9 @@
+id: test-json-generation
+version: 1.0.0
+purpose: Generate structured UI test spec JSON from canonical test cases and page APIs.
+input_schema: input-schema.json
+output_schema: output-schema.json
+prompt: prompt.md
+rules: rules.md
+owner: ui-platform
+

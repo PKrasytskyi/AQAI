@@ -1,0 +1,39 @@
+schemaVersion: project-profile.v1
+
+project:
+  id: the-internet
+  name: The Internet Herokuapp
+  baseUrl: https://the-internet.herokuapp.com
+
+requirements:
+  file: requirements/the-internet-valid-login-requirement.md
+
+routes:
+  home: /
+  login: /login
+  authenticated: /secure
+
+ui:
+  baseUrl: https://the-internet.herokuapp.com
+  browser: chrome
+  headless: true
+  timeoutSeconds: 10
+
+auth:
+  enabled: true
+  usernameEnv: TEST_VALID_USERNAME
+  passwordEnv: TEST_VALID_PASSWORD
+  usernameSelector: "input#username, input[name='username']"
+  passwordSelector: "input#password, input[name='password'], input[type='password']"
+  submitSelector: "button[type='submit'], input[type='submit']"
+
+ai:
+  openAiEnabled: true
+  pageEnrichmentLlmEnabled: true
+  pageObjectLlmEnabled: true
+  uiTestLlmEnabled: false
+
+knowledge:
+  ragEnabled: true
+  graphEnabled: true
+  vectorEnabled: true

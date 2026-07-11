@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "page-enrichment-input.v1",
+  "page": {"pageId": "login", "pageName": "LoginPage", "route": "/auth/login", "capability": "AUTHENTICATION"},
+  "ownedRequirementIds": ["REQ-011", "REQ-012"],
+  "ownedActions": ["login"],
+  "ownedAssertions": ["username field is visible"],
+  "semanticComponents": ["LoginForm"],
+  "allowedLocators": [{"id": "usernameInput", "strategy": "name", "value": "username", "score": 0.88}],
+  "runtimeEvidence": ["ROUTE_CONFIRMED /auth/login"],
+  "knownGaps": []
+}
+

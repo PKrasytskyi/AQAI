@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "error-analysis-input.v1",
+  "failureLog": "NoSuchElementException: loginButton",
+  "stacktrace": "org.openqa.selenium.NoSuchElementException",
+  "screenshotSummary": "Login page is visible",
+  "domState": "button[type='submit'] exists"
+}
+

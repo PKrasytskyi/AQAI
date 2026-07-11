@@ -43,10 +43,16 @@ public class GeneratedUiRuntimeFeedbackWriter {
             Map<String, Object> payload = payload(smokeResult, compileResult, reviewReport, runId);
             httpClient.post(
                     commitUrl(),
-                    Map.of("statements", List.of(Map.of(
-                            "statement", statement(),
-                            "parameters", payload
-                    ))),
+                    Map.of("statements", List.of(
+                            Map.of(
+                                    "statement", statement(),
+                                    "parameters", payload
+                            ),
+                            Map.of(
+                                    "statement", stableLocatorFeedbackStatement(),
+                                    "parameters", payload
+                            )
+                    )),
                     headers()
             );
             return new RuntimeFeedbackDbUpdateResult(true, "neo4j", 1,
@@ -75,6 +81,13 @@ public class GeneratedUiRuntimeFeedbackWriter {
         payload.put("compileStatus", compileResult == null ? "UNKNOWN" : compileResult.status().name());
         payload.put("reviewFindings", reviewReport == null ? 0 : reviewReport.totalFindings());
         payload.put("qualitySignal", smokeResult != null && smokeResult.passed() ? "PASSED" : "NEEDS_REVIEW");
+        payload.put("locatorStatus", smokeResult != null && smokeResult.passed() ? "ACTIVE" : "DEMOTED");
+        payload.put("locatorValidationStatus", smokeResult != null && smokeResult.passed() ? "PASSED" : "FAILED");
+        payload.put("locatorRuntimePassRate", smokeResult != null && smokeResult.passed() ? 1.0d : 0.0d);
+        payload.put("locatorFlakyRate", smokeResult != null && smokeResult.passed() ? 0.0d : 1.0d);
+        payload.put("demotionReason", smokeResult != null && smokeResult.passed()
+                ? ""
+                : "generated-ui-smoke-failed-or-skipped");
         return payload;
     }
 
@@ -92,6 +105,26 @@ public class GeneratedUiRuntimeFeedbackWriter {
                     n.reviewFindings = $reviewFindings,
                     n.qualitySignal = $qualitySignal
                 RETURN n.feedbackId
+                """;
+    }
+
+    private String stableLocatorFeedbackStatement() {
+        return """
+                MATCH (l:UiStableLocator {runId: $runId})
+                SET l.validationStatus = $locatorValidationStatus,
+                    l.status = $locatorStatus,
+                    l.runtimePassRate = $locatorRuntimePassRate,
+                    l.flakyRate = $locatorFlakyRate,
+                    l.demotionReason = $demotionReason,
+                    l.lastFeedbackAt = $createdAt,
+                    l.lastSmokeStatus = $smokeStatus,
+                    l.lastCompileStatus = $compileStatus,
+                    l.lastReviewFindings = $reviewFindings,
+                    l.lastSuccessfulSmoke = CASE
+                      WHEN $locatorValidationStatus = 'PASSED' THEN $createdAt
+                      ELSE coalesce(l.lastSuccessfulSmoke, '')
+                    END
+                RETURN count(l) AS updatedLocators
                 """;
     }
 

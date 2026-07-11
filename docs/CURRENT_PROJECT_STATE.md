@@ -71,13 +71,13 @@ Golden-slice status:
 - LoginPage contract generation produces action methods for entering credentials, clicking login, and a reusable `login(username, password)` method.
 - DashboardPage is discovered after authentication and now carries confirmed evidence for the authenticated route, user-menu trigger, and logout link.
 - DashboardPage contract can expose `openUserMenu()`, `logout()`, route assertion, and logout visibility.
-- Neo4j/Qdrant can participate when enabled; repository defaults keep AI/RAG/knowledge stores disabled until explicitly requested.
-- Generated Page Object sources are persisted, compiled/reviewed, and passed through generated-source smoke validation.
+- Neo4j/Qdrant can participate when enabled; the checked-in demo profile enables AI/RAG/knowledge switches, while secrets and service availability still come from environment/JVM configuration.
+- Generated Page Object sources are persisted, compiled/reviewed, passed through generated-source smoke validation, and can be checked by a profile/capability-driven live browser smoke runner.
 
 Remaining golden-slice gaps:
 
 - Dashboard heading validation is not forced without a confirmed heading locator; it is represented as a coverage gap.
-- The current smoke gate validates generated source, compile/review readiness, and structural POM behavior. A full browser smoke scenario that performs `open login -> login -> dashboard -> user menu -> logout` is still the next proof-of-platform step.
+- The live smoke runner now performs reusable capability phases for the authentication/logout slice. Broader live smoke coverage beyond authentication/logout is still future work.
 - Run quality score is intentionally conservative and should not exceed 90 unless confirmed locator evidence, compile, review, and smoke signals are all strong.
 
 ## 4. Important Runtime Artifacts
@@ -114,15 +114,16 @@ src/test/java/unit/tests
 
 Local secret override files are ignored by `.gitignore`.
 
-AI/RAG/knowledge-store switches are disabled by default in `framework.properties`:
+The checked-in `framework.properties` is demo-oriented and enables AI/RAG/knowledge-store switches:
 
-- `openai.enabled=false`
-- `ai.page-object.llm.enabled=false`
-- `rag.enabled=false`
-- `knowledge.graph.enabled=false`
-- `knowledge.vector.enabled=false`
+- `openai.enabled=true`
+- `ai.page-enrichment.llm.enabled=true`
+- `ai.page-object.llm.enabled=true`
+- `rag.enabled=true`
+- `knowledge.graph.enabled=true`
+- `knowledge.vector.enabled=true`
 
-Enable them through local JVM properties, environment-aware overrides, or ignored local config when running AI/knowledge-store demos.
+Disable them through JVM properties for clean deterministic or no-DB comparison runs.
 
 ## 7. Current Public-Repo Readiness
 
@@ -133,7 +134,7 @@ Strengths:
 - secret-bearing config has been replaced by placeholders;
 - generated/runtime artifacts are ignored;
 - root package API/config classes are now deprecated compatibility facades.
-- default config does not enable external AI/RAG/DB services automatically.
+- external AI/RAG/DB calls still require environment secrets and reachable local services.
 
 Remaining public-readiness work:
 

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "bug-report-draft.v1",
+  "title": "Login bug",
+  "environment": "unknown",
+  "stepsToReproduce": ["Try something"],
+  "actualResult": "Broken",
+  "expectedResult": "",
+  "evidence": [],
+  "severity": "critical"
+}
+
