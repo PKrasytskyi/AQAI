@@ -28,18 +28,25 @@ public class PomProtectedPageFlowRule implements PomContractRule {
             return;
         }
         boolean hasUserMenuAction = containsAny(behavior, "openusermenu", "userdropdown", "userdrop", "dropdown", "profilemenu");
+        boolean hasUserMenuLocator = allLocators(spec).stream().anyMatch(this::isUserMenuLocator);
+        boolean directLogoutAvailable = logoutActionClicksLogout(spec);
         boolean hasGap = spec.coverageGaps().stream()
                 .map(gap -> gap.toLowerCase(Locale.ROOT))
                 .anyMatch(gap -> containsAny(gap, "dropdown", "user menu", "profile menu", "logout"));
-        if (!hasUserMenuAction && !hasGap) {
+        if (!hasUserMenuAction && hasUserMenuLocator && !hasGap) {
             issues.add(context.blocker("POM_PROTECTED_PAGE_FLOW_PREREQUISITE",
                     "Protected page logout requires user menu/dropdown prerequisite action or explicit coverage gap",
                     spec.page().name()));
         }
         validateUserMenuTriggerLocators(spec, context, issues);
-        if (!logoutActionHasMenuPrerequisite(spec) && !hasGap) {
+        if (hasUserMenuLocator && !logoutActionHasMenuPrerequisite(spec) && !hasGap) {
             issues.add(context.blocker("POM_PROTECTED_PAGE_LOGOUT_SEQUENCE",
                     "Protected page logout action must click the user menu/dropdown trigger before clicking logout",
+                    spec.page().name()));
+        }
+        if (!hasUserMenuLocator && !directLogoutAvailable && !hasGap) {
+            issues.add(context.blocker("POM_PROTECTED_PAGE_LOGOUT_ACTION",
+                    "Protected page logout must click a confirmed logout locator or report a coverage gap",
                     spec.page().name()));
         }
     }
@@ -82,6 +89,20 @@ public class PomProtectedPageFlowRule implements PomContractRule {
         return allActions(spec).stream()
                 .filter(action -> normalize(action.methodName()).contains("logout"))
                 .anyMatch(action -> actionHasMenuBeforeLogout(action, userMenuLocators, logoutLocators));
+    }
+
+    private boolean logoutActionClicksLogout(PomContractSpec spec) {
+        Set<String> logoutLocators = new LinkedHashSet<>();
+        for (PomLocatorSpec locator : allLocators(spec)) {
+            if (isLogoutLocator(locator)) {
+                logoutLocators.add(locator.id());
+            }
+        }
+        return allActions(spec).stream()
+                .filter(action -> normalize(action.methodName()).contains("logout"))
+                .flatMap(action -> action.steps().stream())
+                .filter(step -> step.action() == PomStepAction.CLICK)
+                .anyMatch(step -> logoutLocators.contains(step.locator()) || normalize(step.locator()).contains("logout"));
     }
 
     private boolean actionHasMenuBeforeLogout(

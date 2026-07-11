@@ -108,6 +108,13 @@ public class AiPageObjectSpecGenerator {
         List<String> findings = new ArrayList<>();
         boolean llmRequested = runtimeConfig.pageObjectLlmEnabled();
         boolean llmEnabled = llmRequested && runtimeConfig.enabled() && hasApiKey();
+        int pomLlmAttempts = 0;
+        int pomLlmSuccesses = 0;
+        int pomLlmPromptChars = 0;
+        int pomLlmResponseChars = 0;
+        int pomLlmInputTokens = 0;
+        int pomLlmOutputTokens = 0;
+        int pomLlmTotalTokens = 0;
         addRetrievalHealthArtifacts(request.contextPackage(), artifacts);
 
         try {
@@ -150,8 +157,16 @@ public class AiPageObjectSpecGenerator {
                     throw new PromptQualityGateException(qualityReport);
                 }
                 if (llmEnabled) {
+                    pomLlmAttempts++;
+                    pomLlmPromptChars += draft.prompt().length();
                     String response = generationClient.generate(draft.prompt());
-                    artifactFiles.add(promptArtifactWriter.writeText(scope.fileStem() + "-pom-contract-response.txt", response));
+                    pomLlmResponseChars += response == null ? 0 : response.length();
+                    var usage = generationClient.lastUsage();
+                    pomLlmInputTokens += usage.inputTokens();
+                    pomLlmOutputTokens += usage.outputTokens();
+                    pomLlmTotalTokens += usage.totalTokens();
+                    promptArtifactWriter.writeDebugText(scope.fileStem() + "-pom-contract-response.txt", response)
+                            .ifPresent(artifactFiles::add);
                     PromptReadyPomScope readyScope = pomScopeSanitizer.sanitize(
                             scope.scopedContext(),
                             scope.pageName(),
@@ -163,6 +178,7 @@ public class AiPageObjectSpecGenerator {
                             scope.scopedContext()
                     );
                     contracts.add(contract);
+                    pomLlmSuccesses++;
                     specs.add(compatibilityContractWriter.toAiPageObjectSpec(contract));
                     artifactFiles.add(promptArtifactWriter.writeJson(scope.fileStem() + "-pom-contract.json", contract));
                     artifacts.put("pom.contract." + scope.fileStem() + ".pageName", contract.page().name());
@@ -177,6 +193,8 @@ public class AiPageObjectSpecGenerator {
             artifacts.put("openai.page.object.status", llmEnabled
                     ? "pom-contract-llm-generated"
                     : llmRequested ? "pom-contract-llm-skipped-prompt-only" : "llm-disabled-enrichment-only");
+            putPomLlmArtifacts(artifacts, pomLlmAttempts, pomLlmSuccesses, pomLlmPromptChars, pomLlmResponseChars,
+                    pomLlmInputTokens, pomLlmOutputTokens, pomLlmTotalTokens);
             artifacts.put("ai.page-object.llm.requested", String.valueOf(llmRequested));
             artifacts.put("ai.page-object.llm.enabled", String.valueOf(llmEnabled));
             artifacts.put("openai.page.object.scoped.requests", String.valueOf(request.uiTestPlan().pageNames().size()));
@@ -184,6 +202,17 @@ public class AiPageObjectSpecGenerator {
             artifacts.put("ai.workflow.terminal.stage", llmEnabled
                     ? "pom-contract-deterministic-java"
                     : "deterministic-page-object-prompts");
+            artifactFiles.add(promptArtifactWriter.writeJson("pom-llm-token-usage.json", Map.of(
+                    "schemaVersion", "llm-token-usage.v1",
+                    "stage", "pom-contract",
+                    "attempts", pomLlmAttempts,
+                    "successes", pomLlmSuccesses,
+                    "promptChars", pomLlmPromptChars,
+                    "responseChars", pomLlmResponseChars,
+                    "inputTokens", pomLlmInputTokens,
+                    "outputTokens", pomLlmOutputTokens,
+                    "totalTokens", pomLlmTotalTokens
+            )));
             findings.add(llmEnabled
                     ? "OpenAI generated POM contract JSON; Java will be written by deterministic writer"
                     : "OpenAI page object generation is disabled; prompts were recorded for review only");
@@ -195,6 +224,8 @@ public class AiPageObjectSpecGenerator {
                     exception.report()
             ));
             artifacts.put("openai.page.object.status", "prompt-quality-gate-failed");
+            putPomLlmArtifacts(artifacts, pomLlmAttempts, pomLlmSuccesses, pomLlmPromptChars, pomLlmResponseChars,
+                    pomLlmInputTokens, pomLlmOutputTokens, pomLlmTotalTokens);
             findings.add(exception.getMessage());
             addQualityArtifacts(request, artifacts, artifactFiles);
             throw exception;
@@ -210,6 +241,8 @@ public class AiPageObjectSpecGenerator {
                     "openai.page.object.status",
                     runtimeConfig.strict() ? "active-generation-failed-strict" : "active-generation-failed-no-output"
             );
+            putPomLlmArtifacts(artifacts, pomLlmAttempts, pomLlmSuccesses, pomLlmPromptChars, pomLlmResponseChars,
+                    pomLlmInputTokens, pomLlmOutputTokens, pomLlmTotalTokens);
             findings.add("OpenAI page object generation failed: " + exception.getMessage());
             addQualityArtifacts(request, artifacts, artifactFiles);
             if (runtimeConfig.strict()) {
@@ -217,6 +250,27 @@ public class AiPageObjectSpecGenerator {
             }
             return new AiPageObjectGenerationResult(specs, contracts, artifactFiles, artifacts, findings);
         }
+    }
+
+    private void putPomLlmArtifacts(
+            Map<String, String> artifacts,
+            int attempts,
+            int successes,
+            int promptChars,
+            int responseChars,
+            int inputTokens,
+            int outputTokens,
+            int totalTokens
+    ) {
+        int failures = Math.max(0, attempts - successes);
+        artifacts.put("pom.contract.llm.attempt.count", String.valueOf(Math.max(0, attempts)));
+        artifacts.put("pom.contract.llm.success.count", String.valueOf(Math.max(0, successes)));
+        artifacts.put("pom.contract.llm.failure.count", String.valueOf(failures));
+        artifacts.put("pom.contract.llm.prompt.chars", String.valueOf(Math.max(0, promptChars)));
+        artifacts.put("pom.contract.llm.response.chars", String.valueOf(Math.max(0, responseChars)));
+        artifacts.put("pom.contract.llm.input.tokens", String.valueOf(Math.max(0, inputTokens)));
+        artifacts.put("pom.contract.llm.output.tokens", String.valueOf(Math.max(0, outputTokens)));
+        artifacts.put("pom.contract.llm.total.tokens", String.valueOf(Math.max(0, totalTokens)));
     }
 
     private void addQualityArtifacts(

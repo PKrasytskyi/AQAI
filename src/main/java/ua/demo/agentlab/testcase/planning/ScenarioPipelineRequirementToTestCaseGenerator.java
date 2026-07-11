@@ -17,7 +17,11 @@ public class ScenarioPipelineRequirementToTestCaseGenerator implements Requireme
         if (input == null || input.normalizedRequirementBundle() == null) {
             return new CanonicalTestCaseBundle("unknown-source", "NoPages", List.of(), List.of());
         }
-        ScenarioPageResolver pageResolver = new ScenarioPageResolver(input.projectProfile(), input.mappedUiKnowledge());
+        ScenarioPageResolver pageResolver = new ScenarioPageResolver(
+                input.projectProfile(),
+                input.mappedUiKnowledge(),
+                input.normalizedRequirementBundle()
+        );
         RequirementUnitClassifier classifier = new RequirementUnitClassifier(pageResolver);
         List<RequirementUnit> units = input.normalizedRequirementBundle().requirements().stream()
                 .map(classifier::classify)

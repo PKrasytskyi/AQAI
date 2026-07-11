@@ -1,33 +1,23 @@
 package ua.demo.agentlab.ui.discovery.persistence.knowledge.config;
 
-import java.io.InputStream;
 import java.util.Objects;
-import java.util.Properties;
+import ua.demo.agentlab.config.RuntimeProperties;
 
 public class PropertiesNeo4jRuntimeConfig implements Neo4jRuntimeConfig {
 
-    private final Properties properties = new Properties();
+    private final RuntimeProperties properties;
 
     public PropertiesNeo4jRuntimeConfig() {
         this("framework.properties");
     }
 
     public PropertiesNeo4jRuntimeConfig(String resourceName) {
-        try (InputStream input = Thread.currentThread()
-                .getContextClassLoader()
-                .getResourceAsStream(resourceName)) {
-            if (input == null) {
-                throw new IllegalStateException("Cannot find Neo4j config resource: " + resourceName);
-            }
-            properties.load(input);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Failed to load Neo4j config resource: " + resourceName, exception);
-        }
+        this.properties = new RuntimeProperties(resourceName);
     }
 
     @Override
     public boolean enabled() {
-        return Boolean.parseBoolean(readValue("knowledge.graph.enabled", "false"));
+        return properties.readKnowledgeDbBoolean("knowledge.graph.enabled", "false");
     }
 
     @Override
@@ -51,33 +41,12 @@ public class PropertiesNeo4jRuntimeConfig implements Neo4jRuntimeConfig {
     }
 
     private String readValue(String key, String defaultValue) {
-        String value = firstNonBlank(
-                readSystemProperty(key),
-                readEnvironment(key),
-                properties.getProperty(key)
-        );
+        String value = properties.readOptional(key, key.toUpperCase().replace('.', '_').replace('-', '_'));
         return value == null || value.isBlank() ? Objects.requireNonNull(defaultValue) : value.trim();
     }
 
     private String readOptional(String propertyKey, String environmentKey) {
-        return firstNonBlank(
-                readSystemProperty(propertyKey),
-                readEnvironment(environmentKey),
-                properties.getProperty(propertyKey)
-        );
-    }
-
-    private String readSystemProperty(String key) {
-        String value = System.getProperty(key);
-        return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private String readEnvironment(String keyOrEnvName) {
-        String normalized = keyOrEnvName.contains(".")
-                ? keyOrEnvName.toUpperCase().replace('.', '_').replace('-', '_')
-                : keyOrEnvName;
-        String value = System.getenv(normalized);
-        return value == null || value.isBlank() ? null : value.trim();
+        return properties.readOptional(propertyKey, environmentKey);
     }
 
     private String firstNonBlank(String... values) {

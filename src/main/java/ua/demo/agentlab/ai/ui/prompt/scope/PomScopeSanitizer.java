@@ -59,7 +59,7 @@ public class PomScopeSanitizer {
                 ? evidence.requirementIds()
                 : evidence.requirementIds().stream().filter(scopedIds::contains).toList();
         List<String> rejected = new ArrayList<>();
-        List<PromptReadyLocator> locators = canonicalLocators(evidence.requiredLocators(), targetPage);
+        List<PromptReadyLocator> locators = canonicalLocators(evidence.requiredLocators(), targetPage, evidence.targetRoute());
         List<String> actions = ownedActions(context, targetPage, scopedIds, locators, rejected);
         List<PromptReadyAssertion> assertions = ownedAssertions(context, evidence, targetPage, scopedIds, locators, rejected);
 
@@ -85,7 +85,8 @@ public class PomScopeSanitizer {
             List<String> rejected
     ) {
         Set<String> actions = new LinkedHashSet<>();
-        boolean authenticationPage = isLoginPage(targetPage) || containsAny(normalize(targetPage), "auth");
+        String targetRoute = context.promptUiEvidence() == null ? "" : context.promptUiEvidence().targetRoute();
+        boolean authenticationPage = isAuthenticationPage(targetPage, targetRoute);
         boolean hasUsername = hasLocator(locators, "usernameInput");
         boolean hasPassword = hasLocator(locators, "passwordInput");
         boolean hasLoginButton = hasLocator(locators, "loginButton");
@@ -120,7 +121,7 @@ public class PomScopeSanitizer {
             addLoginActions(actions, true, true, true);
         }
         if (!authenticationPage
-                && isAuthenticatedAreaPage(targetPage, "")
+                && isAuthenticatedAreaPage(targetPage, targetRoute)
                 && hasLogoutMenuEvidence(context, scopedIds, targetPage, actions)) {
             if (hasLocator(locators, "userMenuTrigger") && hasLocator(locators, "logoutLink")) {
                 return orderedLogoutMenuActions(actions);
@@ -213,7 +214,7 @@ public class PomScopeSanitizer {
                             contract.sourceLine(),
                             contract.confidence()
                     ));
-                } else if (belongsToRequestedPage(targetPage, "LoginPage")
+                } else if (isAuthenticationPage(targetPage, evidence.targetRoute())
                         && isPostLoginAssertion(contract == null ? "" : contract.expectedValue())) {
                     rejected.add("postLoginSuccessVisible: belongs to AuthenticatedAreaPage");
                 }
@@ -231,10 +232,11 @@ public class PomScopeSanitizer {
                 assertions.putIfAbsent(normalized.type() + "|" + normalized.expectedValue(), normalized);
             }
         }
-        if (isLoginPage(targetPage) || containsAny(normalize(targetPage), "auth")) {
+        if (isAuthenticationPage(targetPage, evidence.targetRoute())) {
             addLoginAssertions(assertions, evidence, locators);
         }
-        if (!isLoginPage(targetPage) && isAuthenticatedAreaPage(targetPage, evidence.targetRoute())) {
+        if (!isAuthenticationPage(targetPage, evidence.targetRoute())
+                && isAuthenticatedAreaPage(targetPage, evidence.targetRoute())) {
             addAuthenticatedAreaAssertions(assertions, evidence, locators);
         }
         return assertions.values().stream().limit(12).toList();
@@ -249,11 +251,11 @@ public class PomScopeSanitizer {
     ) {
         String expected = assertion.expectedValue();
         String normalized = normalize(assertion.type() + " " + expected);
-        if (isPostLoginAssertion(expected) && isLoginPage(targetPage)) {
+        if (isPostLoginAssertion(expected) && isAuthenticationPage(targetPage, targetRoute)) {
             rejected.add("postLoginSuccessVisible: belongs to AuthenticatedAreaPage");
             return null;
         }
-        if (containsAny(normalized, "home page is accessible") && isLoginPage(targetPage)) {
+        if (containsAny(normalized, "home page is accessible") && isAuthenticationPage(targetPage, targetRoute)) {
             rejected.add("homePageAccessible: belongs to HomePage or duplicates LoginPage route");
             return null;
         }
@@ -261,9 +263,6 @@ public class PomScopeSanitizer {
                 || assertion.type().equals("ROUTE_EQUALS")
                 || containsAny(normalized, "route contains", "route matches", "current url contains")) {
             String route = routeFromAssertion(expected);
-            if (route.isBlank() && isLoginPage(targetPage)) {
-                route = "/auth/login";
-            }
             if (!route.isBlank()
                     && !targetRoute.isBlank()
                     && !RouteCanonicalizer.routeEqualsOrSuffix(route, targetRoute)) {
@@ -307,8 +306,10 @@ public class PomScopeSanitizer {
             ua.demo.agentlab.ai.context.PromptUiEvidence evidence,
             List<PromptReadyLocator> locators
     ) {
-        String route = firstNonBlank(evidence.targetRoute(), "/auth/login");
-        add(assertions, new PromptReadyAssertion("URL_CONTAINS", route, evidence.targetPage(), "pom-scope-sanitizer:login-route", 1.0d));
+        String route = evidence.targetRoute();
+        if (!route.isBlank()) {
+            add(assertions, new PromptReadyAssertion("URL_CONTAINS", route, evidence.targetPage(), "pom-scope-sanitizer:login-route", 1.0d));
+        }
         if (hasLocator(locators, "usernameInput")) {
             add(assertions, new PromptReadyAssertion("ELEMENT_VISIBLE", "usernameInput", evidence.targetPage(), "pom-scope-sanitizer:username", 0.95d));
         }
@@ -328,8 +329,10 @@ public class PomScopeSanitizer {
             ua.demo.agentlab.ai.context.PromptUiEvidence evidence,
             List<PromptReadyLocator> locators
     ) {
-        String route = firstNonBlank(evidence.targetRoute(), "/dashboard/index");
-        add(assertions, new PromptReadyAssertion("URL_CONTAINS", route, evidence.targetPage(), "pom-scope-sanitizer:authenticated-route", 1.0d));
+        String route = evidence.targetRoute();
+        if (!route.isBlank()) {
+            add(assertions, new PromptReadyAssertion("URL_CONTAINS", route, evidence.targetPage(), "pom-scope-sanitizer:authenticated-route", 1.0d));
+        }
         if (hasLocator(locators, "dashboardHeading")) {
             add(assertions, new PromptReadyAssertion("ELEMENT_VISIBLE", "dashboardHeading", evidence.targetPage(), "pom-scope-sanitizer:dashboard-heading", 0.95d));
         }
@@ -393,7 +396,7 @@ public class PomScopeSanitizer {
         return new PromptReadyAssertion("ELEMENT_VISIBLE", locatorId, targetPage, assertion.sourceTrace(), assertion.confidence());
     }
 
-    private List<PromptReadyLocator> canonicalLocators(List<PromptLocatorEvidence> source, String targetPage) {
+    private List<PromptReadyLocator> canonicalLocators(List<PromptLocatorEvidence> source, String targetPage, String targetRoute) {
         Map<String, PromptReadyLocator> bestById = new LinkedHashMap<>();
         for (PromptLocatorEvidence locator : source == null ? List.<PromptLocatorEvidence>of() : source) {
             if (locator.evidenceType() != LocatorEvidenceType.CONFIRMED_LOCATOR
@@ -403,7 +406,7 @@ public class PomScopeSanitizer {
                 continue;
             }
             String id = locatorIdResolver.resolve(locator);
-            if ((isLoginPage(targetPage) || containsAny(normalize(targetPage), "auth")) && id.equals("submitButton")) {
+            if (isAuthenticationPage(targetPage, targetRoute) && id.equals("submitButton")) {
                 id = "loginButton";
             }
             if (id.equals("userMenuTrigger") && isDropdownMenuItemLocator(locator)) {
@@ -568,8 +571,9 @@ public class PomScopeSanitizer {
         return PageReferenceMatcher.matchesScenarioPage(ownerPage, "", requestedPageName);
     }
 
-    private boolean isLoginPage(String pageName) {
-        return normalize(pageName).contains("login");
+    private boolean isAuthenticationPage(String pageName, String targetRoute) {
+        String evidence = normalize(pageName + " " + targetRoute);
+        return containsAny(evidence, "login", "authentication", "auth/login", "signin", "sign-in");
     }
 
     private String methodSuffix(String value) {

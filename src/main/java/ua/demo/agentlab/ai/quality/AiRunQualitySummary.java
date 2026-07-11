@@ -25,6 +25,10 @@ public record AiRunQualitySummary(
         int pageEnrichmentGenerated,
         int pageEnrichmentCacheHits,
         int pageEnrichmentOpenAiCalls,
+        int pageEnrichmentOpenAiAttempts,
+        int pageEnrichmentOpenAiSuccesses,
+        int pageEnrichmentOpenAiFailures,
+        int pageEnrichmentOpenAiFallbacks,
         int staleEvidenceRejected,
         String vectorUnavailableReason,
         int qualityScore
@@ -53,6 +57,10 @@ public record AiRunQualitySummary(
         pageEnrichmentGenerated = Math.max(0, pageEnrichmentGenerated);
         pageEnrichmentCacheHits = Math.max(0, pageEnrichmentCacheHits);
         pageEnrichmentOpenAiCalls = Math.max(0, pageEnrichmentOpenAiCalls);
+        pageEnrichmentOpenAiAttempts = Math.max(0, pageEnrichmentOpenAiAttempts);
+        pageEnrichmentOpenAiSuccesses = Math.max(0, pageEnrichmentOpenAiSuccesses);
+        pageEnrichmentOpenAiFailures = Math.max(0, pageEnrichmentOpenAiFailures);
+        pageEnrichmentOpenAiFallbacks = Math.max(0, pageEnrichmentOpenAiFallbacks);
         staleEvidenceRejected = Math.max(0, staleEvidenceRejected);
         vectorUnavailableReason = vectorUnavailableReason == null ? "" : vectorUnavailableReason.trim();
         qualityScore = Math.max(0, Math.min(100, qualityScore));

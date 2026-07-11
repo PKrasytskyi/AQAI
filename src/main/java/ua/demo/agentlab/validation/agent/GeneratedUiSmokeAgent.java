@@ -14,7 +14,7 @@ import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 import ua.demo.agentlab.validation.GeneratedCodeValidationResult;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeResult;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeService;
-import ua.demo.agentlab.validation.smoke.LiveLoginDashboardSmokeService;
+import ua.demo.agentlab.validation.smoke.LiveCapabilitySmokeService;
 import ua.demo.agentlab.validation.smoke.LiveUiSmokeResult;
 
 import java.nio.file.Files;
@@ -26,13 +26,13 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
         PipelineAgent<GeneratedUiSmokeAgent.Input, GeneratedUiSmokeResult> {
 
     private final GeneratedUiSmokeService smokeService;
-    private final LiveLoginDashboardSmokeService liveSmokeService;
+    private final LiveCapabilitySmokeService liveSmokeService;
     private final ObjectMapper objectMapper = new ObjectMapper()
             .enable(SerializationFeature.INDENT_OUTPUT);
 
     public GeneratedUiSmokeAgent(GeneratedUiSmokeService smokeService) {
         this.smokeService = smokeService == null ? new GeneratedUiSmokeService() : smokeService;
-        this.liveSmokeService = new LiveLoginDashboardSmokeService();
+        this.liveSmokeService = new LiveCapabilitySmokeService();
     }
 
     @Override

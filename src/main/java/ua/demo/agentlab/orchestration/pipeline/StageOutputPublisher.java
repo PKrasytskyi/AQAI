@@ -49,6 +49,7 @@ import ua.demo.agentlab.validation.GeneratedCodeValidationResult;
 import ua.demo.agentlab.validation.GeneratedUiContractValidationResult;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -458,7 +459,7 @@ public class StageOutputPublisher {
         putArtifact(state, "flow.scope.graph.match.count",
                 String.valueOf(knowledgePackage.retrievalContext().graphMatches().size()));
         addFinding(state, "Flow-scoped knowledge package prepared for AI context");
-        aiArtifactPublisher.writeJson(
+        aiArtifactPublisher.writeDebugJson(
                 state,
                 "flow-scoped-knowledge",
                 "flow-scoped-knowledge-package.json",
@@ -511,16 +512,39 @@ public class StageOutputPublisher {
         putArtifact(state, "page.enrichment.cache.hit.count", String.valueOf(output.cachedRecords().size()));
         putArtifact(state, "page.enrichment.generated.count", String.valueOf(output.generatedRecords().size()));
         putArtifact(state, "llm.schema.page.model.enrichment.version", LlmOutputSchemaVersion.PAGE_MODEL_ENRICHMENT_RECORD);
-        putArtifact(state, "page.enrichment.openai.count", String.valueOf(output.records().stream()
-                .filter(record -> "openai".equals(record.enrichmentSource())).count()));
+        putArtifact(state, "page.enrichment.openai.count", String.valueOf(output.openAiSuccesses()));
+        putArtifact(state, "page.enrichment.openai.attempt.count", String.valueOf(output.openAiAttempts()));
+        putArtifact(state, "page.enrichment.openai.success.count", String.valueOf(output.openAiSuccesses()));
+        putArtifact(state, "page.enrichment.openai.failure.count", String.valueOf(output.openAiFailures()));
+        putArtifact(state, "page.enrichment.openai.fallback.count", String.valueOf(output.openAiFallbacks()));
+        putArtifact(state, "page.enrichment.openai.prompt.chars", String.valueOf(output.promptChars()));
+        putArtifact(state, "page.enrichment.openai.response.chars", String.valueOf(output.responseChars()));
+        putArtifact(state, "page.enrichment.openai.input.tokens", String.valueOf(output.actualInputTokens()));
+        putArtifact(state, "page.enrichment.openai.output.tokens", String.valueOf(output.actualOutputTokens()));
+        putArtifact(state, "page.enrichment.openai.total.tokens", String.valueOf(output.actualTotalTokens()));
         putArtifact(state, "page.enrichment.failures", String.valueOf(output.failures().size()));
         aiArtifactPublisher.writeJson(state, "enrichment", "page-model-enrichments.json", output.records());
+        Map<String, Object> report = new java.util.LinkedHashMap<>();
+        report.put("records", output.records().size());
+        report.put("cacheHits", output.cachedRecords().size());
+        report.put("generatedRecords", output.generatedRecords().size());
+        report.put("openAiRecords", output.openAiSuccesses());
+        report.put("openAiAttempts", output.openAiAttempts());
+        report.put("openAiSuccesses", output.openAiSuccesses());
+        report.put("openAiFailures", output.openAiFailures());
+        report.put("openAiFallbacks", output.openAiFallbacks());
+        report.put("promptChars", output.promptChars());
+        report.put("responseChars", output.responseChars());
+        report.put("inputTokens", output.actualInputTokens());
+        report.put("outputTokens", output.actualOutputTokens());
+        report.put("totalTokens", output.actualTotalTokens());
+        report.put("failures", output.failures());
+        aiArtifactPublisher.writeJson(state, "enrichment", "page-model-enrichment-report.json", report);
         aiArtifactPublisher.writeJson(
                 state,
                 "enrichment",
-                "page-model-enrichment-report.json",
-                Map.of("records", output.records().size(), "openAiRecords", output.records().stream()
-                        .filter(record -> "openai".equals(record.enrichmentSource())).count(), "failures", output.failures())
+                "page-model-enrichment-failures.json",
+                output.failureDetails()
         );
         addFinding(state, "PageModel enrichment prepared "
                 + output.records().size() + " requirement-scoped page record(s)");
@@ -580,13 +604,15 @@ public class StageOutputPublisher {
         aiArtifactPublisher.writeJson(state, "api", "api-generation-spec.json", result.generationSpec());
         aiArtifactPublisher.writeJson(state, "api", "api-quality-report.json", result.qualityReport());
         aiArtifactPublisher.writeJson(state, "api", "generated-source-files.json", result.sourceFiles());
-        for (GeneratedSourceFile sourceFile : result.sourceFiles()) {
-            aiArtifactPublisher.writeText(
+        if (apiPreviewArtifactsEnabled()) {
+            for (GeneratedSourceFile sourceFile : result.sourceFiles()) {
+                aiArtifactPublisher.writeText(
                     state,
-                    "api",
+                    "api-preview",
                     "preview-" + sourceFile.className() + ".java",
                     sourceFile.content()
-            );
+                );
+            }
         }
         if (result.qualityReport() != null && !result.qualityReport().hasBlockingIssues()) {
             state.setApiSourceFiles(result.sourceFiles().stream()
@@ -637,7 +663,7 @@ public class StageOutputPublisher {
                 String.valueOf(contextPackage.retrievalContext().graphMatches().size())
         );
         addFinding(state, "AI context package assembled from typed pipeline input");
-        aiArtifactPublisher.writeJson(
+        aiArtifactPublisher.writeDebugJson(
                 state,
                 "context",
                 "ai-context-package.json",
@@ -816,6 +842,30 @@ public class StageOutputPublisher {
             return;
         }
         state.fail(reason);
+    }
+
+    private boolean apiPreviewArtifactsEnabled() {
+        String explicit = firstNonBlank(
+                System.getProperty("api.preview.enabled"),
+                System.getenv("API_PREVIEW_ENABLED")
+        );
+        if (!explicit.isBlank()) {
+            return Boolean.parseBoolean(explicit);
+        }
+        String apiEnabled = firstNonBlank(
+                System.getProperty("api.enabled"),
+                System.getenv("API_ENABLED")
+        );
+        return !apiEnabled.isBlank() && Boolean.parseBoolean(apiEnabled);
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim().toLowerCase(Locale.ROOT);
+            }
+        }
+        return "";
     }
 }
 

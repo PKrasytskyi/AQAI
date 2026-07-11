@@ -32,6 +32,24 @@ public class AiArtifactPublisher {
         state.addAiArtifactFile(artifactWriter.writeText(stage, fileName, content).toString());
     }
 
+    public void writeDebugJson(WorkflowState state, String stage, String fileName, Object payload) {
+        if (state == null) {
+            return;
+        }
+        artifactWriter.writeDebugJson(stage, fileName, payload)
+                .map(java.nio.file.Path::toString)
+                .ifPresent(state::addAiArtifactFile);
+    }
+
+    public void writeDebugText(WorkflowState state, String stage, String fileName, String content) {
+        if (state == null) {
+            return;
+        }
+        artifactWriter.writeDebugText(stage, fileName, content)
+                .map(java.nio.file.Path::toString)
+                .ifPresent(state::addAiArtifactFile);
+    }
+
     public void register(WorkflowState state, String artifactFile) {
         if (state == null || artifactFile == null || artifactFile.isBlank()) {
             return;

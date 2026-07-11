@@ -76,6 +76,88 @@ public class DbImpactComparisonReporterTest {
                 .anyMatch(note -> note.contains("not a full stable-cache DB run")));
     }
 
+    @Test
+    public void reporterCountsFailedEnrichmentAttemptAsLlmCall() throws Exception {
+        Path temp = Files.createTempDirectory("db-impact-comparison-llm");
+        Path withoutDb = temp.resolve("without-db");
+        Path withDb = temp.resolve("with-db");
+        writeRun(withoutDb, "without-db", 82, 0, 0, 0, "PASSED", 2,
+                false, false, false, "current-run", false);
+        writeRun(withDb, "with-db", 82, 0, 0, 0, "PASSED", 2,
+                true, true, true, "stable-page-cache", true);
+        Files.writeString(withoutDb.resolve("ai-run").resolve("page-object-spec").resolve("DashboardPage-prompt.txt"),
+                "# Role\nDashboard prompt\n");
+        Files.writeString(withDb.resolve("ai-run").resolve("page-object-spec").resolve("DashboardPage-prompt.txt"),
+                "# Role\nDashboard prompt\n");
+        Files.writeString(withoutDb.resolve("ai-run").resolve("enrichment").resolve("page-model-enrichment-report.json"), """
+                {"records":2,"openAiRecords":1,"failures":["login: parse failed"]}
+                """);
+        Files.writeString(withDb.resolve("ai-run").resolve("enrichment").resolve("page-model-enrichment-report.json"), """
+                {"records":2,"cacheHits":2,"openAiRecords":0,"failures":[]}
+                """);
+
+        DbImpactComparisonReport report = new DbImpactComparisonReporter()
+                .compare(withoutDb, withDb, temp.resolve("comparison-output"));
+
+        Assert.assertEquals(report.withoutDb().pomLlmCalls(), 2);
+        Assert.assertEquals(report.withoutDb().pageEnrichmentOpenAiCalls(), 2);
+        Assert.assertEquals(report.withoutDb().pageEnrichmentOpenAiSuccesses(), 1);
+        Assert.assertEquals(report.withoutDb().pageEnrichmentOpenAiFailures(), 1);
+        Assert.assertEquals(report.withoutDb().llmCalls(), 4);
+        Assert.assertEquals(report.withDb().pageEnrichmentOpenAiCalls(), 0);
+    }
+
+    @Test
+    public void reporterShowsMissingCompileArtifactInsteadOfZeroRatio() throws Exception {
+        Path temp = Files.createTempDirectory("db-impact-comparison-missing-compile");
+        Path withoutDb = temp.resolve("without-db");
+        Path withDb = temp.resolve("with-db");
+        writeRun(withoutDb, "without-db", 82, 0, 0, 0, "PASSED", 2,
+                false, false, false, "current-run", false);
+        writeRun(withDb, "with-db", 82, 0, 0, 0, "PASSED", 2,
+                true, true, true, "stable-page-cache", true);
+        Files.delete(withDb.resolve("ai-run").resolve("validation").resolve("generated-ui-smoke-result.json"));
+
+        DbImpactComparisonReport report = new DbImpactComparisonReporter()
+                .compare(withoutDb, withDb, temp.resolve("comparison-output"));
+
+        Assert.assertEquals(report.withDb().compileStatus(), "missing-artifact");
+        Assert.assertTrue(report.rows().stream()
+                .anyMatch(row -> row.metric().equals("Compile-ready generated code")
+                        && row.withDb().equals("missing-artifact")));
+    }
+
+    @Test
+    public void reporterUsesKnownLlmTokenUsageArtifactsBeforeTokenizerEstimate() throws Exception {
+        Path temp = Files.createTempDirectory("db-impact-comparison-token-usage");
+        Path withoutDb = temp.resolve("without-db");
+        Path withDb = temp.resolve("with-db");
+        writeRun(withoutDb, "without-db", 82, 0, 0, 0, "PASSED", 2,
+                false, false, false, "current-run", false);
+        writeRun(withDb, "with-db", 82, 0, 0, 0, "PASSED", 2,
+                true, true, true, "stable-page-cache", true);
+        Files.createDirectories(withDb.resolve("ai-run").resolve("page-objects"));
+        Files.writeString(withDb.resolve("ai-run").resolve("page-objects").resolve("pom-llm-token-usage.json"), """
+                {"inputTokens":70,"outputTokens":30,"totalTokens":100}
+                """);
+        Files.writeString(withDb.resolve("ai-run").resolve("enrichment").resolve("page-model-enrichment-report.json"), """
+                {"inputTokens":15,"outputTokens":5,"totalTokens":20,"openAiAttempts":1,"openAiSuccesses":1}
+                """);
+        Files.writeString(withDb.resolve("ai-run").resolve("quality").resolve("noise.json"), """
+                {"totalTokens":99999}
+                """);
+
+        DbImpactComparisonReport report = new DbImpactComparisonReporter()
+                .compare(withoutDb, withDb, temp.resolve("comparison-output"));
+
+        Assert.assertEquals(report.withDb().totalTokens(), 120);
+        Assert.assertEquals(report.withDb().promptTokens(), 85);
+        Assert.assertEquals(report.withDb().responseTokens(), 35);
+        Assert.assertEquals(report.withDb().actualTokens(), 120);
+        Assert.assertFalse(report.withDb().tokenUsageEstimated());
+        Assert.assertEquals(report.withDb().tokenCountingMode(), "openai-usage");
+    }
+
     private void writeRun(
             Path root,
             String runId,

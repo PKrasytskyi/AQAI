@@ -75,8 +75,12 @@ public class AiRunQualitySummaryService {
         String retrievalMode = stringArtifact(input, "ui.knowledge.retrieval.mode",
                 normalizedRetrievalMode(stringArtifact(input, "page.knowledge.cache.retrieval.mode", "unknown")));
         int pageKnowledgeCacheHits = intArtifact(input, "page.knowledge.cache.hit.count", 0);
-        boolean stableCacheUsed = booleanArtifact(input, "ui.knowledge.retrieval.stable.cache.used",
-                pageKnowledgeCacheHits > 0 || retrievalMode.equals("stable-page-cache"));
+        boolean stableCacheUsed = booleanArtifact(input, "ui.knowledge.retrieval.stable.cache.used", false)
+                || pageKnowledgeCacheHits > 0
+                || retrievalMode.equals("stable-page-cache");
+        if (stableCacheUsed && "current-run".equals(retrievalMode)) {
+            retrievalMode = "stable-page-cache";
+        }
         String dbUsageMode = dbUsageMode(neo4jHit, qdrantHit, stableCacheUsed);
         int pageEnrichmentGenerated = intArtifact(input, "page.enrichment.generated.count", 0);
         int pageEnrichmentCacheHits = intArtifact(
@@ -85,6 +89,22 @@ public class AiRunQualitySummaryService {
                 pageKnowledgeCacheHits
         );
         int pageEnrichmentOpenAiCalls = intArtifact(input, "page.enrichment.openai.count", 0);
+        int pageEnrichmentOpenAiAttempts = intArtifact(
+                input,
+                "page.enrichment.openai.attempt.count",
+                pageEnrichmentOpenAiCalls
+        );
+        int pageEnrichmentOpenAiSuccesses = intArtifact(
+                input,
+                "page.enrichment.openai.success.count",
+                pageEnrichmentOpenAiCalls
+        );
+        int pageEnrichmentOpenAiFailures = intArtifact(input, "page.enrichment.openai.failure.count", 0);
+        int pageEnrichmentOpenAiFallbacks = intArtifact(
+                input,
+                "page.enrichment.openai.fallback.count",
+                pageEnrichmentOpenAiFailures
+        );
         int staleEvidenceRejected = intArtifact(input, "ui.knowledge.retrieval.stale.evidence.rejected", 0);
         String vectorUnavailableReason = stringArtifact(input, "ui.knowledge.retrieval.vector.unavailable.reason", "");
         double averageLocatorScore = averageLocatorScore(locatorCandidates);
@@ -138,6 +158,10 @@ public class AiRunQualitySummaryService {
                 pageEnrichmentGenerated,
                 pageEnrichmentCacheHits,
                 pageEnrichmentOpenAiCalls,
+                pageEnrichmentOpenAiAttempts,
+                pageEnrichmentOpenAiSuccesses,
+                pageEnrichmentOpenAiFailures,
+                pageEnrichmentOpenAiFallbacks,
                 staleEvidenceRejected,
                 vectorUnavailableReason,
                 qualityScore
@@ -167,6 +191,10 @@ public class AiRunQualitySummaryService {
                 "unknown",
                 false,
                 "without-db",
+                0,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,

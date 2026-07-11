@@ -3,6 +3,7 @@ package ua.demo.agentlab.review.agent;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.orchestration.pipeline.AiArtifactPublisher;
 import ua.demo.agentlab.review.GeneratedCodeReviewer;
 import ua.demo.agentlab.review.GeneratedCodeReviewReport;
 import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
@@ -19,6 +20,7 @@ public class GeneratedCodeReviewAgent implements WorkflowAgent,
 
     private final GeneratedCodeReviewer reviewer;
     private final StageOutputPublisher publisher = new StageOutputPublisher();
+    private final AiArtifactPublisher artifactPublisher = new AiArtifactPublisher();
 
     public GeneratedCodeReviewAgent(GeneratedCodeReviewer reviewer){
         this.reviewer = reviewer;
@@ -76,5 +78,6 @@ public class GeneratedCodeReviewAgent implements WorkflowAgent,
     @Override
     public void applyOutput(GeneratedCodeReviewReport report, WorkflowState state) {
         publisher.publishGeneratedCodeReview(report, state);
+        artifactPublisher.writeJson(state, "validation", "generated-code-review-result.json", report);
     }
 }

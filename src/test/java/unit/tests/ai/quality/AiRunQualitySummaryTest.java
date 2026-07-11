@@ -44,6 +44,10 @@ public class AiRunQualitySummaryTest {
                 0,
                 0,
                 0,
+                0,
+                0,
+                0,
+                0,
                 "",
                 100
         );
@@ -195,7 +199,7 @@ public class AiRunQualitySummaryTest {
                 )
         ));
 
-        Assert.assertEquals(summary.retrievalMode(), "current-run");
+        Assert.assertEquals(summary.retrievalMode(), "stable-page-cache");
         Assert.assertTrue(summary.stableCacheUsed());
         Assert.assertEquals(summary.dbUsageMode(), "partial-db");
     }
@@ -213,13 +217,21 @@ public class AiRunQualitySummaryTest {
                         "ui.knowledge.retrieval.stable.cache.used", "true",
                         "page.enrichment.generated.count", "2",
                         "page.enrichment.cache.hit.count", "1",
-                        "page.enrichment.openai.count", "2"
+                        "page.enrichment.openai.count", "1",
+                        "page.enrichment.openai.attempt.count", "2",
+                        "page.enrichment.openai.success.count", "1",
+                        "page.enrichment.openai.failure.count", "1",
+                        "page.enrichment.openai.fallback.count", "1"
                 )
         ));
 
         Assert.assertEquals(summary.dbUsageMode(), "with-db");
         Assert.assertEquals(summary.pageEnrichmentGenerated(), 2);
         Assert.assertEquals(summary.pageEnrichmentCacheHits(), 1);
-        Assert.assertEquals(summary.pageEnrichmentOpenAiCalls(), 2);
+        Assert.assertEquals(summary.pageEnrichmentOpenAiCalls(), 1);
+        Assert.assertEquals(summary.pageEnrichmentOpenAiAttempts(), 2);
+        Assert.assertEquals(summary.pageEnrichmentOpenAiSuccesses(), 1);
+        Assert.assertEquals(summary.pageEnrichmentOpenAiFailures(), 1);
+        Assert.assertEquals(summary.pageEnrichmentOpenAiFallbacks(), 1);
     }
 }

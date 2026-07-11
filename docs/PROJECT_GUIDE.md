@@ -128,9 +128,10 @@ Runtime artifacts belong under `target/` and are ignored by Git.
 Useful UI run artifacts:
 
 - `target/discovery/semantic-action-model.json` - deterministic semantic elements, action candidates, and business-intent candidates before POM prompt generation.
-- `target/ai-run/page-object-spec/<Page>-prompt.txt` - final compact/debug POM contract prompt.
-- `target/ai-run/page-object-spec/<Page>-pom-contract.json` - parsed POM contract consumed by the deterministic Java writer.
-- `target/ai-run/page-object-spec/<Page>-scope-trace.json` - page, route, and requirement scoping diagnostics.
+- `target/ai-run/run-summary.md` - compact review entry point for the current run.
+- `target/ai-run/page-objects/<Page>-prompt.txt` - final compact POM contract prompt.
+- `target/ai-run/page-objects/<Page>-pom-contract.json` - parsed POM contract consumed by the deterministic Java writer.
+- `target/ai-run/debug/page-object-spec/<Page>-scope-trace.json` - page, route, and requirement scoping diagnostics when `ai.debug.artifacts=true`.
 - `target/ai-run/validation/generated-ui-smoke-result.json` - generated-source smoke result after POM source persistence, compile, and review.
 
 Golden UI slice status:

@@ -30,13 +30,13 @@ public class ArtifactDiffService {
         Optional<Path> previousRun = latestHistoryRun();
         ArtifactDiffReport report = diff(currentRunId, previousRun);
         writeReport(report);
-        archive(currentRunId);
         return report;
     }
 
     private ArtifactDiffReport diff(String currentRunId, Optional<Path> previousRun) {
         List<ArtifactCategoryDiff> categories = new ArrayList<>();
-        categories.add(compare("prompts", AI_RUN.resolve("page-object-spec"), previousRun, "ai-run/page-object-spec"));
+        categories.add(compare("prompts", existingAiRunPath("page-objects", "page-object-spec"), previousRun,
+                "ai-run/page-objects", "ai-run/page-object-spec"));
         categories.add(compare("test-prompts", AI_RUN.resolve("ui-test-spec"), previousRun, "ai-run/ui-test-spec"));
         categories.add(compare("mapped-pages", DISCOVERY.resolve("mapped-pages"), previousRun, "discovery/mapped-pages"));
         categories.add(compare("locator-candidates", DISCOVERY.resolve("mapped-ui-knowledge.json"), previousRun, "discovery/mapped-ui-knowledge.json"));
@@ -66,7 +66,19 @@ public class ArtifactDiffService {
             Optional<Path> previousRun,
             String previousRelativePath
     ) {
-        Path previousPath = previousRun.map(path -> path.resolve(previousRelativePath)).orElse(null);
+        return compare(category, currentPath, previousRun, previousRelativePath, previousRelativePath);
+    }
+
+    private ArtifactCategoryDiff compare(
+            String category,
+            Path currentPath,
+            Optional<Path> previousRun,
+            String previousRelativePath,
+            String fallbackPreviousRelativePath
+    ) {
+        Path previousPath = previousRun
+                .map(path -> existingPath(path.resolve(previousRelativePath), path.resolve(fallbackPreviousRelativePath)))
+                .orElse(null);
         String currentHash = hash(currentPath);
         String previousHash = previousPath == null ? "" : hash(previousPath);
         String status;
@@ -90,6 +102,17 @@ public class ArtifactDiffService {
                 previousHash,
                 "Hash is calculated over normalized file bytes for this artifact category"
         );
+    }
+
+    private Path existingAiRunPath(String primary, String fallback) {
+        return existingPath(AI_RUN.resolve(primary), AI_RUN.resolve(fallback));
+    }
+
+    private Path existingPath(Path primary, Path fallback) {
+        if (primary != null && Files.exists(primary)) {
+            return primary;
+        }
+        return fallback;
     }
 
     private List<ArtifactRegression> qualityRegressions(Path previousSummary, Path currentSummary) {
@@ -189,35 +212,6 @@ public class ArtifactDiffService {
         }
     }
 
-    private void archive(String runId) {
-        Path runDirectory = HISTORY.resolve(sanitize(runId));
-        try {
-            Files.createDirectories(runDirectory);
-            copyIfExists(AI_RUN, runDirectory.resolve("ai-run"));
-            copyIfExists(DISCOVERY, runDirectory.resolve("discovery"));
-        } catch (IOException exception) {
-            throw new IllegalStateException("Failed to archive AI run artifacts", exception);
-        }
-    }
-
-    private void copyIfExists(Path source, Path target) throws IOException {
-        if (!Files.exists(source)) {
-            return;
-        }
-        try (Stream<Path> paths = Files.walk(source)) {
-            for (Path path : paths.toList()) {
-                Path relative = source.relativize(path);
-                Path destination = target.resolve(relative);
-                if (Files.isDirectory(path)) {
-                    Files.createDirectories(destination);
-                } else {
-                    Files.createDirectories(destination.getParent());
-                    Files.copy(path, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-        }
-    }
-
     private String hash(Path path) {
         if (path == null || !Files.exists(path)) {
             return "";
@@ -240,8 +234,4 @@ public class ArtifactDiffService {
         }
     }
 
-    private String sanitize(String value) {
-        String normalized = value == null || value.isBlank() ? "unknown-run" : value.trim();
-        return normalized.replaceAll("[^A-Za-z0-9._-]", "-");
-    }
 }

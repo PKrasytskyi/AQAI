@@ -1,28 +1,18 @@
 package ua.demo.agentlab.ai.openai;
 
-import java.io.InputStream;
 import java.util.Objects;
-import java.util.Properties;
+import ua.demo.agentlab.config.RuntimeProperties;
 
 public class PropertiesOpenAiRuntimeConfig implements OpenAiRuntimeConfig {
 
-    private final Properties properties = new Properties();
+    private final RuntimeProperties properties;
 
     public PropertiesOpenAiRuntimeConfig() {
         this("framework.properties");
     }
 
     public PropertiesOpenAiRuntimeConfig(String resourceName) {
-        try (InputStream input = Thread.currentThread()
-                .getContextClassLoader()
-                .getResourceAsStream(resourceName)) {
-            if (input == null) {
-                throw new IllegalStateException("Cannot find OpenAI config resource: " + resourceName);
-            }
-            properties.load(input);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Failed to load OpenAI config resource: " + resourceName, exception);
-        }
+        this.properties = new RuntimeProperties(resourceName);
     }
 
     @Override
@@ -85,39 +75,7 @@ public class PropertiesOpenAiRuntimeConfig implements OpenAiRuntimeConfig {
     }
 
     private String readOptional(String propertyKey, String envKey) {
-        String systemValue = System.getProperty(propertyKey);
-        if (systemValue != null && !systemValue.isBlank()) {
-            return systemValue.trim();
-        }
-
-        String envValue = System.getenv(envKey);
-        if (envValue != null && !envValue.isBlank()) {
-            return envValue.trim();
-        }
-
-        String propertyValue = properties.getProperty(propertyKey);
-        if (propertyValue != null && !propertyValue.isBlank()) {
-            return resolveConfiguredValue(propertyValue.trim());
-        }
-
-        return null;
-    }
-
-    private String resolveConfiguredValue(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        String trimmed = value.trim();
-        if (trimmed.startsWith("${") && trimmed.endsWith("}") && trimmed.length() > 3) {
-            String key = trimmed.substring(2, trimmed.length() - 1).trim();
-            String systemValue = System.getProperty(key);
-            if (systemValue != null && !systemValue.isBlank()) {
-                return systemValue.trim();
-            }
-            String envValue = System.getenv(key);
-            return envValue == null || envValue.isBlank() ? null : envValue.trim();
-        }
-        return trimmed;
+        return properties.readOptional(propertyKey, envKey);
     }
 
     private String firstNonBlank(String... values) {

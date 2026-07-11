@@ -2,6 +2,7 @@ package ua.demo.agentlab.ai.pageenrichment.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentFailure;
 import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentInput;
 import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentRecord;
 import ua.demo.agentlab.ai.rag.config.RagRuntimeConfig;
@@ -23,6 +24,14 @@ public class OpenAiPageModelEnrichmentClient implements PageModelEnrichmentClien
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final LlmOutputSchemaValidator schemaValidator = new LlmOutputSchemaValidator();
     private List<String> lastFailures = List.of();
+    private List<PageModelEnrichmentFailure> lastFailureDetails = List.of();
+    private int lastAttempts;
+    private int lastSuccesses;
+    private int lastPromptChars;
+    private int lastResponseChars;
+    private int lastActualInputTokens;
+    private int lastActualOutputTokens;
+    private int lastActualTotalTokens;
 
     public OpenAiPageModelEnrichmentClient(RagRuntimeConfig config) {
         this(config, new RuleBasedPageModelEnrichmentClient());
@@ -47,21 +56,87 @@ public class OpenAiPageModelEnrichmentClient implements PageModelEnrichmentClien
         List<PageModelEnrichmentRecord> baseline = baselineClient.enrich(inputs);
         List<PageModelEnrichmentRecord> result = new ArrayList<>();
         List<String> failures = new ArrayList<>();
+        List<PageModelEnrichmentFailure> failureDetails = new ArrayList<>();
+        int attempts = 0;
+        int successes = 0;
+        int promptChars = 0;
+        int responseChars = 0;
+        int actualInputTokens = 0;
+        int actualOutputTokens = 0;
+        int actualTotalTokens = 0;
         for (int index = 0; index < baseline.size(); index++) {
             PageModelEnrichmentRecord fallback = baseline.get(index);
+            String response = "";
             try {
-                result.add(parse(generationClient.generate(prompt(inputs.get(index), fallback)), fallback, inputs.get(index)));
+                String prompt = prompt(inputs.get(index), fallback);
+                attempts++;
+                promptChars += prompt.length();
+                response = generationClient.generate(prompt);
+                responseChars += response == null ? 0 : response.length();
+                var usage = generationClient.lastUsage();
+                actualInputTokens += usage.inputTokens();
+                actualOutputTokens += usage.outputTokens();
+                actualTotalTokens += usage.totalTokens();
+                result.add(parse(response, fallback, inputs.get(index)));
+                successes++;
             } catch (Exception exception) {
                 result.add(fallback);
                 failures.add(fallback.pageId() + ": " + safeMessage(exception));
+                failureDetails.add(new PageModelEnrichmentFailure(
+                        fallback.pageId(),
+                        fallback.pageName(),
+                        fallback.route(),
+                        safeMessage(exception),
+                        response
+                ));
             }
         }
         lastFailures = List.copyOf(failures);
+        lastFailureDetails = List.copyOf(failureDetails);
+        lastAttempts = attempts;
+        lastSuccesses = successes;
+        lastPromptChars = promptChars;
+        lastResponseChars = responseChars;
+        lastActualInputTokens = actualInputTokens;
+        lastActualOutputTokens = actualOutputTokens;
+        lastActualTotalTokens = actualTotalTokens;
         return List.copyOf(result);
     }
 
     public List<String> lastFailures() {
         return lastFailures;
+    }
+
+    public List<PageModelEnrichmentFailure> lastFailureDetails() {
+        return lastFailureDetails;
+    }
+
+    public int lastAttempts() {
+        return lastAttempts;
+    }
+
+    public int lastSuccesses() {
+        return lastSuccesses;
+    }
+
+    public int lastPromptChars() {
+        return lastPromptChars;
+    }
+
+    public int lastResponseChars() {
+        return lastResponseChars;
+    }
+
+    public int lastActualInputTokens() {
+        return lastActualInputTokens;
+    }
+
+    public int lastActualOutputTokens() {
+        return lastActualOutputTokens;
+    }
+
+    public int lastActualTotalTokens() {
+        return lastActualTotalTokens;
     }
 
     private String prompt(PageModelEnrichmentInput input, PageModelEnrichmentRecord baseline) throws Exception {

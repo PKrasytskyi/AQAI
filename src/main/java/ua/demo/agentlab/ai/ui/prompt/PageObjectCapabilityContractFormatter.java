@@ -10,12 +10,18 @@ import ua.demo.agentlab.ui.contract.AssertionIntent;
 import ua.demo.agentlab.ui.contract.AssertionIntentKind;
 import ua.demo.agentlab.ui.contract.UiOperationIntent;
 import ua.demo.agentlab.ui.contract.UiOperationKind;
+import ua.demo.agentlab.ui.catalog.ConfirmedPageCandidate;
+import ua.demo.agentlab.ui.catalog.ConfirmedPageRegistry;
+import ua.demo.agentlab.ui.catalog.ConfirmedPageSourceResolver;
+import ua.demo.agentlab.ui.catalog.PageCapability;
+import ua.demo.agentlab.ui.catalog.PageSource;
 import ua.demo.agentlab.ui.discovery.identity.PageReferenceMatcher;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
 
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -55,8 +61,8 @@ public class PageObjectCapabilityContractFormatter {
             }
         }
         addBaselineMethods(contract, baselineSpec);
-        addForbiddenMethods(contract);
         contract.applyPromptReadyScope(pomScopeSanitizer.sanitize(context, pageName, pageScenarios));
+        addForbiddenMethods(contract);
         return contract.render();
     }
 
@@ -164,7 +170,7 @@ public class PageObjectCapabilityContractFormatter {
         if (normalized.endsWith(":submitform")
                 || normalized.endsWith(":submit-form")
                 || normalized.endsWith(":submit_form")) {
-            if (isLoginPage(contract.pageName) || contract.capability.equals("AUTHENTICATION")) {
+            if (contract.capability.equals("AUTHENTICATION")) {
                 addAuthenticationContract(contract);
             } else {
                 contract.ownedActions.add("submitForm()");
@@ -192,8 +198,7 @@ public class PageObjectCapabilityContractFormatter {
 
     private boolean isAuthenticationContractPage(Contract contract) {
         return contract != null
-                && (isLoginPage(contract.pageName)
-                || "AUTHENTICATION".equals(contract.capability)
+                && ("AUTHENTICATION".equals(contract.capability)
                 || containsAny(contract.route, "login", "auth/login"));
     }
 
@@ -307,10 +312,26 @@ public class PageObjectCapabilityContractFormatter {
             case AUTHENTICATE -> addAuthenticationContract(contract);
             case ENTER_TEXT -> addEnterTextContract(contract, intent);
             case SUBMIT_FORM -> contract.ownedActions.add("submitForm()");
-            case OPEN_DETAILS -> contract.ownedActions.add("openEntityDetails(String entityKey)");
-            case OPEN_TARGET_CONTAINER, OPEN_DESTINATION_CONTAINER -> contract.ownedActions.add("openTargetContainer()");
-            case ADD_ENTITY_TO_CONTAINER, ADD_ITEM_TO_CONTAINER -> contract.ownedActions.add("addEntityToContainer(String entityKey)");
-            case REMOVE_ENTITY_FROM_CONTAINER, REMOVE_ITEM_FROM_CONTAINER -> contract.ownedActions.add("removeEntityFromContainer(String entityKey)");
+            case OPEN_DETAILS -> {
+                if (supportsRecordDetails(contract)) {
+                    contract.ownedActions.add("openRecordDetails(String recordKey)");
+                }
+            }
+            case OPEN_TARGET_CONTAINER, OPEN_DESTINATION_CONTAINER -> {
+                if (supportsContainer(contract)) {
+                    contract.ownedActions.add("openContainer()");
+                }
+            }
+            case ADD_ENTITY_TO_CONTAINER, ADD_ITEM_TO_CONTAINER -> {
+                if (supportsContainer(contract)) {
+                    contract.ownedActions.add("addRecordToContainer(String recordKey)");
+                }
+            }
+            case REMOVE_ENTITY_FROM_CONTAINER, REMOVE_ITEM_FROM_CONTAINER -> {
+                if (supportsContainer(contract)) {
+                    contract.ownedActions.add("removeRecordFromContainer(String recordKey)");
+                }
+            }
             case SEARCH -> contract.ownedActions.add("search(String query)");
             case FILTER -> contract.ownedActions.add("filter(String value)");
             case LOGOUT -> {
@@ -329,6 +350,15 @@ public class PageObjectCapabilityContractFormatter {
             }
         }
         addTextDrivenSourceActions(contract, testCase);
+    }
+
+    private boolean supportsRecordDetails(Contract contract) {
+        return contract != null
+                && ("RECORD_DETAILS".equals(contract.capability) || "RECORD_LIST".equals(contract.capability));
+    }
+
+    private boolean supportsContainer(Contract contract) {
+        return contract != null && "CONTAINER".equals(contract.capability);
     }
 
     private void addEnterTextContract(Contract contract, UiOperationIntent intent) {
@@ -393,7 +423,7 @@ public class PageObjectCapabilityContractFormatter {
         if (text.contains("authenticated area") || text.contains("secure area")) {
             contract.ownedAssertions.add("isAuthenticatedAreaVisible()");
         }
-        if (isLoginPage(contract.pageName) && text.contains("login page")) {
+        if ("AUTHENTICATION".equals(contract.capability) && text.contains("login page")) {
             contract.ownedAssertions.add("isLoginFormVisible()");
         }
     }
@@ -419,6 +449,8 @@ public class PageObjectCapabilityContractFormatter {
     }
 
     private void addForbiddenMethods(Contract contract) {
+        contract.forbiddenMethods.clear();
+        contract.forbiddenLocators.clear();
         boolean ownsLogin = contract.ownedActions.stream().anyMatch(method -> method.startsWith("login("));
         if (!ownsLogin) {
             contract.forbiddenMethods.add("login");
@@ -429,20 +461,21 @@ public class PageObjectCapabilityContractFormatter {
             contract.forbiddenLocators.add("passwordInput");
             contract.forbiddenLocators.add("loginButton");
         }
-        boolean ownsTargetContainer = contract.ownedActions.stream().anyMatch(method -> method.contains("TargetContainer"))
-                || contract.ownedAssertions.stream().anyMatch(method -> method.contains("TargetContainer"));
-        if (!ownsTargetContainer) {
-            contract.forbiddenMethods.add("openTargetContainer");
-            contract.forbiddenMethods.add("addEntityToContainer");
-            contract.forbiddenMethods.add("removeEntityFromContainer");
-        }
     }
 
     private String resolveRoute(AiContextPackage context, String pageName) {
         if (context != null
                 && context.promptUiEvidence() != null
+                && PageReferenceMatcher.matchesScenarioPage(
+                context.promptUiEvidence().targetPage(),
+                context.promptUiEvidence().targetRoute(),
+                pageName)
                 && !context.promptUiEvidence().targetRoute().isBlank()) {
             return context.promptUiEvidence().targetRoute();
+        }
+        Optional<ConfirmedPageCandidate> confirmedPage = confirmedPage(context, pageName);
+        if (confirmedPage.isPresent()) {
+            return confirmedPage.get().route();
         }
         if (context != null && context.mappedUiKnowledge() != null) {
             return context.mappedUiKnowledge().pages().stream()
@@ -468,6 +501,21 @@ public class PageObjectCapabilityContractFormatter {
     }
 
     private String resolveCapability(AiContextPackage context, String pageName) {
+        if (context != null && context.promptUiEvidence() != null
+                && PageReferenceMatcher.matchesScenarioPage(
+                context.promptUiEvidence().targetPage(),
+                context.promptUiEvidence().targetRoute(),
+                pageName)) {
+            PageCapability inferred = inferCapability(context.promptUiEvidence().targetPage()
+                    + " " + context.promptUiEvidence().targetRoute());
+            if (inferred != PageCapability.GENERIC) {
+                return capabilityName(inferred);
+            }
+        }
+        Optional<ConfirmedPageCandidate> confirmedPage = confirmedPage(context, pageName);
+        if (confirmedPage.isPresent()) {
+            return capabilityName(confirmedPage.get().capability());
+        }
         if (context == null || context.mappedUiKnowledge() == null) {
             return "UNKNOWN";
         }
@@ -499,8 +547,108 @@ public class PageObjectCapabilityContractFormatter {
         };
     }
 
-    private boolean isLoginPage(String pageName) {
-        return PageReferenceMatcher.normalize(pageName).contains("login");
+    private Optional<ConfirmedPageCandidate> confirmedPage(AiContextPackage context, String pageName) {
+        if (context == null) {
+            return Optional.empty();
+        }
+        ConfirmedPageRegistry registry = new ConfirmedPageSourceResolver().resolve(
+                context.projectProfile(),
+                context.normalizedRequirementBundle(),
+                stableMappedPages(context)
+        );
+        if (context.promptUiEvidence() != null && !context.promptUiEvidence().targetRoute().isBlank()) {
+            Optional<ConfirmedPageCandidate> byRoute = registry.findByRoute(context.promptUiEvidence().targetRoute());
+            if (byRoute.isPresent()) {
+                return byRoute;
+            }
+        }
+        Optional<ConfirmedPageCandidate> byName = registry.findByPageName(pageName);
+        if (byName.isPresent()) {
+            return byName;
+        }
+        if (context.promptUiEvidence() != null
+                && PageReferenceMatcher.matchesScenarioPage(
+                context.promptUiEvidence().targetPage(),
+                context.promptUiEvidence().targetRoute(),
+                pageName)
+                && !context.promptUiEvidence().targetRoute().isBlank()) {
+            return Optional.of(new ConfirmedPageCandidate(
+                    pageName,
+                    context.promptUiEvidence().targetRoute(),
+                    inferCapability(context.promptUiEvidence().targetPage()
+                            + " " + context.promptUiEvidence().targetRoute()),
+                    PageSource.REQUIREMENT_ROUTE,
+                    0.90d,
+                    List.of("prompt-ui-evidence")
+            ));
+        }
+        return Optional.empty();
+    }
+
+    private List<ConfirmedPageCandidate> stableMappedPages(AiContextPackage context) {
+        if (context == null || context.mappedUiKnowledge() == null || context.mappedUiKnowledge().pages() == null) {
+            return List.of();
+        }
+        return context.mappedUiKnowledge().pages().stream()
+                .filter(page -> page != null)
+                .map(page -> new ConfirmedPageCandidate(
+                        page.pageName(),
+                        firstNonBlank(page.urlPattern(), page.url()),
+                        inferCapability(page.pageName() + " " + page.urlPattern() + " " + page.canonicalPageType()),
+                        PageSource.DISCOVERY_SNAPSHOT,
+                        0.88d,
+                        List.of("mapped-ui-knowledge")
+                ))
+                .filter(ConfirmedPageCandidate::hasRoute)
+                .toList();
+    }
+
+    private PageCapability inferCapability(String evidence) {
+        String normalized = safe(evidence).toLowerCase(Locale.ROOT);
+        if (containsAny(normalized, "dashboard", "overview")) {
+            return PageCapability.DASHBOARD;
+        }
+        if (containsAny(normalized, "login", "signin", "sign-in", "auth/login", "credential")) {
+            return PageCapability.AUTHENTICATION;
+        }
+        if (containsAny(normalized, "authenticated", "secure", "logout")) {
+            return PageCapability.AUTHENTICATED_AREA;
+        }
+        if (containsAny(normalized, "register", "registration", "signup")) {
+            return PageCapability.REGISTRATION;
+        }
+        if (containsAny(normalized, "recover", "recovery", "forgot", "reset")) {
+            return PageCapability.RECOVERY;
+        }
+        if (containsAny(normalized, "security", "challenge", "mfa", "otp")) {
+            return PageCapability.SECURITY;
+        }
+        if (containsAny(normalized, "form", "submit", "field", "input", "create", "update", "edit")) {
+            return PageCapability.FORM;
+        }
+        if (containsAny(normalized, "list", "table", "search", "results", "collection")) {
+            return PageCapability.RECORD_LIST;
+        }
+        if (containsAny(normalized, "detail", "record", "profile")) {
+            return PageCapability.RECORD_DETAILS;
+        }
+        if (containsAny(normalized, "container", "basket", "wishlist", "selection")) {
+            return PageCapability.CONTAINER;
+        }
+        return PageCapability.GENERIC;
+    }
+
+    private String capabilityName(PageCapability capability) {
+        return capability == null ? "UNKNOWN" : capability.name();
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
     }
 
     private String normalizedText(CanonicalTestCase testCase) {
@@ -548,13 +696,29 @@ public class PageObjectCapabilityContractFormatter {
                 return;
             }
             ownedActions.clear();
-            ownedActions.addAll(scope.ownedActions());
+            scope.ownedActions().stream()
+                    .filter(this::isAllowedPromptReadyAction)
+                    .forEach(ownedActions::add);
             ownedAssertions.clear();
             scope.ownedAssertions().forEach(assertion -> ownedAssertions.add(assertion.type() + "(" + assertion.expectedValue() + ")"));
             requiredLocators.clear();
             scope.allowedLocators().forEach(locator -> requiredLocators.add(locator.id()));
             rejectedSuggestions.clear();
             rejectedSuggestions.addAll(scope.rejectedSuggestions());
+        }
+
+        private boolean isAllowedPromptReadyAction(String action) {
+            String normalized = action == null ? "" : action.trim();
+            if (normalized.isBlank()) {
+                return false;
+            }
+            boolean legacyContainerAction = normalized.startsWith("openTargetContainer")
+                    || normalized.startsWith("addEntityToContainer")
+                    || normalized.startsWith("removeEntityFromContainer")
+                    || normalized.startsWith("openCart")
+                    || normalized.startsWith("addToCart")
+                    || normalized.startsWith("removeFromCart");
+            return !legacyContainerAction || "CONTAINER".equals(capability);
         }
 
         private String render() {

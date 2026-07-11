@@ -12,6 +12,7 @@ import java.util.List;
 public class DbImpactComparisonRunner {
 
     private static final Path DEFAULT_HISTORY_ROOT = Path.of("target", "ai-run-history");
+    private static final Path CURRENT_RUN_ROOT = Path.of("target", "ai-run");
 
     public static void main(String[] args) {
         Path firstRun;
@@ -20,8 +21,8 @@ public class DbImpactComparisonRunner {
             List<Path> latestRuns = latestHistoryRuns();
             if (latestRuns.size() < 2) {
                 System.out.println("Usage: DbImpactComparisonRunner [<without-db-run-dir> <with-db-run-dir>]");
-                System.out.println("No arguments means: compare the latest two run directories under "
-                        + DEFAULT_HISTORY_ROOT);
+                System.out.println("No arguments means: compare the latest two runs from "
+                        + DEFAULT_HISTORY_ROOT + " plus " + CURRENT_RUN_ROOT);
                 System.out.println("Found " + latestRuns.size() + " run directorie(s).");
                 return;
             }
@@ -62,15 +63,22 @@ public class DbImpactComparisonRunner {
 
     private static List<Path> latestHistoryRuns() {
         if (!Files.isDirectory(DEFAULT_HISTORY_ROOT)) {
-            return List.of();
+            return hasRunSummary(CURRENT_RUN_ROOT) ? List.of(CURRENT_RUN_ROOT) : List.of();
         }
         try (var stream = Files.list(DEFAULT_HISTORY_ROOT)) {
-            return stream
+            List<Path> historyRuns = stream
                     .filter(Files::isDirectory)
                     .filter(DbImpactComparisonRunner::hasRunSummary)
-                    .sorted(Comparator.comparing(DbImpactComparisonRunner::lastModified).reversed())
-                    .limit(2)
                     .toList();
+            java.util.ArrayList<Path> candidates = new java.util.ArrayList<>(historyRuns);
+            if (hasRunSummary(CURRENT_RUN_ROOT)) {
+                candidates.add(CURRENT_RUN_ROOT);
+            }
+            java.util.LinkedHashMap<String, Path> uniqueByRunId = new java.util.LinkedHashMap<>();
+            candidates.stream()
+                    .sorted(Comparator.comparing(DbImpactComparisonRunner::lastModified).reversed())
+                    .forEach(path -> uniqueByRunId.putIfAbsent(runId(path), path));
+            return uniqueByRunId.values().stream().limit(2).toList();
         } catch (IOException exception) {
             System.out.println("Failed to read " + DEFAULT_HISTORY_ROOT + ": " + exception.getMessage());
             return List.of();
@@ -80,6 +88,24 @@ public class DbImpactComparisonRunner {
     private static boolean hasRunSummary(Path path) {
         return Files.isRegularFile(path.resolve("quality").resolve("run-quality-summary.json"))
                 || Files.isRegularFile(path.resolve("ai-run").resolve("quality").resolve("run-quality-summary.json"));
+    }
+
+    private static String runId(Path path) {
+        Path summary = Files.isRegularFile(path.resolve("quality").resolve("run-quality-summary.json"))
+                ? path.resolve("quality").resolve("run-quality-summary.json")
+                : path.resolve("ai-run").resolve("quality").resolve("run-quality-summary.json");
+        try {
+            String content = Files.readString(summary);
+            java.util.regex.Matcher matcher = java.util.regex.Pattern
+                    .compile("\"runId\"\\s*:\\s*\"([^\"]+)\"")
+                    .matcher(content);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        } catch (IOException ignored) {
+            // Fall back to directory identity when the summary cannot be read.
+        }
+        return path.toAbsolutePath().normalize().toString();
     }
 
     private static long lastModified(Path path) {

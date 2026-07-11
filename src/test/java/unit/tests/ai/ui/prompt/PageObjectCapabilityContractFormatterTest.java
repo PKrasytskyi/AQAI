@@ -114,9 +114,59 @@ public class PageObjectCapabilityContractFormatterTest {
         Assert.assertFalse(contract.contains("login(String username, String password)"));
         Assert.assertTrue(contract.contains("prerequisitePages=[LoginPage]"));
         Assert.assertTrue(contract.contains("forbiddenMethods=[login, enterUsername, enterPassword, submitLogin"));
-        Assert.assertTrue(contract.contains("openTargetContainer"));
+        Assert.assertFalse(contract.contains("openTargetContainer"));
+        Assert.assertFalse(contract.contains("addEntityToContainer"));
+        Assert.assertFalse(contract.contains("removeEntityFromContainer"));
         Assert.assertFalse(contract.contains("openCart"));
         Assert.assertFalse(contract.contains("addToCart"));
         Assert.assertFalse(contract.contains("removeFromCart"));
+    }
+
+    @Test
+    public void nonContainerPromptReadyScopeDropsLegacyContainerActions() {
+        PromptUiEvidence evidence = new PromptUiEvidence(
+                "LoginPage",
+                "/login",
+                List.of("REQ-LOGIN"),
+                List.of(
+                        new PromptActionEvidence("openTargetContainer()", "requirement", "LoginPage", "legacy"),
+                        new PromptActionEvidence("addEntityToContainer(String entityKey)", "requirement", "LoginPage", "legacy"),
+                        new PromptActionEvidence("removeEntityFromContainer(String entityKey)", "requirement", "LoginPage", "legacy"),
+                        new PromptActionEvidence("AUTHENTICATION", "semantic-business-intent", "LoginPage", "semantic-page:login")
+                ),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("test"),
+                0.90d
+        );
+        AiContextPackage context = new AiContextPackage(
+                "Generate POM",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                evidence
+        );
+        AiPageObjectSpec baseline = new AiPageObjectSpec("LoginPage", "/login", "openLogin", List.of(), List.of());
+
+        String contract = new PageObjectCapabilityContractFormatter().format(context, "LoginPage", baseline);
+
+        Assert.assertFalse(contract.contains("openTargetContainer"));
+        Assert.assertFalse(contract.contains("addEntityToContainer"));
+        Assert.assertFalse(contract.contains("removeEntityFromContainer"));
+        Assert.assertTrue(contract.contains("login(String username, String password)"));
     }
 }

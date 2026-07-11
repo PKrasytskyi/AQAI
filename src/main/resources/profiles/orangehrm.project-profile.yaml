@@ -1,0 +1,40 @@
+schemaVersion: project-profile.v1
+
+project:
+  id: orangeHRM
+  name: OrangeHRM
+  baseUrl: https://opensource-demo.orangehrmlive.com/web/index.php
+
+requirements:
+  file: requirements/valid-login-requirement.md
+
+routes:
+  home: /auth/login
+  login: /auth/login
+  authenticated: /dashboard/index
+
+ui:
+  baseUrl: https://opensource-demo.orangehrmlive.com/web/index.php
+  browser: chrome
+  headless: true
+  timeoutSeconds: 10
+
+auth:
+  enabled: true
+  usernameEnv: TEST_VALID_USERNAME
+  passwordEnv: TEST_VALID_PASSWORD
+  usernameSelector: "input[name='username'], input#username, input[type='email'], input[name*='user'], input[id*='user']"
+  passwordSelector: "input[name='password'], input#password, input[type='password'], input[name*='pass'], input[id*='pass']"
+  submitSelector: "button[type='submit'], input[type='submit'], button, input[type='button']"
+
+ai:
+  openAiEnabled: true
+  pageEnrichmentLlmEnabled: true
+  pageObjectLlmEnabled: true
+  uiTestLlmEnabled: false
+
+knowledge:
+  ragEnabled: true
+  graphEnabled: true
+  vectorEnabled: true
+
