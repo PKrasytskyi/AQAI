@@ -12,7 +12,7 @@ public class RuntimeSkillPromptLoaderTest {
         RuntimeSkillPrompt skill = new RuntimeSkillPromptLoader().load("pom-json-generation");
 
         Assert.assertEquals(skill.skillId(), "pom-json-generation");
-        Assert.assertEquals(skill.version(), "1.0.0");
+        Assert.assertEquals(skill.version(), "1.1.0");
         Assert.assertTrue(skill.prompt().contains("Page Object Contract Planner"));
         Assert.assertTrue(skill.rules().contains("Do not write Java"));
         Assert.assertTrue(skill.inputSchema().contains("pom-json-generation-input.v1"));
@@ -24,4 +24,3 @@ public class RuntimeSkillPromptLoaderTest {
         new RuntimeSkillPromptLoader().load("../pom-json-generation");
     }
 }
-

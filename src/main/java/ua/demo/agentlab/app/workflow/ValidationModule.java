@@ -9,6 +9,9 @@ public record ValidationModule(
         WorkflowAgent generatedCodeCompileAgent,
         WorkflowAgent generatedCodeReviewAgent,
         WorkflowAgent generatedUiSmokeAgent,
-        WorkflowAgent runtimeFeedbackDbUpdateAgent
+        WorkflowAgent artifactLifecyclePromotionAgent,
+        WorkflowAgent artifactReuseMetricsAgent,
+        WorkflowAgent runtimeFeedbackDbUpdateAgent,
+        WorkflowAgent runHistoryStatisticsAgent
 ) {
 }

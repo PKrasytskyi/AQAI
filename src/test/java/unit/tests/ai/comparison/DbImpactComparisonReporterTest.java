@@ -59,7 +59,7 @@ public class DbImpactComparisonReporterTest {
     }
 
     @Test
-    public void reporterMarksMixedDbSignalsAsPartialDb() throws Exception {
+    public void reporterRejectsPartialDbComparison() throws Exception {
         Path temp = Files.createTempDirectory("db-impact-comparison-partial");
         Path withoutDb = temp.resolve("without-db");
         Path partialDb = temp.resolve("partial-db");
@@ -68,12 +68,10 @@ public class DbImpactComparisonReporterTest {
         writeRun(partialDb, "partial-db", 75, 3, 2, 1, "PASSED", 2,
                 true, false, true, "stable-page-cache", true);
 
-        DbImpactComparisonReport report = new DbImpactComparisonReporter()
-                .compare(withoutDb, partialDb, temp.resolve("comparison-output"));
+        IllegalArgumentException exception = Assert.expectThrows(IllegalArgumentException.class,
+                () -> new DbImpactComparisonReporter().compare(withoutDb, partialDb, temp.resolve("comparison-output")));
 
-        Assert.assertEquals(report.withDb().dbUsageMode(), "partial-db");
-        Assert.assertTrue(report.notes().stream()
-                .anyMatch(note -> note.contains("not a full stable-cache DB run")));
+        Assert.assertTrue(exception.getMessage().contains("requires one clean DB-disabled run"));
     }
 
     @Test
@@ -158,6 +156,61 @@ public class DbImpactComparisonReporterTest {
         Assert.assertEquals(report.withDb().tokenCountingMode(), "openai-usage");
     }
 
+    @Test
+    public void reporterUsesExplicitArtifactReuseMetricsInsteadOfPromptFileCount() throws Exception {
+        Path temp = Files.createTempDirectory("db-impact-comparison-artifact-reuse");
+        Path withoutDb = temp.resolve("without-db");
+        Path withDb = temp.resolve("with-db");
+        writeRun(withoutDb, "without-db", 80, 0, 0, 0, "PASSED", 2,
+                false, false, false, "current-run", false);
+        writeRun(withDb, "with-db", 88, 0, 0, 0, "PASSED", 2,
+                true, true, true, "stable-page-cache", true);
+        writeArtifactReuseMetrics(withoutDb, true, 2, 0, 0, 2, 0, 0, 0, 0);
+        writeArtifactReuseMetrics(withDb, true, 0, 2, 2, 0, 3826, 2, 0, 4);
+
+        DbImpactComparisonReport report = new DbImpactComparisonReporter()
+                .compare(withoutDb, withDb, temp.resolve("comparison-output"));
+
+        Assert.assertEquals(report.withoutDb().pomLlmCalls(), 2);
+        Assert.assertEquals(report.withDb().pomLlmCalls(), 0);
+        Assert.assertEquals(report.withDb().artifactReuseLlmCallsSkipped(), 2);
+        Assert.assertEquals(report.withDb().artifactCacheHits(), 2);
+        Assert.assertEquals(report.withDb().artifactTokensSavedEstimate(), 3826);
+        Assert.assertEquals(report.withDb().stableLocatorReuse(), 4);
+        Assert.assertTrue(report.rows().stream().anyMatch(row -> row.metric().equals("POM LLM calls skipped")
+                && row.withDb().equals("2")));
+    }
+
+    @Test
+    public void reporterCountsLegacyReusedContractFromStableArtifactDecision() throws Exception {
+        Path temp = Files.createTempDirectory("db-impact-comparison-reused-contract");
+        Path withoutDb = temp.resolve("without-db");
+        Path withDb = temp.resolve("with-db");
+        writeRun(withoutDb, "without-db", 80, 0, 0, 0, "PASSED", 1,
+                false, false, false, "disabled", false);
+        writeRun(withDb, "with-db", 90, 0, 0, 0, "PASSED", 1,
+                true, true, true, "stable-page-cache", true);
+
+        Path pageObjects = withDb.resolve("ai-run").resolve("page-object-spec");
+        Path stableContract = temp.resolve("stable").resolve("LoginPage.fingerprint.pom-contract.json");
+        Files.createDirectories(stableContract.getParent());
+        String contract = Files.readString(pageObjects.resolve("LoginPage-pom-contract.json"));
+        Files.writeString(stableContract, contract);
+        Files.delete(pageObjects.resolve("LoginPage-pom-contract.json"));
+        Files.writeString(pageObjects.resolve("LoginPage-artifact-reuse-decision.json"), """
+                {"decision":"REUSE_STABLE","stableFilePath":"%s"}
+                """.formatted(stableContract.toAbsolutePath().normalize().toString().replace("\\", "\\\\")));
+
+        DbImpactComparisonReport report = new DbImpactComparisonReporter()
+                .compare(withoutDb, withDb, temp.resolve("comparison-output"));
+
+        Assert.assertEquals(report.withDb().newlyTotalPomContracts(), 0);
+        Assert.assertEquals(report.withDb().reusedValidPomContracts(), 1);
+        Assert.assertEquals(report.withDb().validPomContracts(), 1);
+        Assert.assertTrue(report.rows().stream().anyMatch(row -> row.metric().equals("Effective valid POM contracts")
+                && row.withDb().equals("1/1")));
+    }
+
     private void writeRun(
             Path root,
             String runId,
@@ -216,5 +269,37 @@ public class DbImpactComparisonReporterTest {
                   "rejectedSuggestions":[]
                 }
                 """);
+    }
+
+    private void writeArtifactReuseMetrics(
+            Path root,
+            boolean enabled,
+            int executed,
+            int skipped,
+            int hits,
+            int misses,
+            int tokensSaved,
+            int stable,
+            int needsReview,
+            int stableLocatorReuse
+    ) throws Exception {
+        Path metrics = root.resolve("ai-run").resolve("metrics");
+        Files.createDirectories(metrics);
+        Files.writeString(metrics.resolve("artifact-reuse-summary.json"), """
+                {
+                  "schemaVersion":"artifact-reuse-run-metrics.v1",
+                  "enabled":%s,
+                  "llmCallsExecuted":%d,
+                  "llmCallsSkipped":%d,
+                  "artifactCacheHits":%d,
+                  "artifactCacheMisses":%d,
+                  "tokensSavedEstimate":%d,
+                  "stableArtifacts":%d,
+                  "needsReviewArtifacts":%d,
+                  "stableLocatorReuse":%d,
+                  "flowReuse":0
+                }
+                """.formatted(enabled, executed, skipped, hits, misses, tokensSaved, stable, needsReview,
+                stableLocatorReuse));
     }
 }

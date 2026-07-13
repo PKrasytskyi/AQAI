@@ -131,6 +131,8 @@ public class EvidenceRankingService {
                 ownershipScore,
                 riskPenalty,
                 finalScore,
+                locator.stableAcrossRuns(),
+                LocatorEvidenceType.CANDIDATE_LOCATOR,
                 locator.risks(),
                 reasons
         );
@@ -160,6 +162,7 @@ public class EvidenceRankingService {
                 evidence.ownershipScore(),
                 evidence.riskPenalty(),
                 evidence.finalScore(),
+                evidence.stableAcrossRuns(),
                 evidenceClassifier.classify(evidence),
                 evidence.risks(),
                 evidence.reasons()

@@ -39,6 +39,7 @@ public class DbImpactComparisonReporter {
         DbImpactRunMetrics second = collect(withDbRun);
         DbImpactRunMetrics withoutDb = dbReadinessScore(first) <= dbReadinessScore(second) ? first : second;
         DbImpactRunMetrics withDb = withoutDb == first ? second : first;
+        validateComparableDbModes(withoutDb, withDb);
         List<String> notes = new ArrayList<>();
         if (withoutDb.tokenUsageEstimated() || withDb.tokenUsageEstimated()) {
             notes.add("Token usage uses local OpenAI tokenizer estimates when exact OpenAI usage artifacts are unavailable.");
@@ -79,21 +80,24 @@ public class DbImpactComparisonReporter {
         Path aiRun = aiRunRoot(root);
         Path discovery = discoveryRoot(root);
         JsonNode summary = readJson(aiRun.resolve("quality").resolve("run-quality-summary.json"));
+        ArtifactReuseComparisonMetrics artifactReuse = artifactReuseMetrics(aiRun);
         List<Path> promptFiles = files(aiRun)
                 .stream()
                 .filter(this::isPromptFile)
                 .toList();
         JsonNode enrichmentReport = readJson(aiRun.resolve("enrichment").resolve("page-model-enrichment-report.json"));
         EnrichmentLlmMetrics enrichmentLlmMetrics = enrichmentLlmMetrics(summary, enrichmentReport);
-        int pomLlmCalls = promptFiles.size();
+        int pomLlmCalls = artifactReuse.available()
+                ? artifactReuse.llmCallsExecuted()
+                : explicitPomLlmCalls(summary, promptFiles.size());
         int llmCalls = pomLlmCalls + enrichmentLlmMetrics.attempts();
-        int llmSuccessfulCalls = Math.min(pomLlmCalls, pomContractCount(aiRun).total()) + enrichmentLlmMetrics.successes();
+        PomContractCount contracts = pomContractCount(aiRun);
+        int llmSuccessfulCalls = Math.min(pomLlmCalls, contracts.newlyTotal()) + enrichmentLlmMetrics.successes();
         int llmFailedCalls = Math.max(0, llmCalls - llmSuccessfulCalls);
         TokenUsageMetrics tokenUsage = tokenUsage(aiRun, promptFiles, responseFiles(aiRun), enrichmentLlmMetrics);
         int promptCountForAverage = llmCalls;
         int averagePromptSize = promptCountForAverage == 0 ? 0
                 : Math.round((float) tokenUsage.promptTokens() / promptCountForAverage);
-        PomContractCount contracts = pomContractCount(aiRun);
         int generatedFiles = generatedPageObjectCount(aiRun);
         String compileStatus = compileStatus(aiRun);
         int compileReady = compileReadyGeneratedCode(compileStatus, generatedFiles);
@@ -129,6 +133,10 @@ public class DbImpactComparisonReporter {
                 integer(summary, "promptBlockingIssues", 0),
                 contracts.valid(),
                 contracts.total(),
+                contracts.newlyValid(),
+                contracts.newlyTotal(),
+                contracts.reusedValid(),
+                contracts.reusedTotal(),
                 compileReady,
                 Math.max(generatedFiles, contracts.total()),
                 compileStatus,
@@ -144,7 +152,17 @@ public class DbImpactComparisonReporter {
                 enrichmentLlmMetrics.attempts(),
                 enrichmentLlmMetrics.successes(),
                 enrichmentLlmMetrics.failures(),
-                enrichmentLlmMetrics.fallbacks()
+                enrichmentLlmMetrics.fallbacks(),
+                artifactReuse.enabled(),
+                artifactReuse.llmCallsExecuted(),
+                artifactReuse.llmCallsSkipped(),
+                artifactReuse.cacheHits(),
+                artifactReuse.cacheMisses(),
+                artifactReuse.tokensSavedEstimate(),
+                artifactReuse.stableArtifacts(),
+                artifactReuse.needsReviewArtifacts(),
+                artifactReuse.stableLocatorReuse(),
+                artifactReuse.flowReuse()
         );
     }
 
@@ -158,6 +176,8 @@ public class DbImpactComparisonReporter {
         rows.add(new DbImpactMetricRow("Stable cache used", String.valueOf(withoutDb.stableCacheUsed()),
                 String.valueOf(withDb.stableCacheUsed()), booleanChange(withoutDb.stableCacheUsed(), withDb.stableCacheUsed())));
         rows.add(new DbImpactMetricRow("Retrieval mode", withoutDb.retrievalMode(), withDb.retrievalMode(), ""));
+        rows.add(new DbImpactMetricRow("Artifact reuse enabled", String.valueOf(withoutDb.artifactReuseEnabled()),
+                String.valueOf(withDb.artifactReuseEnabled()), booleanChange(withoutDb.artifactReuseEnabled(), withDb.artifactReuseEnabled())));
         rows.add(numberRow("Total tokens", withoutDb.totalTokens(), withDb.totalTokens(), true));
         rows.add(numberRow("Prompt tokens", withoutDb.promptTokens(), withDb.promptTokens(), true));
         rows.add(numberRow("Response tokens", withoutDb.responseTokens(), withDb.responseTokens(), true));
@@ -167,9 +187,25 @@ public class DbImpactComparisonReporter {
         rows.add(numberRow("LLM successful calls", withoutDb.llmSuccessfulCalls(), withDb.llmSuccessfulCalls(), true));
         rows.add(numberRow("LLM failed calls", withoutDb.llmFailedCalls(), withDb.llmFailedCalls(), true));
         rows.add(numberRow("POM contract LLM calls", withoutDb.pomLlmCalls(), withDb.pomLlmCalls(), true));
+        rows.add(numberRow("POM LLM calls executed", withoutDb.artifactReuseLlmCallsExecuted(),
+                withDb.artifactReuseLlmCallsExecuted(), true));
+        rows.add(numberRow("POM LLM calls skipped", withoutDb.artifactReuseLlmCallsSkipped(),
+                withDb.artifactReuseLlmCallsSkipped(), false));
+        rows.add(numberRow("POM artifact cache hits", withoutDb.artifactCacheHits(),
+                withDb.artifactCacheHits(), false));
+        rows.add(numberRow("POM artifact cache misses", withoutDb.artifactCacheMisses(),
+                withDb.artifactCacheMisses(), false));
+        rows.add(numberRow("Artifact reuse token savings estimate", withoutDb.artifactTokensSavedEstimate(),
+                withDb.artifactTokensSavedEstimate(), false));
+        rows.add(numberRow("Stable POM artifacts", withoutDb.stableArtifactCount(),
+                withDb.stableArtifactCount(), false));
+        rows.add(numberRow("POM artifacts needing review", withoutDb.artifactNeedsReviewCount(),
+                withDb.artifactNeedsReviewCount(), false));
         rows.add(numberRow("Avg prompt tokens", withoutDb.averagePromptSize(), withDb.averagePromptSize(), true));
         rows.add(numberRow("Reused page knowledge", withoutDb.reusedPageKnowledgeArtifacts(),
                 withDb.reusedPageKnowledgeArtifacts(), false, " artifacts"));
+        rows.add(numberRow("Stable locator reuse", withoutDb.stableLocatorReuse(), withDb.stableLocatorReuse(), false));
+        rows.add(numberRow("Flow reuse", withoutDb.flowReuse(), withDb.flowReuse(), false));
         rows.add(numberRow("Page enrichment generated", withoutDb.pageEnrichmentGenerated(),
                 withDb.pageEnrichmentGenerated(), true));
         rows.add(numberRow("Page enrichment cache hits", withoutDb.pageEnrichmentCacheHits(),
@@ -194,7 +230,11 @@ public class DbImpactComparisonReporter {
         rows.add(numberRow("Expected results for review", withoutDb.expectedResultsForReview(),
                 withDb.expectedResultsForReview(), true));
         rows.add(numberRow("Prompt-safety blocks", withoutDb.promptSafetyBlocks(), withDb.promptSafetyBlocks(), true));
-        rows.add(ratioRow("Valid POM contracts", withoutDb.validPomContracts(), withoutDb.totalPomContracts(),
+        rows.add(ratioRow("New valid POM contracts", withoutDb.newlyValidPomContracts(), withoutDb.newlyTotalPomContracts(),
+                withDb.newlyValidPomContracts(), withDb.newlyTotalPomContracts()));
+        rows.add(ratioRow("Reused valid POM contracts", withoutDb.reusedValidPomContracts(), withoutDb.reusedTotalPomContracts(),
+                withDb.reusedValidPomContracts(), withDb.reusedTotalPomContracts()));
+        rows.add(ratioRow("Effective valid POM contracts", withoutDb.validPomContracts(), withoutDb.totalPomContracts(),
                 withDb.validPomContracts(), withDb.totalPomContracts()));
         rows.add(new DbImpactMetricRow("Compile status", withoutDb.compileStatus(), withDb.compileStatus(), ""));
         rows.add(new DbImpactMetricRow(
@@ -221,6 +261,16 @@ public class DbImpactComparisonReporter {
             score++;
         }
         return score;
+    }
+
+    private void validateComparableDbModes(DbImpactRunMetrics withoutDb, DbImpactRunMetrics withDb) {
+        if (!withoutDb.withoutDbRun() || !withDb.fullDbRun()) {
+            throw new IllegalArgumentException(
+                    "DB impact comparison requires one clean DB-disabled run and one full DB-enabled stable-cache run; "
+                            + "received " + withoutDb.runId() + "=" + withoutDb.dbUsageMode()
+                            + ", " + withDb.runId() + "=" + withDb.dbUsageMode()
+            );
+        }
     }
 
     private String dbUsageMode(boolean neo4jHit, boolean qdrantHit, boolean stableCacheUsed) {
@@ -308,24 +358,110 @@ public class DbImpactComparisonReporter {
         return Math.max(hitEntries, Math.max(summaryHits, enrichmentCacheHits));
     }
 
+    private int explicitPomLlmCalls(JsonNode summary, int fallback) {
+        int explicit = integer(summary, "pomContractLlmCallsExecuted", -1);
+        return explicit >= 0 ? explicit : fallback;
+    }
+
+    private ArtifactReuseComparisonMetrics artifactReuseMetrics(Path aiRun) {
+        JsonNode metrics = readJson(aiRun.resolve("metrics").resolve("artifact-reuse-summary.json"));
+        if (metrics.isMissingNode() || !metrics.isObject()) {
+            metrics = readJson(aiRun.resolve("run-summary.json")).path("artifactReuse");
+        }
+        if (metrics.isMissingNode() || !metrics.isObject()) {
+            return ArtifactReuseComparisonMetrics.unavailable();
+        }
+        return new ArtifactReuseComparisonMetrics(
+                true,
+                booleanValue(metrics, "enabled", false),
+                integer(metrics, "llmCallsExecuted", 0),
+                integer(metrics, "llmCallsSkipped", 0),
+                integer(metrics, "artifactCacheHits", 0),
+                integer(metrics, "artifactCacheMisses", 0),
+                integer(metrics, "tokensSavedEstimate", 0),
+                integer(metrics, "stableArtifacts", 0),
+                integer(metrics, "needsReviewArtifacts", 0),
+                integer(metrics, "stableLocatorReuse", 0),
+                integer(metrics, "flowReuse", 0)
+        );
+    }
+
     private PomContractCount pomContractCount(Path aiRun, boolean ignored) {
         List<Path> contracts = files(pageObjectArtifactRoot(aiRun)).stream()
                 .filter(path -> path.getFileName().toString().endsWith("-pom-contract.json"))
                 .toList();
-        int valid = 0;
+        int newlyValid = 0;
+        int newlyTotal = 0;
+        int reusedValid = 0;
+        int reusedTotal = 0;
+        Set<String> currentContractStems = new HashSet<>();
         for (Path path : contracts) {
+            String stem = contractStem(path);
+            currentContractStems.add(stem);
+            boolean reused = reusedContract(path);
+            if (reused) {
+                reusedTotal++;
+            } else {
+                newlyTotal++;
+            }
             try {
                 pomParser.parse(Files.readString(path));
-                valid++;
+                if (reused) {
+                    reusedValid++;
+                } else {
+                    newlyValid++;
+                }
             } catch (Exception ignoredException) {
                 // Invalid contracts are counted through total-valid delta.
             }
         }
-        return new PomContractCount(valid, contracts.size());
+        for (Path decision : files(pageObjectArtifactRoot(aiRun)).stream()
+                .filter(path -> path.getFileName().toString().endsWith("-artifact-reuse-decision.json"))
+                .toList()) {
+            String stem = decision.getFileName().toString().replace("-artifact-reuse-decision.json", "");
+            if (currentContractStems.contains(stem)) {
+                continue;
+            }
+            JsonNode decisionJson = readJson(decision);
+            if (!"REUSE_STABLE".equalsIgnoreCase(text(decisionJson, "decision", ""))) {
+                continue;
+            }
+            reusedTotal++;
+            Path stablePath = path(text(decisionJson, "stableFilePath", ""));
+            if (stablePath != null) {
+                try {
+                    pomParser.parse(Files.readString(stablePath));
+                    reusedValid++;
+                } catch (Exception ignoredException) {
+                    // The decision exists, but its historical stable source is unreadable.
+                }
+            }
+        }
+        return new PomContractCount(newlyValid, newlyTotal, reusedValid, reusedTotal);
     }
 
     private PomContractCount pomContractCount(Path aiRun) {
         return pomContractCount(aiRun, true);
+    }
+
+    private boolean reusedContract(Path contractPath) {
+        Path provenance = contractPath.resolveSibling(contractStem(contractPath) + "-pom-contract-provenance.json");
+        return "REUSED_STABLE".equalsIgnoreCase(text(readJson(provenance), "artifactSource", ""));
+    }
+
+    private String contractStem(Path contractPath) {
+        return contractPath.getFileName().toString().replace("-pom-contract.json", "");
+    }
+
+    private Path path(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Path.of(value.trim());
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private int generatedPageObjectCount(Path aiRun) {
@@ -723,7 +859,37 @@ public class DbImpactComparisonReporter {
         return "gpt-5-mini";
     }
 
-    private record PomContractCount(int valid, int total) {
+    private record PomContractCount(
+            int newlyValid,
+            int newlyTotal,
+            int reusedValid,
+            int reusedTotal
+    ) {
+        private int valid() {
+            return newlyValid + reusedValid;
+        }
+
+        private int total() {
+            return newlyTotal + reusedTotal;
+        }
+    }
+
+    private record ArtifactReuseComparisonMetrics(
+            boolean available,
+            boolean enabled,
+            int llmCallsExecuted,
+            int llmCallsSkipped,
+            int cacheHits,
+            int cacheMisses,
+            int tokensSavedEstimate,
+            int stableArtifacts,
+            int needsReviewArtifacts,
+            int stableLocatorReuse,
+            int flowReuse
+    ) {
+        private static ArtifactReuseComparisonMetrics unavailable() {
+            return new ArtifactReuseComparisonMetrics(false, false, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        }
     }
 
     private record TokenUsageMetrics(

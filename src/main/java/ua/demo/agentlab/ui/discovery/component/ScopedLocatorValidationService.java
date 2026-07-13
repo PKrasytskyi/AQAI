@@ -101,7 +101,9 @@ public class ScopedLocatorValidationService {
                 readabilityScore,
                 semanticScore,
                 finalScore,
-                risks
+                risks,
+                locator.stableAcrossRuns(),
+                null
         );
         return new ScopedLocatorCandidate(
                 candidate.pageId(),
@@ -119,6 +121,7 @@ public class ScopedLocatorValidationService {
                 candidate.semanticScore(),
                 candidate.finalScore(),
                 candidate.risks(),
+                candidate.stableAcrossRuns(),
                 evidenceClassifier.classify(candidate)
         );
     }

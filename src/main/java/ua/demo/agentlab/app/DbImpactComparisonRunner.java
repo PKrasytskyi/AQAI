@@ -18,17 +18,16 @@ public class DbImpactComparisonRunner {
         Path firstRun;
         Path secondRun;
         if (args == null || args.length < 2) {
-            List<Path> latestRuns = latestHistoryRuns();
-            if (latestRuns.size() < 2) {
+            List<Path> historyRuns = latestHistoryRuns();
+            firstRun = historyRuns.stream().filter(DbImpactComparisonRunner::isCleanDbDisabledRun).findFirst().orElse(null);
+            secondRun = historyRuns.stream().filter(DbImpactComparisonRunner::isFullDbEnabledRun).findFirst().orElse(null);
+            if (firstRun == null || secondRun == null) {
                 System.out.println("Usage: DbImpactComparisonRunner [<without-db-run-dir> <with-db-run-dir>]");
-                System.out.println("No arguments means: compare the latest two runs from "
-                        + DEFAULT_HISTORY_ROOT + " plus " + CURRENT_RUN_ROOT);
-                System.out.println("Found " + latestRuns.size() + " run directorie(s).");
+                System.out.println("No arguments requires the latest clean DB-disabled run and full DB-enabled stable-cache run.");
+                System.out.println("Found " + historyRuns.size() + " run directorie(s), but no valid comparison pair.");
                 return;
             }
-            firstRun = latestRuns.get(0);
-            secondRun = latestRuns.get(1);
-            System.out.println("Using latest two run directories:");
+            System.out.println("Using latest valid DB comparison pair:");
             System.out.println(" - " + firstRun);
             System.out.println(" - " + secondRun);
         } else {
@@ -78,7 +77,7 @@ public class DbImpactComparisonRunner {
             candidates.stream()
                     .sorted(Comparator.comparing(DbImpactComparisonRunner::lastModified).reversed())
                     .forEach(path -> uniqueByRunId.putIfAbsent(runId(path), path));
-            return uniqueByRunId.values().stream().limit(2).toList();
+            return List.copyOf(uniqueByRunId.values());
         } catch (IOException exception) {
             System.out.println("Failed to read " + DEFAULT_HISTORY_ROOT + ": " + exception.getMessage());
             return List.of();
@@ -114,5 +113,35 @@ public class DbImpactComparisonRunner {
         } catch (IOException exception) {
             return 0L;
         }
+    }
+
+    private static boolean isCleanDbDisabledRun(Path path) {
+        return dbSignals(path, false, false, false);
+    }
+
+    private static boolean isFullDbEnabledRun(Path path) {
+        return dbSignals(path, true, true, true);
+    }
+
+    private static boolean dbSignals(Path path, boolean neo4j, boolean qdrant, boolean stableCache) {
+        Path summary = Files.isRegularFile(path.resolve("quality").resolve("run-quality-summary.json"))
+                ? path.resolve("quality").resolve("run-quality-summary.json")
+                : path.resolve("ai-run").resolve("quality").resolve("run-quality-summary.json");
+        try {
+            String content = Files.readString(summary);
+            return booleanField(content, "neo4jHit") == neo4j
+                    && booleanField(content, "qdrantHit") == qdrant
+                    && booleanField(content, "stableCacheUsed") == stableCache;
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    private static boolean booleanField(String content, String name) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("\\\"" + java.util.regex.Pattern.quote(name) + "\\\"\\s*:\\s*(true|false)",
+                        java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(content == null ? "" : content);
+        return matcher.find() && Boolean.parseBoolean(matcher.group(1));
     }
 }

@@ -1,0 +1,25 @@
+package ua.demo.agentlab.artifactreuse.flow;
+
+public enum FlowContractType {
+    AUTHENTICATION,
+    LOGOUT,
+    NAVIGATION,
+    FORM_ENTRY,
+    FORM_SUBMISSION,
+    FORM_COMPLETION,
+    SEARCH,
+    FILTER,
+    SORT,
+    PAGINATION,
+    RECORD_OPEN,
+    RECORD_CREATE,
+    RECORD_EDIT,
+    RECORD_DELETE,
+    MODAL_OPEN,
+    ACTION_CONFIRMATION,
+    COLLECTION_INSPECTION,
+    CONTAINER_MUTATION,
+    FILE_UPLOAD,
+    FILE_DOWNLOAD,
+    GENERIC
+}

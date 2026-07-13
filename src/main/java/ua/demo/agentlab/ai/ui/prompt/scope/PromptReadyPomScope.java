@@ -11,9 +11,37 @@ public record PromptReadyPomScope(
         List<String> ownedActions,
         List<PromptReadyAssertion> ownedAssertions,
         List<PromptReadyLocator> allowedLocators,
+        List<String> coverageGaps,
         List<String> rejectedSuggestions,
         double confidence
 ) {
+    public PromptReadyPomScope(
+            String targetPage,
+            String targetRoute,
+            boolean requiresAuthentication,
+            List<String> prerequisitePages,
+            List<String> requirementIds,
+            List<String> ownedActions,
+            List<PromptReadyAssertion> ownedAssertions,
+            List<PromptReadyLocator> allowedLocators,
+            List<String> rejectedSuggestions,
+            double confidence
+    ) {
+        this(
+                targetPage,
+                targetRoute,
+                requiresAuthentication,
+                prerequisitePages,
+                requirementIds,
+                ownedActions,
+                ownedAssertions,
+                allowedLocators,
+                List.of(),
+                rejectedSuggestions,
+                confidence
+        );
+    }
+
     public PromptReadyPomScope {
         targetPage = safe(targetPage);
         targetRoute = safe(targetRoute);
@@ -22,6 +50,7 @@ public record PromptReadyPomScope(
         ownedActions = ownedActions == null ? List.of() : List.copyOf(ownedActions);
         ownedAssertions = ownedAssertions == null ? List.of() : List.copyOf(ownedAssertions);
         allowedLocators = allowedLocators == null ? List.of() : List.copyOf(allowedLocators);
+        coverageGaps = coverageGaps == null ? List.of() : List.copyOf(coverageGaps);
         rejectedSuggestions = rejectedSuggestions == null ? List.of() : List.copyOf(rejectedSuggestions);
         confidence = Math.max(0.0d, Math.min(1.0d, confidence));
     }

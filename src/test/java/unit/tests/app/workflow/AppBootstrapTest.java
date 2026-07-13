@@ -49,6 +49,24 @@ public class AppBootstrapTest {
                 .anyMatch("ai-page-object-spec-agent"::equals));
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)
+                .anyMatch("flow-contract-builder-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("flow-contract-persistence-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("flow-runtime-feedback-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("flow-semantic-index-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("flow-semantic-candidate-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("reuse-planner-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
                 .anyMatch("pom-contract-page-object-writer-agent"::equals));
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)
@@ -62,6 +80,12 @@ public class AppBootstrapTest {
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)
                 .anyMatch("generated-ui-smoke-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("artifact-lifecycle-promotion-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("artifact-reuse-metrics-agent"::equals));
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)
                 .anyMatch("runtime-feedback-db-update-agent"::equals));

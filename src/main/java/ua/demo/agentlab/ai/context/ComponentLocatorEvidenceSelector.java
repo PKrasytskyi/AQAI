@@ -170,38 +170,12 @@ public class ComponentLocatorEvidenceSelector {
         if (candidate == null) {
             return LocatorEvidenceType.CANDIDATE_LOCATOR;
         }
-        boolean browserVerifiedUnique = candidate.globalMatchCount() == 1
-                || candidate.scopedMatchCount() == 1
-                || candidate.uniqueWithinComponent();
-        boolean semanticUserMenuTrigger = containsAny(normalize(candidate.value()),
-                "userdropdown",
-                "user-menu",
-                "dropdown-tab",
-                "oxd-userdropdown-tab");
-        boolean highEnoughScore = candidate.finalScore() >= 0.75d || semanticUserMenuTrigger;
-        boolean risky = candidate.risks().stream()
-                .map(this::normalize)
-                .anyMatch(risk -> containsAny(risk,
-                        "external",
-                        "hidden",
-                        "not-unique",
-                        "absolute-xpath")
-                        || !semanticUserMenuTrigger && containsAny(risk, "unstable-discovery", "dynamic-css-hash"));
-        if (browserVerifiedUnique && highEnoughScore && !risky) {
-            return LocatorEvidenceType.CONFIRMED_LOCATOR;
-        }
-        return candidate.evidenceType() == LocatorEvidenceType.FALLBACK_LOCATOR
-                ? LocatorEvidenceType.CANDIDATE_LOCATOR
-                : candidate.evidenceType();
+        return candidate == null ? LocatorEvidenceType.CANDIDATE_LOCATOR : candidate.evidenceType();
     }
 
     private double dependencyStabilityScore(ScopedLocatorCandidate candidate) {
         if (candidate == null) {
             return 0.0d;
-        }
-        if (containsAny(normalize(candidate.value()), "userdropdown", "user-menu", "dropdown-tab", "oxd-userdropdown-tab")
-                && (candidate.globalMatchCount() == 1 || candidate.scopedMatchCount() == 1 || candidate.uniqueWithinComponent())) {
-            return Math.max(candidate.finalScore(), 0.78d);
         }
         return candidate.finalScore();
     }

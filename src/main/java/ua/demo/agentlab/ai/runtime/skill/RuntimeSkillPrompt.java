@@ -30,6 +30,10 @@ public record RuntimeSkillPrompt(
             builder.append(System.lineSeparator()).append("# Skill Rules").append(System.lineSeparator());
             builder.append(rules).append(System.lineSeparator());
         }
+        if (!outputSchema.isBlank()) {
+            builder.append(System.lineSeparator()).append("# Output Schema").append(System.lineSeparator());
+            builder.append(outputSchema).append(System.lineSeparator());
+        }
         return builder.toString().strip();
     }
 
@@ -37,4 +41,3 @@ public record RuntimeSkillPrompt(
         return value == null || value.isBlank() ? fallback : value.trim();
     }
 }
-

@@ -6,6 +6,7 @@ import ua.demo.agentlab.ui.discovery.knowledge.MappedUiKnowledgeCurator;
 import ua.demo.agentlab.ui.discovery.knowledge.model.MappedUiKnowledgeCurated;
 import ua.demo.agentlab.ui.discovery.knowledge.model.MappedUiKnowledgeRaw;
 import ua.demo.agentlab.ui.discovery.mapping.LocatorStrategy;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedElement;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
@@ -50,7 +51,8 @@ public class MappedUiKnowledgeCuratorTest {
                 true,
                 true,
                 true,
-                List.of()
+                List.of(),
+                LocatorEvidenceType.CONFIRMED_LOCATOR
         );
         LocatorCandidate external = new LocatorCandidate(
                 LocatorStrategy.XPATH,
@@ -65,7 +67,8 @@ public class MappedUiKnowledgeCuratorTest {
                 false,
                 true,
                 true,
-                List.of("EXTERNAL_ORIGIN")
+                List.of("EXTERNAL_ORIGIN"),
+                LocatorEvidenceType.FALLBACK_LOCATOR
         );
         return new MappedPage(
                 "login",

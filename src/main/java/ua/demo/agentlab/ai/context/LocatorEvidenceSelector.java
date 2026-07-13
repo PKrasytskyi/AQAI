@@ -150,17 +150,31 @@ public class LocatorEvidenceSelector {
                 score,
                 inferEnrichmentComponent(element, locatorValue),
                 inferEnrichmentComponentType(element, locatorValue),
-                1,
-                1,
-                true,
-                LocatorEvidenceType.CONFIRMED_LOCATOR,
+                -1,
+                -1,
+                false,
+                enrichmentEvidenceType(record),
                 List.of(
                         "enrichment-stable-locator:" + record.pageId(),
                         "enrichment-route:" + record.route(),
-                        "evidenceType:" + LocatorEvidenceType.CONFIRMED_LOCATOR,
+                        "evidenceType:" + enrichmentEvidenceType(record),
                         "source:page-model-enrichment"
                 )
         ));
+    }
+
+    private LocatorEvidenceType enrichmentEvidenceType(PageModelEnrichmentRecord record) {
+        if (record == null) {
+            return LocatorEvidenceType.CANDIDATE_LOCATOR;
+        }
+        String source = record.enrichmentSource().toLowerCase(Locale.ROOT);
+        if (source.contains("db-cache")
+                || source.contains("stable-cache")
+                || source.contains("stable-page-cache")
+                || source.contains("neo4j")) {
+            return LocatorEvidenceType.CONFIRMED_LOCATOR;
+        }
+        return LocatorEvidenceType.CANDIDATE_LOCATOR;
     }
 
     private String locatorSafeRoute(MappedPage targetPage) {

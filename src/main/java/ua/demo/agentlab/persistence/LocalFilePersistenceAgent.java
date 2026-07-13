@@ -16,10 +16,22 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
         PipelineAgent<GeneratedUiSources, List<String>> {
 
     private final GeneratedFileWriter generatedFileWriter;
+    private final GeneratedPageSourceReconciler pageSourceReconciler;
     private final AiArtifactPublisher artifactPublisher = new AiArtifactPublisher();
 
-    public LocalFilePersistenceAgent(GeneratedFileWriter generatedFileWriter){
+    public LocalFilePersistenceAgent(GeneratedFileWriter generatedFileWriter) {
+        this(generatedFileWriter, new GeneratedPageSourceReconciler());
+    }
+
+    LocalFilePersistenceAgent(
+            GeneratedFileWriter generatedFileWriter,
+            GeneratedPageSourceReconciler pageSourceReconciler
+    ) {
+        if (generatedFileWriter == null || pageSourceReconciler == null) {
+            throw new IllegalArgumentException("persistence dependencies cannot be null");
+        }
         this.generatedFileWriter = generatedFileWriter;
+        this.pageSourceReconciler = pageSourceReconciler;
     }
 
     @Override
@@ -74,6 +86,7 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
     @Override
     public List<String> execute(GeneratedUiSources input, WorkflowRunEnvelope run) {
         List<String> written = new java.util.ArrayList<>();
+        pageSourceReconciler.removeStalePageSources(input.pageObjectFiles());
         for (GeneratedSourceFile file : input.allFiles()) {
             generatedFileWriter.write(file);
             written.add(file.relativePath());

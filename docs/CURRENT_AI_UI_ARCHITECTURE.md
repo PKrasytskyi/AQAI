@@ -395,6 +395,114 @@ postconditionsByRequirement: requirement ID -> owned target-page assertions
 
 This provenance lets later prompt slicing remove facts from other requirements even when they refer to the same page.
 
+### Artifact reuse registry
+
+The artifact reuse layer is separate from page knowledge persistence. Page knowledge describes the application; artifact reuse describes generated outputs that may be reused when the same stable input appears again.
+
+| Class / package | Responsibility |
+|---|---|
+| `artifactreuse.model.ArtifactRecord` | Metadata for a generated artifact: artifact type, target, fingerprint, schema/prompt versions, model settings, status, quality score, writer/compile status, file path, timestamps, and reuse count. |
+| `artifactreuse.model.ArtifactTarget` | Target identity for the artifact, currently page-focused but shaped for future flow/API targets. |
+| `artifactreuse.model.RunRecord` | Run namespace metadata: `runId`, `appId`, `baseUrlHash`, `requirementSetHash`, `discoverySessionId`, `schemaVersion`, timestamp, and source agent. |
+| `artifactreuse.model.QualityGateRecord` | Validation evidence linked to an artifact, such as schema, contract quality, writer, compile, review, or smoke gates. |
+| `artifactreuse.fingerprint.PomContractFingerprintBuilder` | Builds deterministic SHA-256 fingerprints from curated POM prompt evidence and stable generation configuration. |
+| `artifactreuse.store.FileBackedStableArtifactStore` | Stores full POM contract JSON files under `target/ai-run-history/stable/pom-contracts/`. |
+| `artifactreuse.policy.ArtifactReusePolicy` | Decides between `REUSE_STABLE`, `CALL_LLM`, `FORCE_REFRESH`, `REGENERATE_SCHEMA_CHANGED`, and `REGENERATE_PREVIOUS_INVALID`. |
+| `artifactreuse.registry.ArtifactRegistry` | Write-side contract for registering validated artifacts. |
+| `artifactreuse.registry.neo4j.Neo4jArtifactRegistry` | Neo4j MVP lookup/writer for `Artifact`, `Page`, `Run`, and `QualityGate` nodes and their relationships. |
+| `artifactreuse.lifecycle.ArtifactLifecyclePromotionService` | Evaluates writer, compile, review, generated smoke, and live smoke outcomes, then promotes eligible POM contracts to `STABLE`. |
+| `artifactreuse.agent.ArtifactLifecyclePromotionAgent` | Workflow stage that writes `validation/artifact-lifecycle-result.json` and lifecycle metrics after smoke validation. |
+| `artifactreuse.metrics.ArtifactReuseRunMetricsCollector` | Converts explicit workflow artifacts into run-level POM reuse metrics without inferring LLM calls from prompt files. |
+| `artifactreuse.agent.ArtifactReuseMetricsAgent` | Final artifact-reuse metrics stage. Writes `metrics/artifact-reuse-summary.json` and updates `run-summary.json` / `run-summary.md`. |
+| `artifactreuse.metrics.RunHistoryStatisticsReporter` | Reads only final run artifacts and writes one `target/ai-run-history/last-10-runs.md` table for the last ten runs. |
+| `artifactreuse.agent.RunHistoryStatisticsAgent` | Final DAG stage, after runtime feedback persistence; it updates the cross-run table without affecting generation decisions. |
+
+The Neo4j registry writes:
+
+```text
+(:Artifact)-[:GENERATED_FOR]->(:Page)
+(:Run)-[:PRODUCED]->(:Artifact)
+(:Run)-[:REUSED]->(:Artifact)
+(:Artifact)-[:VALIDATED_BY]->(:QualityGate)
+```
+
+`AiPageObjectSpecGenerator` now checks artifact reuse before calling `OpenAiResponseGenerationClient.generate(...)`:
+
+```text
+PromptReadyPomScope
+ -> PomContractFingerprintBuilder
+ -> Neo4jArtifactRegistry.findStableArtifact
+ -> FileBackedStableArtifactStore
+ -> ArtifactReusePolicy
+ -> REUSE_STABLE: load pom-contract JSON and skip POM LLM
+ -> CALL_LLM: generate pom-contract JSON, parse, rehydrate, save file, register as SCHEMA_VALIDATED
+ -> DeterministicPomJavaWriter
+ -> File persistence
+ -> Compile + review + generated smoke + optional live smoke
+ -> ArtifactLifecyclePromotionAgent
+ -> STABLE only when all required gates pass
+```
+
+Prompt artifacts and prompt quality gates still run before reuse, so artifact reuse does not bypass prompt-safety validation. Neo4j lookup and `ArtifactReusePolicy` accept only `STABLE`; therefore a failed or unfinished artifact can remain available for audit without becoming a reuse candidate. A `SKIPPED` live smoke is accepted only when live smoke is disabled; if it is enabled but skipped because credentials or capability evidence are missing, the contract remains `NEEDS_REVIEW`. Reused artifacts retain their stable registry status and still pass the current run's deterministic writer, compile, review, and smoke stages.
+
+For a reused POM, lifecycle promotion consumes the validated stable-file path from the reuse decision rather than expecting a new stable-file write. This keeps lifecycle metrics aligned with the actual `REUSE_STABLE` decision: a reused artifact that passes writer, compile, review, generated smoke, and enabled live smoke remains `STABLE` and is recorded as a `REUSED` relation in Neo4j.
+
+### Cross-run operational table
+
+`RunHistoryStatisticsAgent` is intentionally downstream of compile, review, generated/live smoke, flow feedback, and runtime DB feedback. It reads final artifacts only and writes one human-readable file:
+
+```text
+target/ai-run-history/last-10-runs.md
+```
+
+Each row includes requirement/test-case counts, quality score, Neo4j/Qdrant/stable-cache retrieval state, POM and Flow Contract reuse hits/misses, executed/skipped POM LLM calls, lifecycle state, compile/review results, generated/live smoke status, flow feedback persistence, and one final `PASSED`, `WARNING`, or `FAILED` outcome. The report is operational reporting only; it never contributes evidence back into the mapper, RAG, POM prompt, or reuse planner.
+
+`DbImpactComparisonReporter` reads `metrics/artifact-reuse-summary.json` when it exists. This avoids a misleading interpretation of prompt files: prompts are always retained for audit, while `llmCallsExecuted` and `llmCallsSkipped` come from explicit generation and reuse decisions. The comparison distinguishes page knowledge, stable locator, POM contract, and future flow reuse rather than collapsing them into one DB-cache number.
+
+### Flow contracts
+
+`artifactreuse.flow` is the generic workflow knowledge layer. It is intentionally separate from a generated test: a Flow Contract says which preconditions, actions, states, endpoints, and evidence describe a verified business flow. It does not produce Java code and does not change prompt scope by itself.
+
+| Class / package | Responsibility |
+|---|---|
+| `FlowContractBuilder` | Groups canonical test-case operations into capability-based contracts such as authentication, form entry, search, record mutation, modal confirmation, upload, or pagination. |
+| `FlowContractStatus` | Keeps the evidence boundary explicit: `CONFIRMED` versus `NEEDS_REVIEW`. |
+| `FlowContractBuilderAgent` | Builds and writes `flow-contracts/flow-contracts.json` after canonical test-case planning. |
+| `Neo4jFlowContractRegistry` | Persists flow endpoints, states, steps, requirement traceability, and optional generated-artifact links. |
+| `FlowContractPersistenceAgent` | Guards graph persistence with `artifact.reuse.flow-contract.enabled` and the knowledge DB status. |
+| `FlowRuntimeFeedbackAgent` | Records generated/live smoke outcomes in Neo4j and updates flow pass/flaky quality metrics. |
+| `FlowSemanticIndexAgent` | Optionally indexes only confirmed Flow Contract summaries in Qdrant. |
+| `FlowSemanticCandidateAgent` | Uses Qdrant only to rank candidates, then asks Neo4j for exact confirmed-flow expansion. |
+| `ReusePlannerAgent` | Emits explainable per-requirement reuse/discovery decisions; it does not mutate canonical tests or POM evidence. |
+
+The graph shape is:
+
+```text
+(:FlowContract)-[:STARTS_AT]->(:Page)
+(:FlowContract)-[:ENDS_AT]->(:Page)
+(:FlowContract)-[:REQUIRES_STATE]->(:FlowState)
+(:FlowContract)-[:PRODUCES_STATE]->(:FlowState)
+(:FlowContract)-[:HAS_STEP]->(:FlowStep)
+(:FlowContract)-[:USES_ARTIFACT]->(:Artifact)  // only when an artifact is explicitly linked
+```
+
+The artifact reuse path is deliberately gated:
+
+```text
+CanonicalTestCaseBundle + current FlowContractBundle
+  -> FlowSemanticIndexer (optional, CONFIRMED contracts only)
+  -> Qdrant candidates (namespace filtered)
+  -> Neo4j exact confirmed-flow expansion
+  -> ReusePlanner
+  -> RequirementReusePlan: REUSE_STABLE | DISCOVER | NEEDS_REVIEW
+```
+
+Qdrant does not write raw text into a POM prompt and cannot make a reuse decision. If vector retrieval is unavailable, the planner records the reason and remains deterministic. POM reuse is separately guarded by `ArtifactInvalidationPolicy`: fingerprint, schema, prompt template, deterministic writer version, page/action/assertion evidence, lifecycle quality, compile, smoke, and force-refresh changes block reuse.
+
+Flow reuse adds a stricter runtime quality boundary. Every `FlowContract` has a deterministic `contractFingerprint`, `lastSuccessfulSmoke`, `runtimePassRate`, and `flakyRate`. `FlowRuntimeFeedbackAgent` updates these values after smoke validation. `ReusePlanner` accepts a graph-confirmed candidate only when it has a successful smoke, a pass rate of at least `0.90`, and a flaky rate of at most `0.10`; a degraded candidate becomes `NEEDS_REVIEW`, never a silent reuse.
+
+`FlowContractBuilderAgent` creates the shared `KnowledgeRunMetadata` before flow persistence, Qdrant indexing, and reuse planning. This prevents a semantic layer from using an unnamespaced bundle. For POM artifacts, `FileBackedStableArtifactStore` accepts local fallback only when the deterministic lifecycle has written a `.stable` marker beside the contract; a raw contract file cannot bypass Neo4j, quality, compile, review, or smoke checks.
+
 ### Context slicing and prompt composition
 
 | Class / package | Responsibility |

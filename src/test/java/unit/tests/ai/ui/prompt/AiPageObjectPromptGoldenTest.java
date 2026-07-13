@@ -45,7 +45,7 @@ public class AiPageObjectPromptGoldenTest {
         Assert.assertFalse(normalized.contains("elements.click("), "Prompt must not include Java method bodies");
         Assert.assertFalse(normalized.contains("elements.clearAndType("), "Prompt must not include Java method bodies");
         Assert.assertFalse(normalized.contains("Scoped test cases:"), "POM prompt must not include full scoped test cases");
-        Assert.assertEquals(count(normalized, "Page capability contract:"), 1, "Prompt must not duplicate capability contract header");
+        Assert.assertEquals(count(normalized, "Typed page contract:"), 1, "Prompt must contain exactly one typed page contract");
     }
 
     @Test

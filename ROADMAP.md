@@ -491,9 +491,9 @@ The later expansion is broader semantic reuse:
 - `[x]` Page-level knowledge cache exists for page enrichment.
 - `[x]` Stable locator evidence can be queried from Neo4j and used before prompt assembly.
 - `[x]` DB impact comparison reports LLM calls, token estimates, DB hits, cache hits, and compile readiness.
-- `[ ]` There is no dedicated artifact registry for POM contracts.
+- `[x]` Dedicated artifact registry terminology, contracts, and Neo4j writer MVP exist for validated generated artifacts.
 - `[ ]` POM contract generation does not yet check a stable artifact fingerprint before calling the LLM.
-- `[ ]` Neo4j does not yet model `Run -> PRODUCED/REUSED -> Artifact` for generated POM contracts.
+- `[x]` Neo4j artifact registry schema models `Run -> PRODUCED/REUSED -> Artifact`, `Artifact -> Page`, and `Artifact -> QualityGate`.
 - `[ ]` Flow reuse is not yet modeled as a first-class graph capability.
 
 #### Complexity Assessment
@@ -520,6 +520,12 @@ Define and keep these concepts separate:
 - `ReusePlanner`: later semantic planner that decides which known paths/components/artifacts can support a new requirement.
 
 Rule: `POM contract JSON reuse` belongs to the Artifact Reuse Layer. `Login/Dashboard path reuse` belongs to the QA Knowledge Graph.
+
+Status: `[x]` Implemented as `ua.demo.agentlab.artifactreuse.model`. The boundary is explicit:
+
+- artifact reuse owns generated outputs, fingerprints, quality status, writer/compile/smoke validation, file paths, and reuse counters;
+- UI knowledge graph owns page, route, locator, component, state, capability, assertion, and flow facts;
+- POM contract reuse is an artifact-layer decision; flow/path reuse remains a knowledge-graph decision.
 
 #### Phase E1: Neo4j Artifact Registry MVP
 
@@ -580,6 +586,25 @@ Required constraints:
 - unique `QualityGate.gateId`
 - later: composite unique key for `artifactType + targetId + fingerprint`
 
+Status: `[x]` MVP implemented as `Neo4jArtifactRegistry`.
+
+Implemented classes:
+
+- `ArtifactRegistry`
+- `ArtifactRegistryWriteRequest`
+- `ArtifactRegistryWriteResult`
+- `Neo4jArtifactRegistry`
+- `Neo4jArtifactRegistrySchema`
+
+The MVP writes:
+
+- Neo4j uniqueness constraints for `Artifact`, `Page`, `Run`, and `QualityGate`;
+- `(:Artifact)-[:GENERATED_FOR]->(:Page)`;
+- `(:Run)-[:PRODUCED]->(:Artifact)` or `(:Run)-[:REUSED]->(:Artifact)`;
+- `(:Artifact)-[:VALIDATED_BY]->(:QualityGate)`.
+
+Runtime integration before the POM LLM call is implemented for POM contracts in E2-E4. Lifecycle promotion after writer/compile/smoke remains E5.
+
 #### Phase E2: Artifact Fingerprint Builder
 
 Add deterministic fingerprinting before LLM generation.
@@ -622,6 +647,18 @@ Canonicalization is mandatory:
 - remove timestamps and run-specific fields;
 - hash canonical JSON/string with SHA-256.
 
+Status: `[x]` Implemented.
+
+Implemented classes:
+
+- `ArtifactFingerprint`
+- `ArtifactFingerprintBuilder<T>`
+- `CanonicalArtifactHasher`
+- `PomContractFingerprintInput`
+- `PomContractFingerprintBuilder`
+
+The POM fingerprint uses page identity, route, capability, requirement IDs, confirmed prompt locators, required actions, required assertions, prompt template version, schema version, model, temperature, generation mode, and retrieval mode. It explicitly excludes run IDs, timestamps, temporary paths, token counts, and debug diagnostics.
+
 #### Phase E3: File-Backed Stable Artifact Store
 
 Neo4j should store metadata and relationships. The full artifact content should stay in files.
@@ -640,6 +677,20 @@ target/ai-run-history/
 ```
 
 Neo4j stores `Artifact.filePath`, not the whole JSON body.
+
+Status: `[x]` Implemented for POM contracts.
+
+Implemented classes:
+
+- `FileBackedStableArtifactStore`
+- `StableArtifactLookup`
+- `StableArtifactWriteResult`
+
+Current output:
+
+```text
+target/ai-run-history/stable/pom-contracts/<PageName>.<fingerprint>.pom-contract.json
+```
 
 #### Phase E4: Reuse Policy Before LLM
 
@@ -669,6 +720,30 @@ Initial decisions:
 - `REGENERATE_SCHEMA_CHANGED` when schema version differs.
 - `REGENERATE_PREVIOUS_INVALID` when previous artifact failed validation.
 
+Status: `[x]` Implemented for POM contracts before `OpenAiResponseGenerationClient.generate(...)`.
+
+Implemented classes:
+
+- `ArtifactLookupRequest`
+- `ArtifactLookupResult`
+- `ArtifactReusePolicy`
+- `ArtifactReuseDecision`
+- `ArtifactReuseDecisionType`
+- `ArtifactReusePolicyInput`
+
+Current behavior:
+
+- prompt artifacts are still written for audit;
+- prompt quality gate still runs before reuse;
+- fingerprint is calculated from curated prompt evidence and stable config;
+- Neo4j registry is queried for a matching POM artifact;
+- full contract JSON is loaded from the file-backed store;
+- if registry + file hit and policy returns `REUSE_STABLE`, the LLM call is skipped;
+- if no reusable artifact exists, OpenAI is called and the parsed contract is written to the file-backed store and registered in Neo4j as `SCHEMA_VALIDATED`;
+- run artifacts expose hit/miss/decision/token-saved estimate fields.
+
+Only artifacts with `STABLE` status participate in reuse lookup. A `SCHEMA_VALIDATED` JSON file may exist on disk but cannot be reused before lifecycle promotion.
+
 #### Phase E5: Artifact Lifecycle
 
 Do not mark an artifact as stable immediately after LLM output.
@@ -686,6 +761,14 @@ GENERATED
 ```
 
 MVP can mark `STABLE` after `WRITER_VALIDATED + COMPILE_VALIDATED`, but only if smoke validation is not configured for that run. When smoke is enabled, smoke failure must prevent stable reuse.
+
+Status: `[x]` Implemented for POM contracts.
+
+- `artifact-lifecycle-promotion-agent` runs after deterministic writer, persistence, compile, review, and generated smoke validation;
+- it writes `validation/artifact-lifecycle-result.json` with one entry per POM contract;
+- a produced contract is promoted to `STABLE` only when writer, compile, review, generated smoke, and optional live smoke all pass; a skipped live smoke is accepted only when live smoke is disabled by configuration;
+- compile, review, or smoke failures leave the artifact non-reusable; the policy and Neo4j lookup now accept only `STABLE`;
+- reuse runs preserve the existing stable registry status instead of writing it back as `SCHEMA_VALIDATED`.
 
 #### Phase E6: Run Metrics and DB Impact Reporting
 
@@ -721,14 +804,31 @@ DB impact comparison should distinguish:
 - actual OpenAI token usage when available;
 - tokenizer-estimated saved tokens when exact usage is unavailable.
 
+Status: `[x]` Implemented for POM contract reuse.
+
+- `artifact-reuse-metrics-agent` runs after lifecycle promotion and writes `metrics/artifact-reuse-summary.json`;
+- `run-summary.json` and `run-summary.md` receive a compact `artifactReuse` section with explicit POM LLM calls executed/skipped, cache hits/misses, token-saved estimate, lifecycle counts, stable locator reuse, and the current `flowReuse` value;
+- `DbImpactComparisonReporter` now prefers these explicit metrics over prompt-file count, because a prompt file exists even when a stable artifact skips the POM LLM call;
+- comparison output separately reports page-knowledge cache reuse, stable locator reuse, POM artifact reuse, POM LLM calls skipped, lifecycle status, and token-saved estimate;
+- actual OpenAI usage remains authoritative when available; reused POM calls use the local tokenizer estimate recorded at the skip decision.
+
 #### Phase E7: FlowContract MVP
 
-After POM contract reuse works, add minimal flow reuse.
+After POM contract reuse works, add a capability-based flow contract layer. Flow contracts are structured reusable knowledge; E7 persists and validates them, while E8 decides whether a new requirement may reuse one.
 
-Start with:
+Initial authentication flows:
 
 - `AUTH_LOGIN_TO_DASHBOARD`
 - `LOGOUT_TO_LOGIN`
+
+Expanded generic flow taxonomy:
+
+- `NAVIGATION` and `COLLECTION_INSPECTION`;
+- `FORM_ENTRY`, `FORM_SUBMISSION`, `FORM_COMPLETION`, `SELECT_OPTION`, and `TOGGLE_CONTROL`;
+- `SEARCH`, `FILTER`, `SORT`, and `PAGINATION`;
+- `RECORD_OPEN`, `RECORD_CREATE`, `RECORD_EDIT`, and `RECORD_DELETE`;
+- `OPEN_MODAL`, `OPEN_MENU`, and `CONFIRM_ACTION`;
+- `UPLOAD_FILE`, `DOWNLOAD_FILE`, and `CONTAINER_MUTATION`.
 
 Minimum graph:
 
@@ -744,6 +844,23 @@ Initial states:
 - `authenticated`
 - `userMenuOpen`
 
+Additional generic states:
+
+- `formReady`, `formDirty`, `formSubmitted`;
+- `navigationReady`, `navigationComplete`;
+- `recordListVisible`, `recordDetailsVisible`;
+- `modalOpen`, `filterApplied`, `sortApplied`, `pageChanged`;
+- `fileSelected`, `downloadRequested`, `containerUpdated`.
+
+Status: `[x]` Implemented as a deterministic, evidence-gated contract layer.
+
+- `FlowContractBuilder` derives contracts from canonical test-case operations, requirement actions, canonical discovery flows, mapped pages/forms/actions, and mapped transitions;
+- `FlowContractBuilderAgent` allocates `KnowledgeRunMetadata` before flow persistence and semantic indexing, so every flow bundle has the same application namespace as page knowledge;
+- `CONFIRMED` requires page evidence plus route-transition, form, or relevant action evidence depending on the contract type; weaker evidence is stored as `NEEDS_REVIEW` and is not reusable;
+- contracts are written to `flow-contracts/flow-contracts.json` and persisted through `Neo4jFlowContractRegistry` when `artifact.reuse.flow-contract.enabled=true` and the knowledge DB is enabled;
+- the graph contains `STARTS_AT`, `ENDS_AT`, `REQUIRES_STATE`, `PRODUCES_STATE`, `HAS_STEP`, and optional `USES_ARTIFACT` relationships;
+- E7 itself does not reuse a flow. E8's planner is the only layer allowed to emit a `REUSE_STABLE` decision, so flow persistence cannot silently change a test or prompt.
+
 #### Phase E8: Reuse Planner MVP
 
 Add a simple rule-based planner before semantic retrieval:
@@ -754,6 +871,13 @@ NormalizedRequirement
  -> known precondition flow decisions
  -> missing page/component/capability decisions
 ```
+
+Status: `[x]` Implemented as an explainable, non-mutating decision stage.
+
+- `ReusePlanner` emits one `RequirementReusePlan` per canonical test case with only `REUSE_STABLE`, `DISCOVER`, `NEEDS_REVIEW`, or `DISABLED` decisions;
+- current-run confirmed flows are evidence only and are never misreported as reused;
+- only a semantic candidate that has passed Neo4j exact confirmation can become `REUSE_STABLE`;
+- missing page/route, component, or flow evidence becomes explicit discovery work rather than prompt leakage.
 
 Example output:
 
@@ -801,6 +925,12 @@ New requirement
  -> ReusePlanner decision
 ```
 
+Status: `[x]` Implemented as optional candidate ranking, not a source of truth.
+
+- `FlowSemanticIndexer` stores compact summaries for `CONFIRMED` flow contracts only, tagged with application and namespace metadata;
+- `FlowSemanticCandidateService` filters Qdrant by `appId`, `baseUrlHash`, `schemaVersion`, and `flowStatus`, then validates returned `flowId`s through Neo4j;
+- missing embedding credentials or disabled Qdrant produce an explicit unavailable reason in `reuse-plan.json` and do not change deterministic planning.
+
 #### Phase E10: Invalidation Policy
 
 Reuse must be blocked when:
@@ -823,20 +953,30 @@ Artifact statuses:
 - `INVALIDATED`
 - `NEEDS_REVIEW`
 
+Status: `[x]` Implemented as a conservative policy plus deterministic fingerprint controls.
+
+- `ArtifactInvalidationPolicy` evaluates fingerprint/schema/template/writer/page/action/assertion compatibility and quality, compile, smoke, and force-refresh controls;
+- POM fingerprints now include `artifact.reuse.writer-version`; page, locator, action, assertion, schema, template, model, and retrieval changes are canonical fingerprint inputs;
+- only lifecycle-promoted `STABLE` artifacts can be reused. A failed quality, compile, or smoke gate remains non-reusable.
+- a local POM contract may be used as a registry-outage fallback only after its `.stable` validation marker is written by the lifecycle promotion stage; a raw generated JSON file is never enough.
+- Flow Contracts now include `contractFingerprint`, `lastSuccessfulSmoke`, `runtimePassRate`, and `flakyRate`. A cross-run flow reuse additionally requires a successful smoke timestamp, pass rate `>= 0.90`, and flaky rate `<= 0.10`; changed flow behaviour resets these counters in Neo4j.
+
 #### Phase E11: Config Flags
 
 Add safe rollout flags:
 
 ```properties
-ai.artifact-reuse.enabled=true
-ai.artifact-reuse.pom-contract.enabled=true
-ai.artifact-reuse.flow-contract.enabled=false
-ai.artifact-reuse.test-data.enabled=false
-ai.artifact-reuse.policy=strict
-ai.artifact-reuse.force-refresh=false
-ai.artifact-reuse.explain-decisions=true
-ai.semantic-reuse.enabled=false
+artifact.reuse.enabled=true
+artifact.reuse.pom-contract.enabled=true
+artifact.reuse.flow-contract.enabled=false
+artifact.reuse.test-data.enabled=false
+artifact.reuse.policy=strict
+artifact.reuse.force-refresh=false
+artifact.reuse.explain-decisions=true
+semantic.reuse.enabled=false
 ```
+
+Status: `[x]` Implemented in `framework.properties`, the OrangeHRM YAML profile, and `RuntimeProperties` profile resolution. `KNOWLEDGE_DB_STATUS=false` still disables DB-backed POM, flow, test-data, and semantic reuse together.
 
 #### Exit Criteria
 
@@ -860,7 +1000,7 @@ ai.semantic-reuse.enabled=false
 
 1. [x] Finish Track A through stable compile, test-compile, and smoke execution.
 2. [x] Execute Track D steps 1-7 to remove demo-target thinking from the UI architecture.
-3. [ ] Implement Track E phases E1-E6 for POM contract artifact reuse before expanding semantic reuse.
+3. [x] Implement Track E phases E1-E6 for POM contract artifact reuse before expanding semantic reuse.
 4. [ ] Add traceability and evidence basics from Track A and Track C.
 5. [ ] Re-enable OpenAI according to Track B and Track D with strict boundaries.
 6. [ ] Expand AI usage only after deterministic UI generation and artifact reuse validation are stable.

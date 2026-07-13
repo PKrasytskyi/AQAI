@@ -48,6 +48,7 @@ public class PomScopeSanitizer {
                     List.of(),
                     List.of(),
                     List.of(),
+                    List.of(),
                     List.of("promptUiEvidence missing"),
                     0.0d
             );
@@ -62,6 +63,9 @@ public class PomScopeSanitizer {
         List<PromptReadyLocator> locators = canonicalLocators(evidence.requiredLocators(), targetPage, evidence.targetRoute());
         List<String> actions = ownedActions(context, targetPage, scopedIds, locators, rejected);
         List<PromptReadyAssertion> assertions = ownedAssertions(context, evidence, targetPage, scopedIds, locators, rejected);
+        List<String> coverageGaps = scopeCoverageGaps(context, targetPage, evidence.targetRoute(), scopedIds, locators);
+        assertions = removeAssertionsBlockedByCoverageGaps(assertions, coverageGaps);
+        locators = selectContractLocators(locators, actions, assertions, targetPage, evidence.targetRoute());
 
         return new PromptReadyPomScope(
                 targetPage,
@@ -72,6 +76,7 @@ public class PomScopeSanitizer {
                 actions,
                 assertions,
                 locators,
+                coverageGaps,
                 rejected.stream().distinct().toList(),
                 evidence.confidence()
         );
@@ -100,6 +105,10 @@ public class PomScopeSanitizer {
                 String normalized = normalize(action.name() + " " + action.type() + " " + action.sourceTrace());
                 if (isNoisyAction(normalized)) {
                     rejected.add(action.name() + ": external/non-business or generic link action");
+                    continue;
+                }
+                if (authenticationPage && containsAny(normalized, "logout", "signout", "openusermenu", "user menu")) {
+                    rejected.add(action.name() + ": belongs to authenticated-area page");
                     continue;
                 }
                 if (authenticationPage && containsAny(normalized, "authentication", "authenticate", "username", "password", "login")) {
@@ -142,6 +151,49 @@ public class PomScopeSanitizer {
             }
         }
         return ordered.stream().limit(12).toList();
+    }
+
+    private List<String> scopeCoverageGaps(
+            AiContextPackage context,
+            String targetPage,
+            String targetRoute,
+            Set<String> scopedIds,
+            List<PromptReadyLocator> locators
+    ) {
+        if (isAuthenticationPage(targetPage, targetRoute)
+                || !isAuthenticatedAreaPage(targetPage, targetRoute)
+                || !hasLogoutMenuEvidence(context, scopedIds, targetPage, Set.of())) {
+            return List.of();
+        }
+        boolean hasUserMenuTrigger = hasLocator(locators, "userMenuTrigger");
+        boolean hasLogoutLink = hasLocator(locators, "logoutLink");
+        if (hasUserMenuTrigger && hasLogoutLink) {
+            return List.of();
+        }
+        List<String> missing = new ArrayList<>();
+        if (!hasUserMenuTrigger) {
+            missing.add("userMenuTrigger");
+        }
+        if (!hasLogoutLink) {
+            missing.add("logoutLink");
+        }
+        return List.of("Logout user-menu flow requires confirmed userMenuTrigger and logoutLink; missing confirmed "
+                + String.join(", ", missing) + ".");
+    }
+
+    private List<PromptReadyAssertion> removeAssertionsBlockedByCoverageGaps(
+            List<PromptReadyAssertion> assertions,
+            List<String> coverageGaps
+    ) {
+        boolean logoutFlowGap = coverageGaps.stream()
+                .map(this::normalize)
+                .anyMatch(gap -> gap.contains("logoutlink"));
+        if (!logoutFlowGap) {
+            return assertions;
+        }
+        return assertions.stream()
+                .filter(assertion -> !"logoutLink".equalsIgnoreCase(assertion.expectedValue()))
+                .toList();
     }
 
     private void addLoginActions(Set<String> actions, boolean hasUsername, boolean hasPassword, boolean hasLoginButton) {
@@ -434,6 +486,40 @@ public class PomScopeSanitizer {
             }
         }
         return bestById.values().stream()
+                .sorted(Comparator.comparing(PromptReadyLocator::id))
+                .toList();
+    }
+
+    /** Keeps only locators that can implement the typed action/assertion contract for this page. */
+    private List<PromptReadyLocator> selectContractLocators(
+            List<PromptReadyLocator> locators,
+            List<String> actions,
+            List<PromptReadyAssertion> assertions,
+            String targetPage,
+            String targetRoute
+    ) {
+        Set<String> required = new LinkedHashSet<>();
+        for (String action : actions == null ? List.<String>of() : actions) {
+            String normalized = normalize(action);
+            if (containsAny(normalized, "username")) required.add("usernameInput");
+            if (containsAny(normalized, "password")) required.add("passwordInput");
+            if (containsAny(normalized, "login", "submit")) required.add("loginButton");
+            if (containsAny(normalized, "openusermenu", "user menu")) required.add("userMenuTrigger");
+            if (containsAny(normalized, "logout", "signout")) required.add("logoutLink");
+            if (containsAny(normalized, "search")) required.add("searchInput");
+        }
+        for (PromptReadyAssertion assertion : assertions == null ? List.<PromptReadyAssertion>of() : assertions) {
+            if (assertion != null && !assertion.expectedValue().isBlank()) {
+                required.add(assertion.expectedValue());
+            }
+        }
+        if (isAuthenticationPage(targetPage, targetRoute)) {
+            required.add("usernameInput");
+            required.add("passwordInput");
+            required.add("loginButton");
+        }
+        return (locators == null ? List.<PromptReadyLocator>of() : locators).stream()
+                .filter(locator -> required.contains(locator.id()))
                 .sorted(Comparator.comparing(PromptReadyLocator::id))
                 .toList();
     }

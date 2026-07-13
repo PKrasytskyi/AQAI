@@ -1,9 +1,8 @@
 id: pom-json-generation
-version: 1.0.0
+version: 1.1.0
 purpose: Generate structured pom-contract-v1 JSON for deterministic Page Object writers.
 input_schema: input-schema.json
 output_schema: output-schema.json
 prompt: prompt.md
 rules: rules.md
 owner: ui-platform
-

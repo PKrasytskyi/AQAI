@@ -136,13 +136,20 @@ ai.ui-test.llm.enabled=false
 rag.enabled=true
 knowledge.graph.enabled=true
 knowledge.vector.enabled=true
+artifact.reuse.enabled=true
+artifact.reuse.force-refresh=false
 ```
 
-- `KNOWLEDGE_DB_STATUS=false` disables RAG, Neo4j, and Qdrant for a no-DB comparison run.
-- `KNOWLEDGE_DB_STATUS=true` enables RAG, Neo4j, and Qdrant for a DB-backed run.
+- `KNOWLEDGE_DB_STATUS=false` disables RAG, Neo4j, Qdrant, and artifact reuse for a no-DB comparison run.
+- `KNOWLEDGE_DB_STATUS=true` enables RAG, Neo4j, Qdrant, and artifact reuse for a DB-backed run.
 - `ai.page-enrichment.llm.enabled` controls whether page enrichment can call OpenAI.
 - `rag.enabled` controls retrieval/indexing behavior and must not be treated as the page-enrichment switch.
 - `knowledge.graph.enabled` and `knowledge.vector.enabled` control Neo4j/Qdrant persistence and retrieval availability.
+- `artifact.reuse.enabled` allows DB-backed POM contract reuse by fingerprint before the POM LLM call; only contracts promoted to `STABLE` after writer, compile, review, and smoke validation are reusable.
+- `artifact.reuse.flow-contract.enabled` persists evidence-gated, capability-based Flow Contracts to Neo4j. `ReusePlanner` may reuse only a Qdrant-ranked and Neo4j-confirmed stable flow as a precondition decision; it never injects raw flow text into a POM prompt.
+- `semantic.reuse.enabled` is opt-in. It indexes only `CONFIRMED` Flow Contract summaries in Qdrant; Neo4j exact lookup and namespace checks remain the decision boundary.
+- `artifact.reuse.pom-contract.enabled`, `artifact.reuse.flow-contract.enabled`, and `artifact.reuse.test-data.enabled` independently control reuse domains. `artifact.reuse.policy=strict` and `artifact.reuse.force-refresh=true` prevent accidental rollout or stale reuse.
+- `artifact.reuse.force-refresh=true` bypasses reusable artifacts and forces a new POM contract generation.
 - Run summaries expose `dbUsageMode`, `neo4jHit`, `qdrantHit`, `stableCacheUsed`, and page-enrichment counters so DB/no-DB behavior is visible in artifacts.
 
 Ignored local override examples:
@@ -253,7 +260,7 @@ The current golden UI slice is `requirements/valid-login-requirement.md`: LoginP
 Current golden-slice limitations:
 
 - Dashboard heading evidence is not forced when no confirmed heading locator exists; it remains a coverage gap.
-- The generated-source smoke gate validates generated POM files, compile/review readiness, and structural interaction contracts. A full browser smoke scenario for `open login -> login -> dashboard route/header -> open user menu -> logout` is the next hardening step.
+- The generated-source smoke gate validates generated POM files, compile/review readiness, and structural interaction contracts. The profile/capability-driven live browser smoke additionally proves `open login -> authenticate -> dashboard route -> open user menu -> logout visible -> login route` when the relevant evidence and credentials are available.
 - Run quality score is intentionally conservative: it should exceed 90 only when confirmed locators, compile, review, and smoke evidence are all strong.
 
 POM prompts are compact by default: they contain the page capability contract, page-owned required actions/assertions, allowed locators, baseline API signatures, and the `pom-contract-v1` output schema. Full diagnostic prompt evidence can be enabled with `-Dai.page-object.prompt.mode=debug` or `-Dai.prompt.debug=true`.
@@ -292,6 +299,7 @@ target/discovery/
 Key files:
 
 - `target/ai-run/run-summary.md` - compact run review summary.
+- `target/ai-run-history/last-10-runs.md` - one final-state table for the latest ten completed runs: DB retrieval, POM/flow reuse, LLM calls, lifecycle, compile/review, smoke, and feedback status. It is updated after the validation and DB-feedback stages.
 - `target/ai-run/page-objects/*-prompt.txt` - deterministic `pom-contract-v1` POM prompts.
 - `target/ai-run/page-objects/*-pom-contract.json` - validated POM contracts returned by the LLM when POM LLM mode is enabled.
 - `target/ai-run/expectations/test-case-expected-results.json` - resolved expected results.
@@ -299,6 +307,12 @@ Key files:
 - `target/ai-run/quality/run-quality-summary.json` - run-level quality score.
 - `target/ai-run/quality/artifact-diff.json` - comparison against previous run artifacts.
 - `target/ai-run/debug/**` - scope traces, prompt traces, raw context packages, and pipeline snapshots when `ai.debug.artifacts=true`.
+
+Rebuild the table without running discovery or the LLM:
+
+```powershell
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.mainClass=ua.demo.agentlab.app.RunHistoryStatisticsRunner"
+```
 
 ## Quality Gates
 

@@ -7,5 +7,13 @@
 - Do not create cross-page flows.
 - Do not expose locators to tests.
 - Use coverageGaps for missing locators, unresolved expected values, unclear routes, or wrong page ownership.
+- Copy every item from Required coverage gaps into coverageGaps verbatim; do not create an action or assertion that depends on that missing evidence.
 - coverageGaps and rejectedSuggestions must be arrays of strings.
 - Invalid: adding fields outside output-schema.json.
+- Every action uses `methodName`, `kind: "ACTION"`, `parameters`, and non-empty `steps`.
+- Every action step includes all five keys: `action`, `locator`, `valueFrom`, `literalValue`, `route`; use an empty string for an unused value.
+- Every assertion uses `methodName`, `returnType`, non-empty `checks`, and `combine`.
+- Every assertion check includes all six keys: `check`, `locator`, `expectedValue`, `valueFrom`, `attribute`, `route`; use an empty string for an unused value.
+- Map element visibility to `check: "VISIBLE"`, and route verification to `check: "URL_CONTAINS"` or `"URL_EQUALS"`.
+- A form-visible requirement must use `VISIBLE` checks for confirmed form controls, or become a coverage gap when no confirmed control exists.
+- Invalid action/assertion aliases and fields include `name`, `params`, `returns`, `description`, `type`, `expected`, and `locatorIds`.

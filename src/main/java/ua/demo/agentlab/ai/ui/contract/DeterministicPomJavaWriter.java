@@ -17,6 +17,10 @@ import java.util.Set;
 
 public class DeterministicPomJavaWriter {
 
+    private static final Set<String> COMPONENT_ROOT_ROLES = Set.of(
+            "container", "form", "navigation", "header", "sidebar", "modal", "dialog", "section", "table", "list"
+    );
+
     private final PomContractQualityGate qualityGate;
     private final AiPageObjectTemplateWriter compatibilityWriter;
 
@@ -45,7 +49,12 @@ public class DeterministicPomJavaWriter {
             PomContractQualityReport report = qualityGate.validate(contract);
             if (report.hasBlockingIssues()) {
                 throw new IllegalStateException("POM contract quality gate failed for "
-                        + report.pageName() + " with " + report.blockingIssueCount() + " blocking issue(s)");
+                        + report.pageName() + " with " + report.blockingIssueCount() + " blocking issue(s): "
+                        + report.issues().stream()
+                        .filter(issue -> issue.severity() == PomContractSeverity.BLOCKER)
+                        .map(issue -> issue.ruleId() + " - " + issue.message() + " [" + issue.evidence() + "]")
+                        .reduce((left, right) -> left + "; " + right)
+                        .orElse("no blocking issue details"));
             }
             adapted.add(toAiPageObjectSpec(contract));
             componentFiles.addAll(writeComponents(contract));
@@ -77,7 +86,7 @@ public class DeterministicPomJavaWriter {
         List<AiMethodSpec> methods = new ArrayList<>();
         Set<String> emitted = new LinkedHashSet<>();
         for (PomComponentSpec component : contract.components()) {
-            if (!hasComponentBehavior(component)) {
+            if (!isRenderableComponent(contract, component)) {
                 continue;
             }
             String rootLocatorId = componentRootLocatorId(component);
@@ -99,7 +108,7 @@ public class DeterministicPomJavaWriter {
                     List.of()
             ));
         }
-        for (PomActionSpec action : contract.actions()) {
+        for (PomActionSpec action : effectivePageActions(contract)) {
             if (!emitted.add(action.methodName())) {
                 continue;
             }
@@ -111,7 +120,7 @@ public class DeterministicPomJavaWriter {
                     List.of()
             ));
         }
-        for (PomAssertionSpec assertion : contract.assertions()) {
+        for (PomAssertionSpec assertion : effectivePageAssertions(contract)) {
             if (!emitted.add(assertion.methodName())) {
                 continue;
             }
@@ -130,13 +139,16 @@ public class DeterministicPomJavaWriter {
     private List<PomLocatorSpec> pageLocators(PomContractSpec contract) {
         Set<String> referencedLocatorIds = referencedLocatorIds(contract);
         Map<String, PomLocatorSpec> locators = new LinkedHashMap<>();
-        for (PomLocatorSpec locator : contract.locators()) {
+        for (PomLocatorSpec locator : allPageLocators(contract)) {
             if (!referencedLocatorIds.isEmpty() && !referencedLocatorIds.contains(locator.id())) {
                 continue;
             }
             locators.putIfAbsent(locator.id(), locator);
         }
         for (PomComponentSpec component : contract.components()) {
+            if (!isRenderableComponent(contract, component)) {
+                continue;
+            }
             String rootLocatorId = componentRootLocatorId(component);
             if (rootLocatorId.isBlank() || locators.containsKey(rootLocatorId)) {
                 continue;
@@ -151,14 +163,14 @@ public class DeterministicPomJavaWriter {
 
     private Set<String> referencedLocatorIds(PomContractSpec contract) {
         Set<String> ids = new LinkedHashSet<>();
-        for (PomActionSpec action : contract.actions()) {
+        for (PomActionSpec action : effectivePageActions(contract)) {
             for (PomStepSpec step : action.steps()) {
                 if (!step.locator().isBlank()) {
                     ids.add(step.locator());
                 }
             }
         }
-        for (PomAssertionSpec assertion : contract.assertions()) {
+        for (PomAssertionSpec assertion : effectivePageAssertions(contract)) {
             for (PomCheckSpec check : assertion.checks()) {
                 if (!check.locator().isBlank()) {
                     ids.add(check.locator());
@@ -166,6 +178,9 @@ public class DeterministicPomJavaWriter {
             }
         }
         for (PomComponentSpec component : contract.components()) {
+            if (!isRenderableComponent(contract, component)) {
+                continue;
+            }
             String rootLocatorId = componentRootLocatorId(component);
             if (!rootLocatorId.isBlank() && hasComponentBehavior(component)) {
                 ids.add(rootLocatorId);
@@ -181,7 +196,7 @@ public class DeterministicPomJavaWriter {
         List<GeneratedSourceFile> files = new ArrayList<>();
         String packageName = compatibilityWriter.pagePackage();
         for (PomComponentSpec component : contract.components()) {
-            if (!hasComponentBehavior(component)) {
+            if (!isRenderableComponent(contract, component)) {
                 continue;
             }
             String rootLocatorId = componentRootLocatorId(component);
@@ -202,6 +217,50 @@ public class DeterministicPomJavaWriter {
     private boolean hasComponentBehavior(PomComponentSpec component) {
         return component != null
                 && (!component.actions().isEmpty() || !component.assertions().isEmpty());
+    }
+
+    /**
+     * A component can scope descendants only below a page-level container. Invalid LLM component
+     * proposals are flattened into the page API so they cannot produce uncompilable nested lookups.
+     */
+    private boolean isRenderableComponent(PomContractSpec contract, PomComponentSpec component) {
+        if (!hasComponentBehavior(component)) {
+            return false;
+        }
+        String rootLocatorId = componentRootLocatorId(component);
+        if (rootLocatorId.isBlank()) {
+            return false;
+        }
+        return contract.locators().stream()
+                .filter(locator -> locator.id().equals(rootLocatorId))
+                .map(locator -> locator.role().toLowerCase(Locale.ROOT))
+                .anyMatch(COMPONENT_ROOT_ROLES::contains);
+    }
+
+    private List<PomActionSpec> effectivePageActions(PomContractSpec contract) {
+        List<PomActionSpec> actions = new ArrayList<>(contract.actions());
+        contract.components().stream()
+                .filter(component -> !isRenderableComponent(contract, component))
+                .forEach(component -> actions.addAll(component.actions()));
+        return actions;
+    }
+
+    private List<PomAssertionSpec> effectivePageAssertions(PomContractSpec contract) {
+        List<PomAssertionSpec> assertions = new ArrayList<>(contract.assertions());
+        contract.components().stream()
+                .filter(component -> !isRenderableComponent(contract, component))
+                .forEach(component -> assertions.addAll(component.assertions()));
+        return assertions;
+    }
+
+    private List<PomLocatorSpec> allPageLocators(PomContractSpec contract) {
+        Map<String, PomLocatorSpec> locators = new LinkedHashMap<>();
+        contract.locators().forEach(locator -> locators.putIfAbsent(locator.id(), locator));
+        contract.components().stream()
+                .filter(component -> !isRenderableComponent(contract, component))
+                .flatMap(component -> component.locators().stream())
+                .forEach(locator -> locators.putIfAbsent(locator.id(), locator));
+        return new ArrayList<>(locators.values());
     }
 
     private String renderComponent(
@@ -289,20 +348,21 @@ public class DeterministicPomJavaWriter {
     }
 
     private String renderComponentActionBody(PomActionSpec action) {
-        return action.steps().stream()
-                .map(this::renderComponentStep)
-                .reduce((left, right) -> left + System.lineSeparator() + right)
-                .orElse("");
+        List<String> lines = new ArrayList<>();
+        for (int index = 0; index < action.steps().size(); index++) {
+            lines.add(renderComponentStep(action.steps().get(index), index));
+        }
+        return String.join(System.lineSeparator(), lines);
     }
 
-    private String renderComponentStep(PomStepSpec step) {
+    private String renderComponentStep(PomStepSpec step, int stepIndex) {
         String value = valueExpression(step.valueFrom(), step.literalValue());
         return switch (step.action()) {
             case CLICK -> "child(" + field(step.locator()) + ").click();";
             case CLEAR_AND_TYPE -> """
-                    WebElement element = child(%s);
-                    element.clear();
-                    element.sendKeys(%s);""".formatted(field(step.locator()), value);
+                    WebElement element%d = child(%s);
+                    element%d.clear();
+                    element%d.sendKeys(%s);""".formatted(stepIndex, field(step.locator()), stepIndex, stepIndex, value);
             case SEND_KEYS, UPLOAD_FILE -> "child(" + field(step.locator()) + ").sendKeys(" + value + ");";
             case SELECT_BY_VISIBLE_TEXT -> "dropdowns.selectByVisibleText(" + field(step.locator()) + ", " + value + ");";
             case OPEN_ROUTE -> "open(\"" + escapeJava(step.route()) + "\");";

@@ -16,6 +16,7 @@ import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBu
 import ua.demo.agentlab.requirements.normalization.model.SourceReference;
 import ua.demo.agentlab.ui.discovery.mapping.LocatorPromotionFilter;
 import ua.demo.agentlab.ui.discovery.mapping.LocatorStrategy;
+import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 import ua.demo.agentlab.ui.discovery.mapping.MappedUiKnowledgeRouteCollisionPolicy;
 import ua.demo.agentlab.ui.discovery.mapping.MappedUiKnowledgeRouteFilter;
 import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
@@ -433,7 +434,10 @@ public class ConfirmedPageSourceResolverTest {
                 sameOrigin,
                 unique,
                 stable,
-                risks
+                risks,
+                sameOrigin && unique && stable && risks.isEmpty()
+                        ? LocatorEvidenceType.CONFIRMED_LOCATOR
+                        : LocatorEvidenceType.CANDIDATE_LOCATOR
         );
     }
 

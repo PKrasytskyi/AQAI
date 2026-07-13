@@ -50,7 +50,7 @@ public record LocatorCandidate(
                 uniqueOnPage,
                 stableAcrossRuns,
                 risks,
-                inferEvidenceType(stabilityScore, sameOrigin, uniqueOnPage, stableAcrossRuns, risks)
+                LocatorEvidenceType.CANDIDATE_LOCATOR
         );
     }
 
@@ -74,23 +74,4 @@ public record LocatorCandidate(
         evidenceType = evidenceType == null ? LocatorEvidenceType.CANDIDATE_LOCATOR : evidenceType;
     }
 
-    private static LocatorEvidenceType inferEvidenceType(
-            double score,
-            boolean sameOrigin,
-            boolean uniqueOnPage,
-            boolean stableAcrossRuns,
-            List<String> risks
-    ) {
-        if (score >= 0.75d
-                && sameOrigin
-                && uniqueOnPage
-                && stableAcrossRuns
-                && (risks == null || risks.isEmpty())) {
-            return LocatorEvidenceType.CONFIRMED_LOCATOR;
-        }
-        if (score >= 0.45d && sameOrigin) {
-            return LocatorEvidenceType.CANDIDATE_LOCATOR;
-        }
-        return LocatorEvidenceType.FALLBACK_LOCATOR;
-    }
 }

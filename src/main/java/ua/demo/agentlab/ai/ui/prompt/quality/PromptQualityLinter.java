@@ -52,24 +52,17 @@ public class PromptQualityLinter {
                         || containsAny(safePrompt, "route=" + targetRoute, "targetRoute: " + targetRoute,
                         "\"route\": \"" + targetRoute + "\""),
                 "TARGET_ROUTE_PRESENT", "Prompt must identify the target route", targetRoute);
-        require(issues, !requirementIds.isEmpty() && requirementIds.stream().allMatch(safePrompt::contains),
-                "REQUIREMENT_IDS_PRESENT", "Prompt must include all scoped requirement ids", String.join(", ", requirementIds));
-        require(issues, containsAny(safePrompt, "Required POM contract:", "Defined test cases:")
-                        && !requirementIds.isEmpty(),
-                "SCOPED_TEST_CASE_CONTRACT_PRESENT",
-                "Prompt must include scoped requirement contract or diagnostic defined test cases",
-                "Required POM contract/Defined test cases");
-        require(issues, containsAny(safePrompt, "expectedValue=", "expectedValues:", "expected: [")
+        require(issues, containsAny(safePrompt, "Typed page contract:")
+                        && containsAny(safePrompt, "Page-owned actions and assertions:"),
+                "TYPED_PAGE_CONTRACT_PRESENT",
+                "Compact POM prompt must include its typed page-owned contract",
+                "Typed page contract/Page-owned actions and assertions");
+        require(issues, containsAny(safePrompt, "ownedAssertions=")
                         && !safePrompt.contains("expectedValue=null"),
-                "EXPECTED_VALUES_PRESENT", "Prompt must include concrete expected values", "expectedValue/expectedValues");
-        require(issues, containsAny(safePrompt, "requiredLocators=", "stableLocators=", "Allowed locators:", "\"locators\":"),
-                "ALLOWED_LOCATORS_PRESENT", "Prompt must include allowed locator evidence or required locators",
-                "requiredLocators/stableLocators");
-        require(issues, containsAny(safePrompt, "Allowed locators:"),
-                "PROMPT_UI_EVIDENCE_PRESENT", "Prompt must include PromptUiEvidence allowed locator section",
-                "Prompt UI evidence");
-        require(issues, safePrompt.contains("forbiddenMethods="),
-                "FORBIDDEN_METHODS_PRESENT", "Prompt must include forbidden methods", "forbiddenMethods");
+                "EXPECTED_VALUES_PRESENT", "Prompt must include concrete typed assertion values", "ownedAssertions");
+        require(issues, containsAny(safePrompt, "Confirmed selected locators:"),
+                "ALLOWED_LOCATORS_PRESENT", "Prompt must include selected confirmed locator evidence",
+                "Confirmed selected locators");
         require(issues, containsAny(
                         safePrompt,
                         "Baseline page object spec:",

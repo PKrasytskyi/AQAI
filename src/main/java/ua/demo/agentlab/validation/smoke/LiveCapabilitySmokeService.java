@@ -41,7 +41,7 @@ public class LiveCapabilitySmokeService {
         String baseUrl = plan.profile() == null ? ConfigReader.getBaseUrl() : plan.profile().baseUrl();
         List<LiveUiSmokeStep> steps = new ArrayList<>();
         List<GeneratedUiSmokeIssue> issues = new ArrayList<>();
-        if (!enabled()) {
+        if (!isEnabled()) {
             issues.add(issue("INFO", "LIVE_SMOKE_DISABLED", "",
                     "Live browser smoke is disabled. Set ui.live-smoke.enabled=true or UI_LIVE_SMOKE_ENABLED=true to run it."));
             return result(GeneratedUiSmokeStatus.SKIPPED, "Live browser smoke skipped because it is disabled", baseUrl, steps, issues);
@@ -182,7 +182,7 @@ public class LiveCapabilitySmokeService {
         };
     }
 
-    private boolean enabled() {
+    public boolean isEnabled() {
         String systemValue = System.getProperty(ENABLED_PROPERTY);
         if (systemValue != null && !systemValue.isBlank()) {
             return Boolean.parseBoolean(systemValue.trim());
