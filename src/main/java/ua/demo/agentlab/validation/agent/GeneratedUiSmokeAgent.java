@@ -114,6 +114,7 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
         state.addArtifact("generated.ui.smoke.files.checked", String.valueOf(output.filesChecked()));
         state.addArtifact("generated.ui.smoke.issue.count", String.valueOf(output.issues().size()));
         writeSmokeArtifact(output, state);
+        state.addArtifact("generated.ui.live.smoke.enabled", String.valueOf(liveSmokeService.isEnabled()));
         LiveUiSmokeResult liveSmoke = liveSmokeService.smoke(new GeneratedUiSources(
                 state.getPageObjectFiles(),
                 state.getUiTestFiles()
@@ -121,12 +122,7 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
         writeLiveSmokeArtifact(liveSmoke, state);
         state.addFinding(output.summary());
         state.addFinding(liveSmoke.summary());
-        if (!output.passed()) {
-            state.fail("Generated UI smoke validation failed: " + output.summary());
-        }
-        if (liveSmoke.failed()) {
-            state.fail("Generated UI live smoke validation failed: " + liveSmoke.summary());
-        }
+        // Failure is applied by FlowRuntimeFeedbackAgent after it persists the negative flow-quality signal.
     }
 
     private void writeSmokeArtifact(GeneratedUiSmokeResult output, WorkflowState state) {

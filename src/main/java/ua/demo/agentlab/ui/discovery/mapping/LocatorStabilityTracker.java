@@ -28,50 +28,25 @@ public class LocatorStabilityTracker {
         if (locator == null) {
             return false;
         }
-        if (locator.totalRuns() > 1) {
-            if (locator.stableAcrossRuns()) {
-                return true;
-            }
-            LocatorStrategy strategy = LocatorStrategy.from(locator.strategy());
-            String value = safe(locator.value()).toLowerCase();
-            boolean stableAttribute = strategy == LocatorStrategy.ID
-                    || strategy == LocatorStrategy.NAME && isFormField(element)
-                    || strategy == LocatorStrategy.CSS && isSubmitControlLocator(value, element)
-                    || strategy == LocatorStrategy.CSS && isSameOriginHrefLocator(value, element)
-                    || value.contains("data-testid")
-                    || value.contains("data-test")
-                    || value.contains("data-qa")
-                    || value.contains("aria-label")
-                    || !safe(element == null ? "" : element.ariaLabel()).isBlank();
-            int requiredRuns = Math.max(2, (int) Math.ceil(locator.totalRuns() * 0.66d));
-            if (stableAttribute && locator.observedRuns() >= requiredRuns) {
-                return true;
-            }
-            return stableAttribute && locator.observedRuns() >= 1 && isCurrentDomStableAttribute(strategy, value, element);
+        if (locator.totalRuns() < 2) {
+            return false;
+        }
+        if (locator.stableAcrossRuns()) {
+            return true;
         }
         LocatorStrategy strategy = LocatorStrategy.from(locator.strategy());
         String value = safe(locator.value()).toLowerCase();
-        String reason = safe(locator.reason()).toLowerCase();
-        if (value.contains("data-testid") || value.contains("data-test") || value.contains("data-qa")) {
-            return true;
-        }
-        if (strategy == LocatorStrategy.ID || strategy == LocatorStrategy.NAME) {
-            return true;
-        }
-        if (value.contains("aria-label") || !safe(element == null ? "" : element.ariaLabel()).isBlank()) {
-            return true;
-        }
-        return reason.contains("stable") && !strategy.equals(LocatorStrategy.XPATH);
-    }
-
-    private boolean isCurrentDomStableAttribute(LocatorStrategy strategy, String value, PageElementModel element) {
-        if (element == null || !element.visible() || !element.enabled()) {
-            return false;
-        }
-        return strategy == LocatorStrategy.NAME && isFormField(element)
-                || strategy == LocatorStrategy.ID
+        boolean stableAttribute = strategy == LocatorStrategy.ID
+                || strategy == LocatorStrategy.NAME && isFormField(element)
                 || strategy == LocatorStrategy.CSS && isSubmitControlLocator(value, element)
-                || strategy == LocatorStrategy.CSS && isSameOriginHrefLocator(value, element);
+                || strategy == LocatorStrategy.CSS && isSameOriginHrefLocator(value, element)
+                || value.contains("data-testid")
+                || value.contains("data-test")
+                || value.contains("data-qa")
+                || value.contains("aria-label")
+                || !safe(element == null ? "" : element.ariaLabel()).isBlank();
+        int requiredRuns = Math.max(2, (int) Math.ceil(locator.totalRuns() * 0.66d));
+        return stableAttribute && locator.observedRuns() >= requiredRuns;
     }
 
     private boolean isSubmitControlLocator(String value, PageElementModel element) {

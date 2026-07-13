@@ -2,6 +2,12 @@ package ua.demo.agentlab.app.workflow;
 
 import ua.demo.agentlab.review.RuleBasedGeneratedCodeReviewer;
 import ua.demo.agentlab.review.agent.GeneratedCodeReviewAgent;
+import ua.demo.agentlab.artifactreuse.agent.ArtifactLifecyclePromotionAgent;
+import ua.demo.agentlab.artifactreuse.agent.ArtifactReuseMetricsAgent;
+import ua.demo.agentlab.artifactreuse.agent.RunHistoryStatisticsAgent;
+import ua.demo.agentlab.artifactreuse.config.PropertiesArtifactReuseRuntimeConfig;
+import ua.demo.agentlab.artifactreuse.lifecycle.ArtifactLifecyclePromotionService;
+import ua.demo.agentlab.artifactreuse.registry.neo4j.Neo4jArtifactRegistry;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4jRuntimeConfig;
 import ua.demo.agentlab.validation.GeneratedCodeValidator;
 import ua.demo.agentlab.validation.MavenGeneratedCodeValidator;
@@ -26,7 +32,13 @@ public class ValidationModuleFactory {
                 new GeneratedCodeCompileAgent(generatedCodeValidator),
                 new GeneratedCodeReviewAgent(new RuleBasedGeneratedCodeReviewer()),
                 new GeneratedUiSmokeAgent(new GeneratedUiSmokeService()),
-                new RuntimeFeedbackDbUpdateAgent(new GeneratedUiRuntimeFeedbackWriter(new PropertiesNeo4jRuntimeConfig()))
+                new ArtifactLifecyclePromotionAgent(new ArtifactLifecyclePromotionService(
+                        new PropertiesArtifactReuseRuntimeConfig(),
+                        new Neo4jArtifactRegistry(new PropertiesNeo4jRuntimeConfig())
+                )),
+                new ArtifactReuseMetricsAgent(),
+                new RuntimeFeedbackDbUpdateAgent(new GeneratedUiRuntimeFeedbackWriter(new PropertiesNeo4jRuntimeConfig())),
+                new RunHistoryStatisticsAgent()
         );
     }
 }

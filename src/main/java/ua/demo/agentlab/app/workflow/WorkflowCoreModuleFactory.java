@@ -87,6 +87,12 @@ public class WorkflowCoreModuleFactory {
                 api.apiGenerationAgent(),
                 api.apiGeneratedSourcePersistenceAgent(),
                 knowledgeStore.flowScopedKnowledgeAgent(),
+                knowledgeStore.flowContractBuilderAgent(),
+                knowledgeStore.flowContractPersistenceAgent(),
+                knowledgeStore.flowRuntimeFeedbackAgent(),
+                knowledgeStore.flowSemanticIndexAgent(),
+                knowledgeStore.flowSemanticCandidateAgent(),
+                knowledgeStore.reusePlannerAgent(),
                 testPlanning.requirementToTestCaseAgent(),
                 testPlanning.uiTestPlanAgent(),
                 template.pageObjectWriterAgent(),
@@ -96,7 +102,10 @@ public class WorkflowCoreModuleFactory {
                 validation.generatedCodeCompileAgent(),
                 validation.generatedCodeReviewAgent(),
                 validation.generatedUiSmokeAgent(),
-                validation.runtimeFeedbackDbUpdateAgent()
+                validation.artifactLifecyclePromotionAgent(),
+                validation.artifactReuseMetricsAgent(),
+                validation.runtimeFeedbackDbUpdateAgent(),
+                validation.runHistoryStatisticsAgent()
         );
     }
 }

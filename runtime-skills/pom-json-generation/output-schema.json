@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "runtime-skills/pom-json-generation/output-schema.json",
+  "$id": "pom-contract-v1",
   "type": "object",
   "required": ["schemaVersion", "page", "locators", "actions", "assertions", "coverageGaps", "rejectedSuggestions"],
   "properties": {
@@ -9,10 +9,10 @@
       "type": "object",
       "required": ["name", "route", "capability", "openMethod"],
       "properties": {
-        "name": {"type": "string"},
+        "name": {"type": "string", "minLength": 1},
         "route": {"type": "string"},
         "capability": {"type": "string"},
-        "openMethod": {"type": "string"}
+        "openMethod": {"type": "string", "minLength": 1}
       },
       "additionalProperties": false
     },
@@ -20,23 +20,107 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "strategy", "value", "role", "elementName", "stabilityScore"],
+        "required": ["id", "elementName", "strategy", "value", "role", "stabilityScore"],
         "properties": {
-          "id": {"type": "string"},
-          "strategy": {"type": "string"},
-          "value": {"type": "string"},
-          "role": {"type": "string"},
+          "id": {"type": "string", "minLength": 1},
           "elementName": {"type": "string"},
+          "strategy": {"enum": ["id", "name", "css", "xpath", "partialLinkText"]},
+          "value": {"type": "string", "minLength": 1},
+          "role": {"type": "string"},
           "stabilityScore": {"type": "number", "minimum": 0, "maximum": 1}
         },
         "additionalProperties": false
       }
     },
-    "actions": {"type": "array", "items": {"type": "object"}},
-    "assertions": {"type": "array", "items": {"type": "object"}},
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "rootLocatorId", "locators", "actions", "assertions", "reusable"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "type": {"type": "string"},
+          "rootLocatorId": {"type": "string"},
+          "locators": {"type": "array", "items": {"$ref": "#/properties/locators/items"}},
+          "actions": {"type": "array", "items": {"$ref": "#/properties/actions/items"}},
+          "assertions": {"type": "array", "items": {"$ref": "#/properties/assertions/items"}},
+          "reusable": {"type": "boolean"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["methodName", "kind", "parameters", "steps"],
+        "properties": {
+          "methodName": {"type": "string", "minLength": 1},
+          "kind": {"const": "ACTION"},
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type", "name"],
+              "properties": {
+                "type": {"type": "string", "minLength": 1},
+                "name": {"type": "string", "minLength": 1}
+              },
+              "additionalProperties": false
+            }
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["action", "locator", "valueFrom", "literalValue", "route"],
+              "properties": {
+                "action": {"enum": ["CLICK", "CLEAR_AND_TYPE", "SEND_KEYS", "SELECT_BY_VISIBLE_TEXT", "UPLOAD_FILE", "OPEN_ROUTE"]},
+                "locator": {"type": "string"},
+                "valueFrom": {"type": "string"},
+                "literalValue": {"type": "string"},
+                "route": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["methodName", "returnType", "checks", "combine"],
+        "properties": {
+          "methodName": {"type": "string", "minLength": 1},
+          "returnType": {"enum": ["boolean", "String", "List<String>"]},
+          "checks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["check", "locator", "expectedValue", "valueFrom", "attribute", "route"],
+              "properties": {
+                "check": {"enum": ["VISIBLE", "TEXT_CONTAINS", "TEXT_EQUALS", "TEXT_PRESENT", "URL_CONTAINS", "URL_EQUALS", "ATTRIBUTE_EQUALS", "COUNT_GREATER_THAN", "LIST_TEXTS"]},
+                "locator": {"type": "string"},
+                "expectedValue": {"type": "string"},
+                "valueFrom": {"type": "string"},
+                "attribute": {"type": "string"},
+                "route": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          },
+          "combine": {"enum": ["AND", "OR"]}
+        },
+        "additionalProperties": false
+      }
+    },
     "coverageGaps": {"type": "array", "items": {"type": "string"}},
     "rejectedSuggestions": {"type": "array", "items": {"type": "string"}}
   },
   "additionalProperties": false
 }
-

@@ -43,7 +43,7 @@ public record PageLocatorModel(
         score = Math.max(0.0d, Math.min(1.0d, score));
         observedRuns = Math.max(0, observedRuns);
         totalRuns = Math.max(1, totalRuns);
-        stableAcrossRuns = totalRuns <= 1 || stableAcrossRuns && observedRuns >= totalRuns;
+        stableAcrossRuns = totalRuns >= 2 && stableAcrossRuns && observedRuns >= totalRuns;
         browserMatchCount = Math.max(-1, browserMatchCount);
         browserScopedMatchCount = Math.max(-1, browserScopedMatchCount);
         browserScope = browserScope == null ? "" : browserScope.trim();

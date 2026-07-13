@@ -28,6 +28,7 @@ public record POMRelevantEvidence(
         double ownershipScore,
         double riskPenalty,
         double finalScore,
+        boolean stableAcrossRuns,
         LocatorEvidenceType evidenceType,
         List<String> risks,
         List<String> reasons
@@ -87,6 +88,7 @@ public record POMRelevantEvidence(
                 ownershipScore,
                 riskPenalty,
                 finalScore,
+                false,
                 LocatorEvidenceType.CANDIDATE_LOCATOR,
                 risks,
                 reasons

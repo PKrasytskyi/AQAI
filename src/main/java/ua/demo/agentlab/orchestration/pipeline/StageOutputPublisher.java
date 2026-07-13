@@ -650,6 +650,8 @@ public class StageOutputPublisher {
                 String.valueOf(contextPackage.promptUiEvidence().fallbackLocators().size()));
         putArtifact(state, "prompt.ui.evidence.excluded.count",
                 String.valueOf(contextPackage.promptUiEvidence().excludedEvidence().size()));
+        putArtifact(state, "ai.context.db.stable.locator.count",
+                String.valueOf(contextPackage.dbStableLocatorEvidence().size()));
         putArtifact(state, 
                 "ai.context.canonical.interactions",
                 String.valueOf(contextPackage.canonicalInteractionModel().interactions().size())

@@ -38,3 +38,17 @@ knowledge:
   graphEnabled: true
   vectorEnabled: true
 
+artifactReuse:
+  enabled: true
+  forceRefresh: false
+  stableRoot: target/ai-run-history/stable
+  promptTemplateVersion: pom-json-generation-v1
+  flowContractEnabled: true
+  pomContractEnabled: true
+  testDataEnabled: false
+  policy: strict
+  explainDecisions: true
+  writerVersion: deterministic-pom-java-writer-v1
+
+semantic:
+  reuseEnabled: true

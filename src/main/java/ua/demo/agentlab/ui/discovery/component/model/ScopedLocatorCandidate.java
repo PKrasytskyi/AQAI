@@ -20,6 +20,7 @@ public record ScopedLocatorCandidate(
         double semanticScore,
         double finalScore,
         List<String> risks,
+        boolean stableAcrossRuns,
         LocatorEvidenceType evidenceType
 ) {
     public ScopedLocatorCandidate(
@@ -55,7 +56,8 @@ public record ScopedLocatorCandidate(
                 semanticScore,
                 finalScore,
                 risks,
-                inferEvidenceType(finalScore, uniqueWithinComponent, globalMatchCount, scopedMatchCount, risks)
+                false,
+                LocatorEvidenceType.CANDIDATE_LOCATOR
         );
     }
 
@@ -88,23 +90,4 @@ public record ScopedLocatorCandidate(
         return Double.isFinite(value) ? Math.max(0.0d, Math.min(1.0d, value)) : 0.0d;
     }
 
-    private static LocatorEvidenceType inferEvidenceType(
-            double finalScore,
-            boolean uniqueWithinComponent,
-            int globalMatchCount,
-            int scopedMatchCount,
-            List<String> risks
-    ) {
-        if (finalScore >= 0.75d
-                && uniqueWithinComponent
-                && globalMatchCount >= 0
-                && scopedMatchCount >= 0
-                && (risks == null || risks.isEmpty())) {
-            return LocatorEvidenceType.CONFIRMED_LOCATOR;
-        }
-        if (finalScore >= 0.45d) {
-            return LocatorEvidenceType.CANDIDATE_LOCATOR;
-        }
-        return LocatorEvidenceType.FALLBACK_LOCATOR;
-    }
 }

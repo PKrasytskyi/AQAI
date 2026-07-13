@@ -385,7 +385,7 @@ public class PromptUiEvidenceBuilderTest {
     }
 
     @Test
-    public void promptEvidencePromotesPageEnrichmentStableUserMenuTriggerLocator() {
+    public void promptEvidenceKeepsEnrichmentOnlyUserMenuTriggerAsCandidate() {
         MappedPage dashboard = new MappedPage(
                 "web-index-php-dashboard-index",
                 "DashboardPage",
@@ -452,10 +452,13 @@ public class PromptUiEvidenceBuilderTest {
 
         PromptUiEvidence evidence = new PromptUiEvidenceBuilder().build(context);
 
-        Assert.assertTrue(evidence.requiredLocators().stream()
+        Assert.assertFalse(evidence.requiredLocators().stream()
+                .anyMatch(locator -> locator.fieldHint().equals("userMenuTrigger")
+                        && locator.value().equals("span.oxd-userdropdown-tab")));
+        Assert.assertTrue(evidence.candidateLocators().stream()
                 .anyMatch(locator -> locator.fieldHint().equals("userMenuTrigger")
                         && locator.value().equals("span.oxd-userdropdown-tab")
-                        && locator.evidenceType() == LocatorEvidenceType.CONFIRMED_LOCATOR));
+                        && locator.evidenceType() == LocatorEvidenceType.CANDIDATE_LOCATOR));
         Assert.assertFalse(evidence.requiredLocators().stream()
                 .anyMatch(locator -> locator.value().equals("a.oxd-userdropdown-link")));
     }
@@ -474,7 +477,8 @@ public class PromptUiEvidenceBuilderTest {
                 true,
                 true,
                 true,
-                List.of()
+                List.of(),
+                LocatorEvidenceType.CONFIRMED_LOCATOR
         );
         return new MappedPage(
                 "login",

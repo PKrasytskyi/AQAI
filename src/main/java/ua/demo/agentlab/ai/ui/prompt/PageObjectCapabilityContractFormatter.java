@@ -730,9 +730,6 @@ public class PageObjectCapabilityContractFormatter {
             builder.append("- confirmedCapability=").append(capability)
                     .append(" | pageContract=page with ").append(capability).append(" capability")
                     .append(System.lineSeparator());
-            builder.append("- coveredTestCases=").append(emptyAsNone(coveredTestCases)).append(System.lineSeparator());
-            builder.append("- ownedActionTestCases=").append(emptyAsNone(ownedActionTestCases)).append(System.lineSeparator());
-            builder.append("- ownedAssertionTestCases=").append(emptyAsNone(ownedAssertionTestCases)).append(System.lineSeparator());
             builder.append("- ownedActions=").append(emptyAsNone(ownedActions)).append(System.lineSeparator());
             builder.append("- ownedAssertions=").append(emptyAsNone(ownedAssertions)).append(System.lineSeparator());
             builder.append("- requiredLocators=").append(emptyAsNone(requiredLocators)).append(System.lineSeparator());

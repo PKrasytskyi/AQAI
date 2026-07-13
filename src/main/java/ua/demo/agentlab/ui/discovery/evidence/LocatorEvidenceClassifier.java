@@ -30,9 +30,9 @@ public class LocatorEvidenceClassifier {
         if (locator == null || locator.value().isBlank()) {
             return LocatorEvidenceType.FALLBACK_LOCATOR;
         }
-        boolean browserVerified = locator.globalMatchCount() >= 0 && locator.scopedMatchCount() >= 0;
+        boolean browserVerified = locator.globalMatchCount() == 1 || locator.scopedMatchCount() == 1;
         if (confirmed(locator.finalScore(), true, locator.uniqueWithinComponent(),
-                true, browserVerified, locator.risks())) {
+                locator.stableAcrossRuns(), browserVerified, locator.risks())) {
             return LocatorEvidenceType.CONFIRMED_LOCATOR;
         }
         if (candidate(locator.finalScore(), true, locator.risks())) {
@@ -45,7 +45,7 @@ public class LocatorEvidenceClassifier {
         if (locator == null || locator.value().isBlank()) {
             return LocatorEvidenceType.FALLBACK_LOCATOR;
         }
-        boolean browserVerified = locator.browserMatchCount() >= 0 && locator.browserScopedMatchCount() >= 0;
+        boolean browserVerified = locator.browserMatchCount() == 1 || locator.browserScopedMatchCount() == 1;
         if (confirmed(locator.score(), true, locator.unique(), locator.stableAcrossRuns(),
                 browserVerified, List.of())) {
             return LocatorEvidenceType.CONFIRMED_LOCATOR;
@@ -60,9 +60,9 @@ public class LocatorEvidenceClassifier {
         if (evidence == null || evidence.value().isBlank()) {
             return LocatorEvidenceType.FALLBACK_LOCATOR;
         }
-        boolean browserVerified = evidence.globalMatchCount() >= 0 && evidence.scopedMatchCount() >= 0;
+        boolean browserVerified = evidence.globalMatchCount() == 1 || evidence.scopedMatchCount() == 1;
         if (confirmed(evidence.finalScore(), evidence.sameOrigin(), evidence.uniqueWithinComponent(),
-                true, browserVerified, evidence.risks())) {
+                evidence.stableAcrossRuns(), browserVerified, evidence.risks())) {
             return LocatorEvidenceType.CONFIRMED_LOCATOR;
         }
         if (candidate(evidence.finalScore(), evidence.sameOrigin(), evidence.risks())) {

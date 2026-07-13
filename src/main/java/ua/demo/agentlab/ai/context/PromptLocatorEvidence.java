@@ -49,7 +49,7 @@ public record PromptLocatorEvidence(
                 -1,
                 -1,
                 false,
-                inferEvidenceType(sameOrigin, stabilityScore, false, -1, -1),
+                LocatorEvidenceType.CANDIDATE_LOCATOR,
                 sourceTrace
         );
     }
@@ -86,7 +86,7 @@ public record PromptLocatorEvidence(
                 globalMatchCount,
                 scopedMatchCount,
                 uniqueWithinComponent,
-                inferEvidenceType(sameOrigin, stabilityScore, uniqueWithinComponent, globalMatchCount, scopedMatchCount),
+                LocatorEvidenceType.CANDIDATE_LOCATOR,
                 sourceTrace
         );
     }
@@ -112,22 +112,4 @@ public record PromptLocatorEvidence(
         return value == null ? "" : value.trim();
     }
 
-    private static LocatorEvidenceType inferEvidenceType(
-            boolean sameOrigin,
-            double score,
-            boolean uniqueWithinComponent,
-            int globalMatchCount,
-            int scopedMatchCount
-    ) {
-        if (sameOrigin
-                && score >= 0.75d
-                && (uniqueWithinComponent || globalMatchCount == 1 || scopedMatchCount == 1)
-                && (globalMatchCount >= 0 || scopedMatchCount >= 0)) {
-            return LocatorEvidenceType.CONFIRMED_LOCATOR;
-        }
-        if (sameOrigin && score >= 0.45d) {
-            return LocatorEvidenceType.CANDIDATE_LOCATOR;
-        }
-        return LocatorEvidenceType.FALLBACK_LOCATOR;
-    }
 }

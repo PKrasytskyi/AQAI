@@ -105,6 +105,91 @@ public class DeterministicPomJavaWriterTest {
         Assert.assertFalse(content.contains("private final By password ="));
     }
 
+    @Test
+    public void writerFlattensComponentWhenItsRootIsNotAContainer() {
+        DeterministicPomJavaWriter writer = new DeterministicPomJavaWriter("ua.demo.agentlab.ui.generated.pages");
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("LoginPage", "/login", "AUTHENTICATION", "openLogin"),
+                List.of(
+                        new PomLocatorSpec("usernameInput", "username", "id", "username", "input", 0.90d),
+                        new PomLocatorSpec("passwordInput", "password", "id", "password", "password", 0.90d),
+                        new PomLocatorSpec("loginButton", "login", "css", "button[type='submit']", "button", 0.90d)
+                ),
+                List.of(new PomComponentSpec(
+                        "Form1Component",
+                        "form",
+                        "usernameInput",
+                        List.of(),
+                        List.of(new PomActionSpec(
+                                "login",
+                                List.of(new AiMethodParameterSpec("String", "username"), new AiMethodParameterSpec("String", "password")),
+                                List.of(
+                                        new PomStepSpec(PomStepAction.CLEAR_AND_TYPE, "usernameInput", "username", "", ""),
+                                        new PomStepSpec(PomStepAction.CLEAR_AND_TYPE, "passwordInput", "password", "", ""),
+                                        new PomStepSpec(PomStepAction.CLICK, "loginButton", "", "", "")
+                                )
+                        )),
+                        List.of(),
+                        false
+                )),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+
+        List<GeneratedSourceFile> files = writer.write(List.of(contract));
+
+        Assert.assertEquals(files.size(), 1);
+        Assert.assertEquals(files.get(0).className(), "LoginPage");
+        Assert.assertTrue(files.get(0).content().contains("public void login(String username, String password)"));
+        Assert.assertFalse(files.get(0).content().contains("Form1Component"));
+    }
+
+    @Test
+    public void componentWriterUsesDistinctVariablesForMultipleTypedSteps() {
+        DeterministicPomJavaWriter writer = new DeterministicPomJavaWriter("ua.demo.agentlab.ui.generated.pages");
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("LoginPage", "/login", "AUTHENTICATION", "openLogin"),
+                List.of(new PomLocatorSpec("loginForm", "login form", "css", "form", "form", 0.90d)),
+                List.of(new PomComponentSpec(
+                        "LoginForm",
+                        "form",
+                        "loginForm",
+                        List.of(
+                                new PomLocatorSpec("usernameInput", "username", "id", "username", "input", 0.90d),
+                                new PomLocatorSpec("passwordInput", "password", "id", "password", "password", 0.90d)
+                        ),
+                        List.of(new PomActionSpec(
+                                "login",
+                                List.of(new AiMethodParameterSpec("String", "username"), new AiMethodParameterSpec("String", "password")),
+                                List.of(
+                                        new PomStepSpec(PomStepAction.CLEAR_AND_TYPE, "usernameInput", "username", "", ""),
+                                        new PomStepSpec(PomStepAction.CLEAR_AND_TYPE, "passwordInput", "password", "", "")
+                                )
+                        )),
+                        List.of(),
+                        false
+                )),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+
+        String component = writer.write(List.of(contract)).stream()
+                .filter(file -> file.className().equals("LoginFormComponent"))
+                .findFirst()
+                .orElseThrow()
+                .content();
+
+        Assert.assertTrue(component.contains("WebElement element0 = child(usernameInput);"));
+        Assert.assertTrue(component.contains("WebElement element1 = child(passwordInput);"));
+        Assert.assertFalse(component.contains("WebElement element ="));
+    }
+
     private PomContractSpec loginContract() {
         return new PomContractSpec(
                 "pom-contract-v1",

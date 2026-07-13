@@ -117,10 +117,11 @@ public class QdrantVectorStore implements VectorStore {
                     payload.path("text").asText(""),
                     new ChunkMetadata(
                             parseArtifactType(payload.path("artifactType").asText("UNKNOWN")),
-                            payload.path("artifactName").asText(""),
-                            payload.path("packageName").asText(""),
-                            parseTags(payload.path("tags"))
-                    )
+                    payload.path("artifactName").asText(""),
+                    payload.path("packageName").asText(""),
+                    parseTags(payload.path("tags")),
+                    parseAttributes(payload)
+                )
             ));
         });
         return matches;
@@ -160,6 +161,23 @@ public class QdrantVectorStore implements VectorStore {
             }
         });
         return tags.isEmpty() ? Collections.emptyList() : List.copyOf(tags);
+    }
+
+    private Map<String, String> parseAttributes(JsonNode payload) {
+        if (payload == null || !payload.isObject()) {
+            return Map.of();
+        }
+        java.util.Set<String> reserved = java.util.Set.of(
+                "relativePath", "absolutePath", "language", "chunkIndex", "startOffset", "endOffset", "text",
+                "artifactType", "artifactName", "packageName", "tags"
+        );
+        Map<String, String> attributes = new LinkedHashMap<>();
+        payload.fields().forEachRemaining(entry -> {
+            if (!reserved.contains(entry.getKey()) && entry.getValue().isValueNode()) {
+                attributes.put(entry.getKey(), entry.getValue().asText(""));
+            }
+        });
+        return Map.copyOf(attributes);
     }
 
     private String baseUrl() {

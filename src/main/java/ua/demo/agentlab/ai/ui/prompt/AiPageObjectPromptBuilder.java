@@ -4,6 +4,10 @@ import ua.demo.agentlab.ai.context.AiContextPackage;
 import ua.demo.agentlab.ai.runtime.skill.RuntimeSkillPromptLoader;
 import ua.demo.agentlab.ai.schema.LlmOutputSchemaVersion;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
+import ua.demo.agentlab.ai.ui.prompt.scope.PomScopeSanitizer;
+import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyAssertion;
+import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyLocator;
+import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
 import ua.demo.agentlab.ui.UiTestScenario;
 
 import java.util.List;
@@ -13,6 +17,7 @@ public class AiPageObjectPromptBuilder {
     private final AiPromptContextFormatter formatter = new AiPromptContextFormatter();
     private final PageObjectCapabilityContractFormatter capabilityContractFormatter =
             new PageObjectCapabilityContractFormatter();
+    private final PomScopeSanitizer pomScopeSanitizer = new PomScopeSanitizer();
     private final PageObjectPromptMode promptMode;
     private final RuntimeSkillPromptLoader skillPromptLoader;
 
@@ -47,27 +52,26 @@ public class AiPageObjectPromptBuilder {
         if (promptMode == PageObjectPromptMode.DEBUG) {
             return buildDebugPrompt(context, pageName, baselineSpec, examplePageName, exampleRoute, exampleOpenMethod);
         }
+        PromptReadyPomScope promptScope = pomScopeSanitizer.sanitize(context, pageName, pageScenarios);
         return buildCompactPrompt(
                 context,
-                pageName,
-                pageScenarios,
                 baselineSpec,
                 examplePageName,
                 exampleRoute,
                 exampleOpenMethod,
-                capabilityContractFormatter.capabilityFor(context, pageName)
+                capabilityContractFormatter.capabilityFor(context, pageName),
+                promptScope
         );
     }
 
     private String buildCompactPrompt(
             AiContextPackage context,
-            String pageName,
-            List<UiTestScenario> pageScenarios,
             AiPageObjectSpec baselineSpec,
             String examplePageName,
             String exampleRoute,
             String exampleOpenMethod,
-            String exampleCapability
+            String exampleCapability,
+            PromptReadyPomScope promptScope
     ) {
         return """
                 # Runtime Skill Contract
@@ -79,90 +83,92 @@ public class AiPageObjectPromptBuilder {
                 targetRoute=%s
                 capability=%s
 
-                # Context
+                Contract schemaVersion=%s
+
+                # Project Context
                 %s
-
-                # Authority
-                1. Page capability contract.
-                2. Page-owned actions/assertions.
-                3. Allowed locators.
-                4. Baseline API signatures only for naming compatibility.
-                If evidence conflicts, prefer higher priority evidence.
-
-                # Contract Rules
-                - Generate only page-owned actions and page-owned assertions.
-                - Do not create methods from baseline API unless also page-owned.
-                - Do not create actions/assertions for prerequisite or target-after-navigation pages.
-                - Use only allowed locators declared in this prompt.
-                - The locators array must contain only flat locator objects: id, elementName, strategy, value, role, stabilityScore.
-                - Do not put component containers, root objects, nested elements, or nested locators inside the locators array.
-                - Do not expose locators to tests.
-                - Do not create test logic or multi-page business flows.
-                - Keep components empty in this compact contract; reusable component Java is handled by the deterministic writer later.
-                - Add coverageGaps instead of inventing unsupported actions, assertions, routes, expected values, or locators.
-                - Add coverageGaps when required locator evidence is missing, expected value is unresolved, target route is unclear, assertion cannot be backed by mapper evidence, or required action belongs to another page.
-                - coverageGaps must be an array of plain strings.
-                - For CLEAR_AND_TYPE, SEND_KEYS, SELECT_BY_VISIBLE_TEXT, and UPLOAD_FILE, valueFrom must equal a method parameter name or literalValue must be non-empty.
-
-                # Vocabulary
-                steps: CLICK, CLEAR_AND_TYPE, SEND_KEYS, SELECT_BY_VISIBLE_TEXT, UPLOAD_FILE, OPEN_ROUTE
-                checks: VISIBLE, TEXT_CONTAINS, TEXT_EQUALS, TEXT_PRESENT, URL_CONTAINS, URL_EQUALS, ATTRIBUTE_EQUALS, COUNT_GREATER_THAN, LIST_TEXTS
 
                 # Input
-                Page capability contract:
+                Typed page contract:
                 %s
 
-                Required POM contract:
+                Page-owned actions and assertions:
                 %s
 
-                Allowed locators:
+                Required coverage gaps:
+                %s
+
+                Confirmed selected locators:
                 %s
 
                 Baseline API signatures (naming hints only):
                 %s
-
-                # Output Schema
-                Return JSON only in this shape. Schema version: %s.
-                {
-                  "schemaVersion": "pom-contract-v1",
-                  "page": {"name": "%s", "route": "%s", "capability": "%s", "openMethod": "%s"},
-                  "locators": [],
-                  "components": [],
-                  "actions": [
-                    {
-                      "methodName": "enterUsername",
-                      "kind": "ACTION",
-                      "parameters": [{"type": "String", "name": "username"}],
-                      "steps": [{"action": "CLEAR_AND_TYPE", "locator": "usernameInput", "valueFrom": "username", "literalValue": "", "route": ""}]
-                    }
-                  ],
-                  "assertions": [
-                    {
-                      "methodName": "<publicPageAssertion>",
-                      "returnType": "boolean",
-                      "checks": [{"check": "VISIBLE", "locator": "<declaredLocatorId>", "expectedValue": "", "valueFrom": "", "attribute": "", "route": ""}],
-                      "combine": "AND"
-                    }
-                  ],
-                  "coverageGaps": [],
-                  "rejectedSuggestions": []
-                }
                 """.formatted(
                 skillPromptLoader.promptBlock("pom-json-generation"),
                 examplePageName,
                 exampleRoute,
                 exampleCapability == null || exampleCapability.isBlank() ? "UNKNOWN" : exampleCapability,
-                formatter.summarizeCompactContext(context),
-                capabilityContractFormatter.format(context, pageName, pageScenarios, baselineSpec),
-                formatter.summarizePromptRequiredContract(context, pageName, pageScenarios),
-                formatter.summarizeAllowedPromptLocators(context),
-                summarizeBaselineSpec(baselineSpec),
                 LlmOutputSchemaVersion.POM_CONTRACT,
-                examplePageName,
-                exampleRoute,
-                exampleCapability == null || exampleCapability.isBlank() ? "UNKNOWN" : exampleCapability,
-                exampleOpenMethod
+                formatter.summarizeCompactContext(context),
+                formatTypedPageContract(promptScope, examplePageName, exampleRoute, exampleOpenMethod, exampleCapability),
+                formatOwnedContract(promptScope),
+                formatCoverageGaps(promptScope),
+                formatSelectedLocators(promptScope),
+                summarizeBaselineSpec(baselineSpec, promptScope)
         );
+    }
+
+    private String formatTypedPageContract(
+            PromptReadyPomScope scope,
+            String pageName,
+            String route,
+            String openMethod,
+            String capability
+    ) {
+        String scopePage = scope == null || scope.targetPage().isBlank() ? pageName : scope.targetPage();
+        String scopeRoute = scope == null || scope.targetRoute().isBlank() ? route : scope.targetRoute();
+        return "pageName=%s | route=%s | capability=%s | openMethodName=%s | requiresAuthentication=%s | prerequisitePages=%s"
+                .formatted(scopePage, scopeRoute, capability == null || capability.isBlank() ? "UNKNOWN" : capability,
+                        openMethod, scope != null && scope.requiresAuthentication(),
+                        scope == null || scope.prerequisitePages().isEmpty() ? "none" : scope.prerequisitePages());
+    }
+
+    private String formatOwnedContract(PromptReadyPomScope scope) {
+        if (scope == null) return "ownedActions=none\nownedAssertions=none";
+        String actions = scope.ownedActions().isEmpty() ? "none" : String.join(", ", scope.ownedActions());
+        String assertions = scope.ownedAssertions().isEmpty() ? "none" : scope.ownedAssertions().stream()
+                .map(this::formatAssertion)
+                .reduce((left, right) -> left + "; " + right)
+                .orElse("none");
+        return "ownedActions=" + actions + System.lineSeparator() + "ownedAssertions=" + assertions;
+    }
+
+    private String formatCoverageGaps(PromptReadyPomScope scope) {
+        if (scope == null || scope.coverageGaps().isEmpty()) {
+            return "none";
+        }
+        return scope.coverageGaps().stream()
+                .map(gap -> "- " + gap + " Copy this exact gap into coverageGaps; do not create the unsupported action or assertion.")
+                .reduce((left, right) -> left + System.lineSeparator() + right)
+                .orElse("none");
+    }
+
+    private String formatAssertion(PromptReadyAssertion assertion) {
+        return assertion.type() + "(" + assertion.expectedValue() + ")";
+    }
+
+    private String formatSelectedLocators(PromptReadyPomScope scope) {
+        if (scope == null || scope.allowedLocators().isEmpty()) return "none";
+        return scope.allowedLocators().stream()
+                .map(this::formatLocator)
+                .reduce((left, right) -> left + System.lineSeparator() + right)
+                .orElse("none");
+    }
+
+    private String formatLocator(PromptReadyLocator locator) {
+        return "- %s | strategy=%s | value=%s | role=%s | component=%s | score=%.2f"
+                .formatted(locator.id(), locator.strategy(), locator.value(), locator.role(),
+                        locator.componentName().isBlank() ? "PageScope" : locator.componentName(), locator.score());
     }
 
     private String buildDebugPrompt(
@@ -305,7 +311,7 @@ public class AiPageObjectPromptBuilder {
                 formatter.summarizePromptUiEvidence(context),
                 formatter.summarizePageModelEnrichments(context, pageName),
                 formatter.summarizeStructuredRetrievalContext(context),
-                summarizeBaselineSpec(baselineSpec),
+                summarizeBaselineSpec(baselineSpec, null),
                 LlmOutputSchemaVersion.POM_CONTRACT,
                 examplePageName,
                 exampleRoute,
@@ -313,7 +319,7 @@ public class AiPageObjectPromptBuilder {
         );
     }
 
-    private String summarizeBaselineSpec(AiPageObjectSpec baselineSpec) {
+    private String summarizeBaselineSpec(AiPageObjectSpec baselineSpec, PromptReadyPomScope scope) {
         if (baselineSpec == null) {
             return "none";
         }
@@ -322,7 +328,11 @@ public class AiPageObjectPromptBuilder {
                 .append(" | route=").append(baselineSpec.route())
                 .append(" | openMethodName=").append(baselineSpec.openMethodName())
                 .append(System.lineSeparator());
+        List<String> allowedMethods = scope == null ? List.of() : scope.ownedActions().stream()
+                .map(method -> method.substring(0, method.indexOf('(') < 0 ? method.length() : method.indexOf('(')))
+                .toList();
         builder.append("- methodSignatures=").append(baselineSpec.methods().stream()
+                .filter(method -> allowedMethods.isEmpty() || allowedMethods.contains(method.methodName()))
                 .map(method -> method.returnType()
                         + " "
                         + method.methodName()

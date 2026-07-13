@@ -182,6 +182,17 @@ public class RuntimeProperties {
         put(result, "rag.enabled", flattened.get("knowledge.ragEnabled"));
         put(result, "knowledge.graph.enabled", flattened.get("knowledge.graphEnabled"));
         put(result, "knowledge.vector.enabled", flattened.get("knowledge.vectorEnabled"));
+        put(result, "artifact.reuse.enabled", flattened.get("artifactReuse.enabled"));
+        put(result, "artifact.reuse.force-refresh", flattened.get("artifactReuse.forceRefresh"));
+        put(result, "artifact.reuse.stable-root", flattened.get("artifactReuse.stableRoot"));
+        put(result, "artifact.reuse.prompt-template-version", flattened.get("artifactReuse.promptTemplateVersion"));
+        put(result, "artifact.reuse.flow-contract.enabled", flattened.get("artifactReuse.flowContractEnabled"));
+        put(result, "artifact.reuse.pom-contract.enabled", flattened.get("artifactReuse.pomContractEnabled"));
+        put(result, "artifact.reuse.test-data.enabled", flattened.get("artifactReuse.testDataEnabled"));
+        put(result, "artifact.reuse.policy", flattened.get("artifactReuse.policy"));
+        put(result, "artifact.reuse.explain-decisions", flattened.get("artifactReuse.explainDecisions"));
+        put(result, "artifact.reuse.writer-version", flattened.get("artifactReuse.writerVersion"));
+        put(result, "semantic.reuse.enabled", flattened.get("semantic.reuseEnabled"));
         return result;
     }
 
@@ -251,4 +262,3 @@ public class RuntimeProperties {
         return null;
     }
 }
-

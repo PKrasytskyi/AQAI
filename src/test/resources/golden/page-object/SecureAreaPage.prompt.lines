@@ -1,14 +1,12 @@
-# Role
-You are a Page Object Contract Planner.
-Return only pom-contract-v1 JSON. Do not write Java.
+# Runtime Skill Contract
 # Task
 Build one POM contract for:
 targetPage=SecureAreaPage
 targetRoute=/secure
 capability=UNKNOWN
-# Output Schema
-Return JSON only in this shape. Schema version: pom-contract-v1.
-"schemaVersion": "pom-contract-v1"
-"name": "SecureAreaPage"
-"route": "/secure"
-"openMethod": "openSecureArea"
+Contract schemaVersion=pom-contract-v1
+# Input
+Typed page contract:
+pageName=SecureAreaPage | route=/secure | capability=UNKNOWN | openMethodName=openSecureArea
+Page-owned actions and assertions:
+Confirmed selected locators:

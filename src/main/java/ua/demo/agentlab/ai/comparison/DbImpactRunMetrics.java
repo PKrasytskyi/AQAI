@@ -23,6 +23,10 @@ public record DbImpactRunMetrics(
         int promptSafetyBlocks,
         int validPomContracts,
         int totalPomContracts,
+        int newlyValidPomContracts,
+        int newlyTotalPomContracts,
+        int reusedValidPomContracts,
+        int reusedTotalPomContracts,
         int compileReadyGeneratedCode,
         int totalGeneratedCode,
         String compileStatus,
@@ -38,7 +42,17 @@ public record DbImpactRunMetrics(
         int pageEnrichmentOpenAiAttempts,
         int pageEnrichmentOpenAiSuccesses,
         int pageEnrichmentOpenAiFailures,
-        int pageEnrichmentOpenAiFallbacks
+        int pageEnrichmentOpenAiFallbacks,
+        boolean artifactReuseEnabled,
+        int artifactReuseLlmCallsExecuted,
+        int artifactReuseLlmCallsSkipped,
+        int artifactCacheHits,
+        int artifactCacheMisses,
+        int artifactTokensSavedEstimate,
+        int stableArtifactCount,
+        int artifactNeedsReviewCount,
+        int stableLocatorReuse,
+        int flowReuse
 ) {
     public DbImpactRunMetrics {
         runId = runId == null || runId.isBlank() ? "unknown-run" : runId.trim();
@@ -62,6 +76,10 @@ public record DbImpactRunMetrics(
         promptSafetyBlocks = Math.max(0, promptSafetyBlocks);
         validPomContracts = Math.max(0, validPomContracts);
         totalPomContracts = Math.max(0, totalPomContracts);
+        newlyValidPomContracts = Math.max(0, newlyValidPomContracts);
+        newlyTotalPomContracts = Math.max(0, newlyTotalPomContracts);
+        reusedValidPomContracts = Math.max(0, reusedValidPomContracts);
+        reusedTotalPomContracts = Math.max(0, reusedTotalPomContracts);
         compileReadyGeneratedCode = Math.max(0, compileReadyGeneratedCode);
         totalGeneratedCode = Math.max(0, totalGeneratedCode);
         compileStatus = clean(compileStatus, "unknown");
@@ -73,6 +91,15 @@ public record DbImpactRunMetrics(
         pageEnrichmentOpenAiSuccesses = Math.max(0, pageEnrichmentOpenAiSuccesses);
         pageEnrichmentOpenAiFailures = Math.max(0, pageEnrichmentOpenAiFailures);
         pageEnrichmentOpenAiFallbacks = Math.max(0, pageEnrichmentOpenAiFallbacks);
+        artifactReuseLlmCallsExecuted = Math.max(0, artifactReuseLlmCallsExecuted);
+        artifactReuseLlmCallsSkipped = Math.max(0, artifactReuseLlmCallsSkipped);
+        artifactCacheHits = Math.max(0, artifactCacheHits);
+        artifactCacheMisses = Math.max(0, artifactCacheMisses);
+        artifactTokensSavedEstimate = Math.max(0, artifactTokensSavedEstimate);
+        stableArtifactCount = Math.max(0, stableArtifactCount);
+        artifactNeedsReviewCount = Math.max(0, artifactNeedsReviewCount);
+        stableLocatorReuse = Math.max(0, stableLocatorReuse);
+        flowReuse = Math.max(0, flowReuse);
         retrievalMode = clean(retrievalMode, "unknown");
         dbUsageMode = clean(dbUsageMode, "unknown");
     }

@@ -23,6 +23,12 @@ public record WorkflowCoreComponents(
         WorkflowAgent apiGenerationAgent,
         WorkflowAgent apiGeneratedSourcePersistenceAgent,
         WorkflowAgent flowScopedKnowledgeAgent,
+        WorkflowAgent flowContractBuilderAgent,
+        WorkflowAgent flowContractPersistenceAgent,
+        WorkflowAgent flowRuntimeFeedbackAgent,
+        WorkflowAgent flowSemanticIndexAgent,
+        WorkflowAgent flowSemanticCandidateAgent,
+        WorkflowAgent reusePlannerAgent,
         WorkflowAgent requirementToTestCaseAgent,
         WorkflowAgent uiTestPlanAgent,
         WorkflowAgent pageObjectWriterAgent,
@@ -32,6 +38,9 @@ public record WorkflowCoreComponents(
         WorkflowAgent generatedCodeCompileAgent,
         WorkflowAgent generatedCodeReviewAgent,
         WorkflowAgent generatedUiSmokeAgent,
-        WorkflowAgent runtimeFeedbackDbUpdateAgent
+        WorkflowAgent artifactLifecyclePromotionAgent,
+        WorkflowAgent artifactReuseMetricsAgent,
+        WorkflowAgent runtimeFeedbackDbUpdateAgent,
+        WorkflowAgent runHistoryStatisticsAgent
 ) {
 }

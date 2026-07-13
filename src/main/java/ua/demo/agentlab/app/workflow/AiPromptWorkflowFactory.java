@@ -37,6 +37,11 @@ public class AiPromptWorkflowFactory {
                 core.uiDiscoveryArtifactPersistenceAgent(),
                 ai.flowScopedKnowledgeAgent(),
                 core.requirementToTestCaseAgent(),
+                core.flowContractBuilderAgent(),
+                core.flowContractPersistenceAgent(),
+                core.flowSemanticIndexAgent(),
+                core.flowSemanticCandidateAgent(),
+                core.reusePlannerAgent(),
                 ai.testCaseExpectationEnrichmentAgent(),
                 ai.assertionContractAgent(),
                 core.uiTestPlanAgent(),
@@ -50,7 +55,11 @@ public class AiPromptWorkflowFactory {
                 core.generatedCodeCompileAgent(),
                 core.generatedCodeReviewAgent(),
                 core.generatedUiSmokeAgent(),
-                core.runtimeFeedbackDbUpdateAgent()
+                core.artifactLifecyclePromotionAgent(),
+                core.flowRuntimeFeedbackAgent(),
+                core.artifactReuseMetricsAgent(),
+                core.runtimeFeedbackDbUpdateAgent(),
+                core.runHistoryStatisticsAgent()
         );
         return new WorkflowDefinition(initialState, agents);
     }
