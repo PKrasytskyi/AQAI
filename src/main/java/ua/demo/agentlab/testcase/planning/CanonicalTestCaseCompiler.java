@@ -21,7 +21,7 @@ class CanonicalTestCaseCompiler {
                 .map(step -> new UiOperationIntent(step.kind(), step.ownerPage(), step.dataKey()))
                 .toList();
         List<AssertionIntent> assertionIntents = scenario.assertions().stream()
-                .map(assertion -> new AssertionIntent(assertion.intentKind(), assertion.expectedValue()))
+                .map(assertion -> new AssertionIntent(assertion.intentKind(), assertion.target(), assertion.expectedValue()))
                 .toList();
         List<String> targetPages = targetPages(scenario);
         List<String> actions = scenario.steps().stream().map(this::actionText).distinct().toList();

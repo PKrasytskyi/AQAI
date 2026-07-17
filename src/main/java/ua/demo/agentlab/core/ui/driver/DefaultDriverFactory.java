@@ -37,6 +37,8 @@ public class DefaultDriverFactory implements DriverFactory {
 
         if (runtimeConfig.isHeadless()) {
             options.addArguments("--headless=new");
+            // --start-maximized is ignored by headless Chrome. Keep SPA navigation in its desktop layout.
+            options.addArguments("--window-size=1920,1080");
         }
 
         options.addArguments("--start-maximized");

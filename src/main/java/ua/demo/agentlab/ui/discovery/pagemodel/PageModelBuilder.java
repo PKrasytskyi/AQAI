@@ -558,6 +558,12 @@ public class PageModelBuilder {
                         fieldLabel,
                         fieldPlaceholder
                 ) || matchesAny(
+                        normalize(element.attributes().get("agentlab.field.label")),
+                        fieldId,
+                        fieldName,
+                        fieldLabel,
+                        fieldPlaceholder
+                ) || matchesAny(
                         normalize(element.placeholder()),
                         fieldId,
                         fieldName,
@@ -669,6 +675,10 @@ public class PageModelBuilder {
         addRuntimeLocator(locators, rawElement, "css", rawElement.ariaLabel().isBlank()
                 ? ""
                 : rawElement.tag() + "[aria-label='" + escapeCssValue(rawElement.ariaLabel()) + "']", 0.88d, "aria-label attribute");
+        addRuntimeLocator(locators, rawElement, "css", roleLocator(rawElement), 0.82d, "semantic ARIA role");
+        addRuntimeLocator(locators, rawElement, "xpath",
+                rawElement.attributes().getOrDefault("agentlab.field.locator.xpath", ""),
+                0.78d, "label-scoped custom form control");
         addRuntimeLocator(locators, rawElement, "id", rawElement.id(), 0.90d, "stable id candidate");
         addRuntimeLocator(locators, rawElement, "name", rawElement.name(), 0.84d, "name attribute candidate");
         addRuntimeLocator(locators, rawElement, "css", rawElement.href().isBlank() || isAbsoluteHttpUrl(rawElement.href())
@@ -712,6 +722,15 @@ public class PageModelBuilder {
             return "[data-qa='" + escapeCssValue(rawElement.dataTestId()) + "']";
         }
         return "";
+    }
+
+    private String roleLocator(RawElement rawElement) {
+        String role = safe(rawElement.role()).toLowerCase(Locale.ROOT);
+        if (!List.of("combobox", "listbox", "table", "grid", "rowgroup", "row", "cell", "columnheader")
+                .contains(role)) {
+            return "";
+        }
+        return rawElement.tag() + "[role='" + escapeCssValue(role) + "']";
     }
 
     private List<PageLocatorModel> deduplicateLocators(List<PageLocatorModel> locators) {

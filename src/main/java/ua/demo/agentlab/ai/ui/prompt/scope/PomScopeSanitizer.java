@@ -388,9 +388,8 @@ public class PomScopeSanitizer {
         if (hasLocator(locators, "dashboardHeading")) {
             add(assertions, new PromptReadyAssertion("ELEMENT_VISIBLE", "dashboardHeading", evidence.targetPage(), "pom-scope-sanitizer:dashboard-heading", 0.95d));
         }
-        if (hasLocator(locators, "logoutLink")) {
-            add(assertions, new PromptReadyAssertion("ELEMENT_VISIBLE", "logoutLink", evidence.targetPage(), "pom-scope-sanitizer:logout-link", 0.90d));
-        }
+        // Logout is not a generic dashboard assertion. It is emitted only from page-owned
+        // requirement evidence, where the user-menu prerequisite can also be validated.
     }
 
     private boolean hasLogoutMenuRequirement(AiContextPackage context, Set<String> scopedIds, String targetPage) {
@@ -652,7 +651,7 @@ public class PomScopeSanitizer {
 
     private boolean belongsToRequestedPage(String ownerPage, String requestedPageName) {
         if (ownerPage == null || ownerPage.isBlank() || requestedPageName == null || requestedPageName.isBlank()) {
-            return true;
+            return false;
         }
         return PageReferenceMatcher.matchesScenarioPage(ownerPage, "", requestedPageName);
     }

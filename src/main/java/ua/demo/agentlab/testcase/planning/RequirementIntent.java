@@ -3,9 +3,13 @@ package ua.demo.agentlab.testcase.planning;
 public enum RequirementIntent {
     OPEN_PAGE,
     NAVIGATE,
+    MODULE_NAVIGATION,
     AUTHENTICATE,
     SUBMIT_FORM,
     ENTER_DATA,
+    SELECT_OPTION,
+    SEARCH,
+    FILTER,
     VERIFY_ELEMENT_VISIBLE,
     VERIFY_ROUTE,
     VERIFY_PAGE_ACCESSIBLE,

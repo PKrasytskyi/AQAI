@@ -64,6 +64,38 @@ public class PipelineArtifactStore {
             putIfPresent(WorkflowArtifact.MAPPED_UI_KNOWLEDGE, output.curatedKnowledge().knowledge());
             return;
         }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaInventoryOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_PAGE_INVENTORY, output.inventory());
+            putIfPresent(WorkflowArtifact.SPA_INVENTORY_PERSISTENCE, output.persistence());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaTargetedVerificationOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_TARGETED_VERIFICATION, output.verification());
+            putIfPresent(WorkflowArtifact.SPA_EVIDENCE_LIFECYCLE, output.lifecycle());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaSourceStateBindingOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS, output.bindings());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaLiveTargetedVerificationOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION, output.result());
+            putIfPresent(WorkflowArtifact.SPA_LIVE_TRANSITION_DISCOVERY, output.transitionDiscovery());
+            putIfPresent(WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_EXECUTION, output.behaviorExecution());
+            putIfPresent(WorkflowArtifact.SPA_EVIDENCE_LIFECYCLE, output.lifecycle());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaTargetStateBindingOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_TARGET_STATE_BINDINGS, output.bindings());
+            putIfPresent(WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS, output.bindings().behaviorBindings());
+            putIfPresent(WorkflowArtifact.SPA_EFFECTIVE_PAGE_INVENTORY, output.effectiveInventory());
+            putIfPresent(WorkflowArtifact.SPA_REBOUND_SOURCE_STATE_BINDINGS, output.reboundSources());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaComponentInteractionGraphOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_COMPONENT_INTERACTION_GRAPH, output.graph());
+            return;
+        }
         if (value instanceof ua.demo.agentlab.ai.pageenrichment.agent.PageKnowledgeCacheLookupOutput output) {
             putIfPresent(WorkflowArtifact.PAGE_KNOWLEDGE_CACHE_LOOKUP, output.result());
             return;

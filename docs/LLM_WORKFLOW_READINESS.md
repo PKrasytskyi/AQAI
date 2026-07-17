@@ -1,5 +1,10 @@
 # LLM Workflow Readiness
 
+> **Historical research note.** It predates typed/DAG runtime orchestration,
+> Neo4j artifact reuse, and contract-first deterministic POM writing. Do not use
+> it as a statement of current runtime readiness. Keep it only as design history
+> until its still-relevant future-work items are merged into [Roadmap](../ROADMAP.md).
+
 ## Target Workflow
 
 ```text

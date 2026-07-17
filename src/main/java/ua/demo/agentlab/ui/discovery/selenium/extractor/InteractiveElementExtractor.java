@@ -7,12 +7,22 @@ import ua.demo.agentlab.ui.LocatorHint;
 import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredInteractiveElement;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class InteractiveElementExtractor {
 
     public List<DiscoveredInteractiveElement> extractLinks(WebDriver driver) {
-        return extractElements(driver.findElements(By.cssSelector("a[href]")), "link");
+        List<DiscoveredInteractiveElement> links = new ArrayList<>(
+                extractElements(driver.findElements(By.cssSelector("a[href]")), "link", false)
+        );
+        // SPA sidebars are often collapsed in headless discovery. Retain their requirement-matched
+        // routes as non-visible navigation evidence; the crawler still validates the destination.
+        links.addAll(extractElements(driver.findElements(By.cssSelector(
+                "nav a[href], [role='navigation'] a[href], aside a[href]"
+        )), "link", true));
+        return deduplicate(links);
     }
 
     public List<DiscoveredInteractiveElement> extractButtons(WebDriver driver) {
@@ -20,20 +30,25 @@ public class InteractiveElementExtractor {
         elements.addAll(driver.findElements(By.cssSelector("button")));
         elements.addAll(driver.findElements(By.cssSelector("input[type='submit'], input[type='button']")));
         elements.addAll(driver.findElements(By.cssSelector("[role='button']")));
-        return extractElements(elements, "button");
+        return extractElements(elements, "button", false);
     }
 
     public List<DiscoveredInteractiveElement> extractSubmitActions(WebElement form) {
         List<WebElement> elements = new ArrayList<>();
         elements.addAll(form.findElements(By.cssSelector("button[type='submit'], input[type='submit']")));
-        return extractElements(elements, "submit");
+        return extractElements(elements, "submit", false);
     }
 
-    private List<DiscoveredInteractiveElement> extractElements(List<WebElement> elements, String elementType) {
+    private List<DiscoveredInteractiveElement> extractElements(
+            List<WebElement> elements,
+            String elementType,
+            boolean includeHiddenNavigation
+    ) {
         List<DiscoveredInteractiveElement> discovered = new ArrayList<>();
 
         for (WebElement element : elements) {
-            if (!safeDisplayed(element)) {
+            boolean displayed = safeDisplayed(element);
+            if (!displayed && !includeHiddenNavigation) {
                 continue;
             }
 
@@ -60,12 +75,24 @@ public class InteractiveElementExtractor {
                     id,
                     href,
                     safeEnabled(element),
-                    true,
+                    displayed,
                     toLocatorHint(elementType, visibleText, name, id)
             ));
         }
 
         return discovered;
+    }
+
+    private List<DiscoveredInteractiveElement> deduplicate(List<DiscoveredInteractiveElement> elements) {
+        Map<String, DiscoveredInteractiveElement> unique = new LinkedHashMap<>();
+        for (DiscoveredInteractiveElement element : elements) {
+            String key = safe(element.href()) + "|" + safe(element.visibleText()) + "|" + safe(element.id());
+            DiscoveredInteractiveElement existing = unique.get(key);
+            if (existing == null || (!existing.visible() && element.visible())) {
+                unique.put(key, element);
+            }
+        }
+        return new ArrayList<>(unique.values());
     }
 
     private LocatorHint toLocatorHint(String elementType, String visibleText, String name, String id) {
@@ -125,5 +152,9 @@ public class InteractiveElementExtractor {
             }
         }
         return null;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 }

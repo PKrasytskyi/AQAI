@@ -1,0 +1,16 @@
+fixtureId: orangehrm-spa-auth-module-list-filter
+projectProfile: profiles/orangehrm.project-profile.yaml
+requirementsFile: requirements/valid-author.md
+flowCapabilities:
+  - AUTHENTICATION
+  - MODULE_NAVIGATION
+  - RECORD_LIST
+  - FILTER
+supportedCapabilityContracts:
+  - AUTHENTICATION
+  - AUTHENTICATED_AREA
+  - MODULE_NAVIGATION
+  - USER_MENU
+  - RECORD_LIST
+  - FILTER
+  - MODAL

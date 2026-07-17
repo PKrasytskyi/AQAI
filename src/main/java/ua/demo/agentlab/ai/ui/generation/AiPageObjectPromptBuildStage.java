@@ -2,6 +2,8 @@ package ua.demo.agentlab.ai.ui.generation;
 
 import ua.demo.agentlab.ai.schema.LlmOutputSchemaVersion;
 import ua.demo.agentlab.ai.ui.prompt.AiPageObjectPromptBuilder;
+import ua.demo.agentlab.ai.ui.prompt.scope.PomScopeSanitizer;
+import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
 import ua.demo.agentlab.ui.UiTestScenario;
 
 import java.util.LinkedHashMap;
@@ -11,16 +13,22 @@ import java.util.Map;
 public class AiPageObjectPromptBuildStage {
 
     private final AiPageObjectPromptBuilder promptBuilder;
+    private final PomScopeSanitizer scopeSanitizer;
 
     public AiPageObjectPromptBuildStage() {
-        this(new AiPageObjectPromptBuilder());
+        this(new AiPageObjectPromptBuilder(), new PomScopeSanitizer());
     }
 
     AiPageObjectPromptBuildStage(AiPageObjectPromptBuilder promptBuilder) {
+        this(promptBuilder, new PomScopeSanitizer());
+    }
+
+    AiPageObjectPromptBuildStage(AiPageObjectPromptBuilder promptBuilder, PomScopeSanitizer scopeSanitizer) {
         if (promptBuilder == null) {
             throw new IllegalArgumentException("promptBuilder cannot be null");
         }
         this.promptBuilder = promptBuilder;
+        this.scopeSanitizer = scopeSanitizer == null ? new PomScopeSanitizer() : scopeSanitizer;
     }
 
     public AiPageObjectPromptDraft build(AiPageObjectPromptScope scope) {
@@ -38,6 +46,8 @@ public class AiPageObjectPromptBuildStage {
 
     private Map<String, Object> buildPromptMetadata(AiPageObjectPromptScope scope) {
         Map<String, Object> metadata = new LinkedHashMap<>();
+        PromptReadyPomScope promptScope = scopeSanitizer.sanitize(
+                scope.scopedContext(), scope.pageName(), scope.pageScenarios());
         List<UiTestScenario> pageScenarios = scope.pageScenarios();
         metadata.put("schemaVersion", LlmOutputSchemaVersion.POM_CONTRACT);
         metadata.put("compatibilityOutput", LlmOutputSchemaVersion.AI_PAGE_OBJECT_SPEC);
@@ -49,15 +59,11 @@ public class AiPageObjectPromptBuildStage {
         metadata.put("mappedPageCount", scope.scopedContext() == null || scope.scopedContext().mappedUiKnowledge() == null
                 ? 0
                 : scope.scopedContext().mappedUiKnowledge().pages().size());
-        metadata.put("promptAllowedLocatorCount", scope.scopedContext() == null || scope.scopedContext().promptUiEvidence() == null
-                ? 0
-                : scope.scopedContext().promptUiEvidence().requiredLocators().size());
-        metadata.put("promptActionCount", scope.scopedContext() == null || scope.scopedContext().promptUiEvidence() == null
-                ? 0
-                : scope.scopedContext().promptUiEvidence().requiredActions().size());
-        metadata.put("promptAssertionCount", scope.scopedContext() == null || scope.scopedContext().promptUiEvidence() == null
-                ? 0
-                : scope.scopedContext().promptUiEvidence().requiredAssertions().size());
+        // These counts describe the final sanitized scope actually given to the model.
+        // Raw PromptUiEvidence is deliberately broader and must never inflate run quality.
+        metadata.put("promptAllowedLocatorCount", promptScope.allowedLocators().size());
+        metadata.put("promptActionCount", promptScope.ownedActions().size());
+        metadata.put("promptAssertionCount", promptScope.ownedAssertions().size());
         metadata.put("pageModelPageCount", scope.scopedContext() == null || scope.scopedContext().pageModelBundle() == null
                 ? 0
                 : scope.scopedContext().pageModelBundle().pages().size());

@@ -81,6 +81,9 @@ secrets.properties
 .DS_Store
 Thumbs.db
 
+# Private working roadmaps and local architecture notes
+docs/private/
+
 # Docker/local database volumes if created in the workspace
 neo4j_data/
 neo4j_logs/

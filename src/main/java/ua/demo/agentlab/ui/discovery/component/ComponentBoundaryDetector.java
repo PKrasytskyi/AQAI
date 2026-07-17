@@ -57,10 +57,16 @@ public class ComponentBoundaryDetector {
         List<SemanticComponentModel> components = new ArrayList<>();
         Set<String> assigned = new LinkedHashSet<>();
 
+        // Claim narrow, stateful component boundaries before broad navigation/content groups.
+        addUserMenuComponent(page, elementsById, locatorIndex, components, assigned);
+        addModalComponents(page, elementsById, locatorIndex, components, assigned);
         addFormComponents(page, elementsById, locatorIndex, components, assigned);
-        addSearchComponent(page, elementsById, locatorIndex, components, assigned);
-        addNavigationComponent(page, elementsById, locatorIndex, components, assigned);
+        addFilterPanelComponent(page, elementsById, locatorIndex, components, assigned);
+        addResultsCollectionComponent(page, elementsById, locatorIndex, components, assigned);
         addTableComponent(page, elementsById, locatorIndex, components, assigned);
+        addSearchComponent(page, elementsById, locatorIndex, components, assigned);
+        addHeaderComponent(page, elementsById, locatorIndex, components, assigned);
+        addNavigationComponent(page, elementsById, locatorIndex, components, assigned);
         addContentComponent(page, elementsById, locatorIndex, components, assigned);
 
         double confidence = components.stream()
@@ -74,6 +80,116 @@ public class ComponentBoundaryDetector {
                 components,
                 confidence
         );
+    }
+
+    private void addHeaderComponent(
+            PageModel page,
+            Map<String, PageElementModel> elementsById,
+            Map<String, Set<String>> locatorIndex,
+            List<SemanticComponentModel> components,
+            Set<String> assigned
+    ) {
+        addEvidenceComponent(
+                page, elementsById, locatorIndex, components, assigned,
+                "header", "HeaderComponent", ComponentType.HEADER, 0.82d,
+                List.of("header", "topbar", "toolbar", "appbar"), List.of("component:header-evidence")
+        );
+    }
+
+    private void addUserMenuComponent(
+            PageModel page,
+            Map<String, PageElementModel> elementsById,
+            Map<String, Set<String>> locatorIndex,
+            List<SemanticComponentModel> components,
+            Set<String> assigned
+    ) {
+        addEvidenceComponent(
+                page, elementsById, locatorIndex, components, assigned,
+                "user-menu", "UserMenuComponent", ComponentType.USER_MENU, 0.80d,
+                List.of("user menu", "user-menu", "profile", "account", "logout", "sign out"),
+                List.of("component:user-menu-evidence", "candidate-only-until-targeted-verification")
+        );
+    }
+
+    private void addModalComponents(
+            PageModel page,
+            Map<String, PageElementModel> elementsById,
+            Map<String, Set<String>> locatorIndex,
+            List<SemanticComponentModel> components,
+            Set<String> assigned
+    ) {
+        addEvidenceComponent(
+                page, elementsById, locatorIndex, components, assigned,
+                "modal", "ModalComponent", ComponentType.MODAL, 0.76d,
+                List.of("modal", "dialog", "[role='dialog']", "popup"), List.of("component:modal-evidence")
+        );
+    }
+
+    private void addFilterPanelComponent(
+            PageModel page,
+            Map<String, PageElementModel> elementsById,
+            Map<String, Set<String>> locatorIndex,
+            List<SemanticComponentModel> components,
+            Set<String> assigned
+    ) {
+        addEvidenceComponent(
+                page, elementsById, locatorIndex, components, assigned,
+                "filter-panel", "FilterPanelComponent", ComponentType.FILTER_PANEL, 0.78d,
+                List.of("filter", "advanced search", "criteria"), List.of("component:filter-panel-evidence")
+        );
+    }
+
+    private void addResultsCollectionComponent(
+            PageModel page,
+            Map<String, PageElementModel> elementsById,
+            Map<String, Set<String>> locatorIndex,
+            List<SemanticComponentModel> components,
+            Set<String> assigned
+    ) {
+        addEvidenceComponent(
+                page, elementsById, locatorIndex, components, assigned,
+                "results", "ResultsCollectionComponent", ComponentType.RESULTS_COLLECTION, 0.75d,
+                List.of("results", "records", "vacancies", "candidates", "collection", "table", "grid", "rowgroup"),
+                List.of("component:results-collection-evidence")
+        );
+    }
+
+    private void addEvidenceComponent(
+            PageModel page,
+            Map<String, PageElementModel> elementsById,
+            Map<String, Set<String>> locatorIndex,
+            List<SemanticComponentModel> components,
+            Set<String> assigned,
+            String id,
+            String name,
+            ComponentType type,
+            double confidence,
+            List<String> terms,
+            List<String> sourceTrace
+    ) {
+        List<PageElementModel> matched = elementsById.values().stream()
+                .filter(element -> !assigned.contains(element.elementId()))
+                .filter(this::componentEvidenceElement)
+                .filter(element -> terms.stream().anyMatch(term -> evidence(element).toLowerCase(Locale.ROOT)
+                        .contains(term.toLowerCase(Locale.ROOT))))
+                .toList();
+        List<String> elementIds = expandByContainer(matched, elementsById.values(), assigned);
+        if (elementIds.isEmpty()) {
+            return;
+        }
+        components.add(component(
+                page,
+                page.pageId() + ":component:" + id,
+                name,
+                type,
+                elementIds,
+                elementsById,
+                locatorIndex,
+                confidence,
+                List.of(),
+                sourceTrace
+        ));
+        assigned.addAll(elementIds);
     }
 
     private void addFormComponents(
@@ -95,21 +211,65 @@ public class ComponentBoundaryDetector {
             if (elementIds.isEmpty()) {
                 continue;
             }
-            String componentId = page.pageId() + ":component:" + sanitize(firstNonBlank(form.formName(), "form"));
+            List<PageElementModel> seeds = elementIds.stream().map(elementsById::get).toList();
+            List<String> expanded = expandByContainer(seeds, elementsById.values(), assigned);
+            if (!expanded.isEmpty()) {
+                elementIds = expanded;
+            }
+            boolean filterForm = isFilterForm(form, elementIds, elementsById);
+            String fallbackName = filterForm ? "filter-panel" : "form";
+            String componentId = page.pageId() + ":component:" + sanitize(firstNonBlank(form.formName(), fallbackName));
             components.add(component(
                     page,
                     componentId,
-                    toDisplayName(firstNonBlank(form.formName(), "form")),
-                    ComponentType.FORM,
+                    filterForm ? "FilterPanelComponent" : toDisplayName(firstNonBlank(form.formName(), "form")),
+                    filterForm ? ComponentType.FILTER_PANEL : ComponentType.FORM,
                     elementIds,
                     elementsById,
                     locatorIndex,
-                    0.90d,
+                    filterForm ? 0.84d : 0.90d,
                     List.of(),
-                    List.of("component:form", "formId=" + form.formId())
+                    List.of(filterForm ? "component:filter-form" : "component:form", "formId=" + form.formId())
             ));
             assigned.addAll(elementIds);
         }
+    }
+
+    private boolean isFilterForm(
+            PageFormModel form,
+            List<String> formElementIds,
+            Map<String, PageElementModel> elementsById
+    ) {
+        if (form == null) return false;
+        String submitEvidence = form.submitElementIds().stream()
+                .map(elementsById::get)
+                .filter(java.util.Objects::nonNull)
+                .map(this::evidence)
+                .collect(Collectors.joining(" "))
+                .toLowerCase(Locale.ROOT);
+        boolean filterAction = List.of("search", "filter", "apply", "reset").stream()
+                .anyMatch(submitEvidence::contains);
+        if (!filterAction) return false;
+        List<PageElementModel> formElements = formElementIds.stream()
+                .map(elementsById::get)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        long controls = formElements.stream().filter(this::isFormControl).count();
+        long labels = formElements.stream()
+                .filter(element -> "label".equalsIgnoreCase(element.tag()))
+                .map(PageElementModel::text)
+                .filter(text -> text != null && !text.isBlank())
+                .distinct()
+                .count();
+        return controls >= 2 || labels >= 2;
+    }
+
+    private boolean isFormControl(PageElementModel element) {
+        String evidence = evidence(element);
+        return containsAny(element.technicalType(), "INPUT", "DROPDOWN", "SELECT", "TEXTAREA", "CHECKBOX", "RADIO")
+                || containsAny(element.tag(), "input", "select", "textarea")
+                || containsAny(element.role(), "combobox", "listbox")
+                || containsAny(evidence, "custom-select");
     }
 
     private void addSearchComponent(
@@ -280,7 +440,11 @@ public class ComponentBoundaryDetector {
     }
 
     private PageLocatorModel inferRootLocator(ComponentType type, List<PageElementModel> elements) {
-        if (type == ComponentType.FORM) {
+        PageLocatorModel structuralRoot = rootFromContainer(elements);
+        if (structuralRoot != null) {
+            return structuralRoot;
+        }
+        if (type == ComponentType.FORM || type == ComponentType.FILTER_PANEL) {
             return new PageLocatorModel("css", "form", 0.50d, "component root fallback", false);
         }
         if (type == ComponentType.NAVIGATION) {
@@ -294,6 +458,36 @@ public class ComponentBoundaryDetector {
                 .flatMap(element -> element.locatorCandidates().stream())
                 .max(Comparator.comparingDouble(PageLocatorModel::score))
                 .orElse(null);
+    }
+
+    private PageLocatorModel rootFromContainer(List<PageElementModel> elements) {
+        if (elements == null || elements.isEmpty()) return null;
+        String key = elements.get(0).attributes().getOrDefault("agentlab.container.key", "");
+        if (key.isBlank() || elements.stream().anyMatch(element -> !key.equals(element.attributes().get("agentlab.container.key")))) {
+            return null;
+        }
+        String id = elements.get(0).attributes().getOrDefault("agentlab.container.id", "");
+        if (!id.isBlank()) return new PageLocatorModel("css", "#" + escapeCssId(id), 0.86d, "DOM ancestry container id", true);
+        String dataId = elements.get(0).attributes().getOrDefault("agentlab.container.data-testid", "");
+        if (!dataId.isBlank()) return new PageLocatorModel("css", "[data-testid='" + dataId.replace("'", "\\'") + "']", 0.90d, "DOM ancestry data-testid", true);
+        String tag = elements.get(0).attributes().getOrDefault("agentlab.container.tag", "");
+        String role = elements.get(0).attributes().getOrDefault("agentlab.container.role", "");
+        if (!tag.isBlank() && !role.isBlank()) return new PageLocatorModel("css", tag + "[role='" + role.replace("'", "\\'") + "']", 0.68d, "DOM ancestry landmark role", false);
+        return null;
+    }
+
+    private List<String> expandByContainer(List<PageElementModel> matched, java.util.Collection<PageElementModel> all,
+                                           Set<String> assigned) {
+        if (matched.isEmpty()) return List.of();
+        Set<String> containers = matched.stream().map(element -> element.attributes().getOrDefault("agentlab.container.key", ""))
+                .filter(value -> !value.isBlank()).collect(Collectors.toCollection(LinkedHashSet::new));
+        return all.stream().filter(element -> !assigned.contains(element.elementId())).filter(this::componentEvidenceElement)
+                .filter(element -> matched.contains(element) || containers.contains(element.attributes().getOrDefault("agentlab.container.key", "")))
+                .map(PageElementModel::elementId).toList();
+    }
+
+    private String escapeCssId(String value) {
+        return value.replace("\\", "\\\\").replace(".", "\\.").replace(":", "\\:");
     }
 
     private Map<String, Set<String>> locatorIndex(List<PageElementModel> elements) {
@@ -330,6 +524,9 @@ public class ComponentBoundaryDetector {
     }
 
     private boolean isNavigationElement(PageElementModel element) {
+        if (isFormControl(element) || isTableElement(element)) {
+            return false;
+        }
         String evidence = evidence(element);
         return containsAny(element.technicalType(), "LINK")
                 || containsAny(evidence, "navigation", "menu", "tab", "logout", "dashboard", "admin", "pim");

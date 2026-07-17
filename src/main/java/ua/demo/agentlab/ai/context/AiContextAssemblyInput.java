@@ -33,15 +33,21 @@ public record AiContextAssemblyInput(
         KnowledgeRunMetadata knowledgeRunMetadata,
         FlowScopedKnowledgePackage flowScopedKnowledgePackage,
         List<AssertionContract> assertionContracts,
-        List<PageModelEnrichmentRecord> pageModelEnrichments
+        List<PageModelEnrichmentRecord> pageModelEnrichments,
+        List<PromptLocatorEvidence> currentRunSpaLocatorEvidence
 ) {
     public AiContextAssemblyInput {
         objective = objective == null ? "" : objective.trim();
         assertionContracts = assertionContracts == null ? List.of() : List.copyOf(assertionContracts);
         pageModelEnrichments = pageModelEnrichments == null ? List.of() : List.copyOf(pageModelEnrichments);
+        currentRunSpaLocatorEvidence = currentRunSpaLocatorEvidence == null ? List.of() : List.copyOf(currentRunSpaLocatorEvidence);
     }
 
     public static AiContextAssemblyInput from(WorkflowState state) {
+        return from(state, List.of());
+    }
+
+    public static AiContextAssemblyInput from(WorkflowState state, List<PromptLocatorEvidence> currentRunSpaLocatorEvidence) {
         if (state == null) {
             throw new IllegalArgumentException("state cannot be null");
         }
@@ -60,7 +66,8 @@ public record AiContextAssemblyInput(
                 state.getKnowledgeRunMetadata(),
                 state.getFlowScopedKnowledgePackage(),
                 state.getAssertionContracts(),
-                state.getPageModelEnrichments()
+                state.getPageModelEnrichments(),
+                currentRunSpaLocatorEvidence
         );
     }
 }

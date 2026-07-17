@@ -16,6 +16,7 @@ public class FlowContractPersistenceAgent implements WorkflowAgent,
 
     private final ArtifactReuseRuntimeConfig config;
     private final FlowContractRegistry registry;
+    private final FlowContractPersistencePolicy persistencePolicy = new FlowContractPersistencePolicy();
     private final AiArtifactPublisher artifactPublisher = new AiArtifactPublisher();
 
     public FlowContractPersistenceAgent(ArtifactReuseRuntimeConfig config, FlowContractRegistry registry) {
@@ -67,7 +68,14 @@ public class FlowContractPersistenceAgent implements WorkflowAgent,
         if (!config.flowContractEnabled()) {
             return FlowContractPersistenceResult.skipped("neo4j", "Flow contract persistence is disabled");
         }
-        return registry.persist(input);
+        FlowContractBundle eligible = persistencePolicy.eligible(input);
+        if (eligible.contracts().isEmpty()) {
+            return FlowContractPersistenceResult.skipped(
+                    "neo4j",
+                    "No confirmed flow contract passed persistence eligibility; rejected=" + input.contracts().size()
+            );
+        }
+        return registry.persist(eligible);
     }
 
     @Override

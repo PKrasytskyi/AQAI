@@ -239,4 +239,60 @@ public class PomScopeSanitizerTest {
         Assert.assertTrue(scope.coverageGaps().stream()
                 .anyMatch(gap -> gap.contains("userMenuTrigger") && gap.contains("logoutLink")));
     }
+
+    @Test
+    public void excludesAssertionsWithoutConfirmedPageOwnership() {
+        PromptUiEvidence evidence = new PromptUiEvidence(
+                "DashboardPage",
+                "/dashboard/index",
+                List.of("REQ-RECRUITMENT"),
+                List.of(),
+                List.of(new PromptAssertionEvidence(
+                        "TEXT_VISIBLE",
+                        "Recruitment page is opened successfully.",
+                        "",
+                        "REQ-RECRUITMENT",
+                        0.88d
+                )),
+                List.of(), List.of(), List.of(), List.of("test"), 0.90d
+        );
+        AiContextPackage context = new AiContextPackage(
+                "Generate POM", null, null, null, null, null, null, null, null, null, null, null, null,
+                List.of(), List.of(), List.of(), evidence
+        );
+
+        PromptReadyPomScope scope = new PomScopeSanitizer().sanitize(context, "DashboardPage", List.of());
+
+        Assert.assertTrue(scope.ownedAssertions().stream()
+                .noneMatch(assertion -> assertion.expectedValue().contains("Recruitment page")));
+    }
+
+    @Test
+    public void doesNotPromoteCachedLogoutLocatorToDashboardAssertionWithoutLogoutRequirement() {
+        PromptUiEvidence evidence = new PromptUiEvidence(
+                "DashboardPage",
+                "/dashboard/index",
+                true,
+                List.of("LoginPage"),
+                List.of("REQ-DASHBOARD"),
+                List.of(),
+                List.of(),
+                List.of(new PromptLocatorEvidence(
+                        "logoutLink", "logout", "css", "a[href='/logout']", "link", "Logout", "/logout",
+                        true, 0.90d, "NavigationComponent", "NAVIGATION", 1, 1, true,
+                        LocatorEvidenceType.CONFIRMED_LOCATOR, List.of("stable-cache")
+                )),
+                List.of(), List.of(), List.of(), List.of(), List.of("test"), 0.90d
+        );
+        AiContextPackage context = new AiContextPackage(
+                "Generate POM", null, null, null, null, null, null, null, null, null, null, null, null,
+                List.of(), List.of(), List.of(), evidence
+        );
+
+        PromptReadyPomScope scope = new PomScopeSanitizer().sanitize(context, "DashboardPage", List.of());
+
+        Assert.assertTrue(scope.ownedAssertions().stream()
+                .noneMatch(assertion -> "logoutLink".equals(assertion.expectedValue())));
+        Assert.assertTrue(scope.allowedLocators().isEmpty());
+    }
 }

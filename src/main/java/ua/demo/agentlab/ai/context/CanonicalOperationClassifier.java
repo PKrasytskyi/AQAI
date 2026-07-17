@@ -42,6 +42,14 @@ public class CanonicalOperationClassifier {
         score(scores, UiOperationKind.UPLOAD_FILE, text, 0.50d, "upload", "attach", "import");
         score(scores, UiOperationKind.DOWNLOAD_FILE, text, 0.50d, "download", "export");
         score(scores, UiOperationKind.LOGOUT, text, 0.50d, "logout", "signout");
+        score(scores, UiOperationKind.HTTP_AUTHENTICATE, text, 0.60d, "http auth", "basic auth", "digest auth");
+        score(scores, UiOperationKind.ACCEPT_ALERT, text, 0.56d, "accept alert", "accept javascript alert");
+        score(scores, UiOperationKind.DISMISS_ALERT, text, 0.56d, "dismiss alert", "cancel alert");
+        score(scores, UiOperationKind.ENTER_ALERT_TEXT, text, 0.58d, "alert text", "prompt text", "javascript prompt");
+        score(scores, UiOperationKind.OPEN_NEW_WINDOW, text, 0.56d, "new window", "open window", "new tab");
+        score(scores, UiOperationKind.SWITCH_WINDOW, text, 0.56d, "switch window", "switch tab");
+        score(scores, UiOperationKind.HOVER, text, 0.56d, "hover", "mouse over", "pointer over");
+        score(scores, UiOperationKind.SET_SLIDER, text, 0.58d, "slider", "range input", "set range");
 
         if (aliasDictionary.matchesContainer(evidence)) {
             score(scores, UiOperationKind.OPEN_TARGET_CONTAINER, 0.25d);
@@ -165,6 +173,14 @@ public class CanonicalOperationClassifier {
             case LOGOUT -> "logout";
             case UPLOAD_FILE -> "uploadFile";
             case DOWNLOAD_FILE -> "downloadFile";
+            case HTTP_AUTHENTICATE -> "authenticateHttpChallenge";
+            case ACCEPT_ALERT -> "acceptAlert";
+            case DISMISS_ALERT -> "dismissAlert";
+            case ENTER_ALERT_TEXT -> "enterAlertText";
+            case OPEN_NEW_WINDOW -> "openNewWindow";
+            case SWITCH_WINDOW -> "switchWindow";
+            case HOVER -> "hover";
+            case SET_SLIDER -> "setSlider";
             case VERIFY_PUBLIC_ACCESS -> "verifyPublicAccess";
             case INSPECT_LISTING -> "inspectCollection";
             case INSPECT_ITEM_CARDS -> "inspectEntitySummary";

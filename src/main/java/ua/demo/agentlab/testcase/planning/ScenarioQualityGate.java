@@ -14,6 +14,9 @@ class ScenarioQualityGate {
         if (candidate == null || candidate.primaryRequirement() == null) {
             return new ScenarioQualityReport(false, List.of("Scenario candidate is missing primary requirement."));
         }
+        if (candidate.targetPageName().isBlank() || candidate.targetRoute().isBlank()) {
+            issues.add("Target capability/page is not confirmed; scenario must remain needs-review.");
+        }
         for (ScenarioAssertionCandidate assertion : candidate.assertions()) {
             if (assertion.assertionType() == AssertionType.URL_CONTAINS
                     && !assertion.route().isBlank()

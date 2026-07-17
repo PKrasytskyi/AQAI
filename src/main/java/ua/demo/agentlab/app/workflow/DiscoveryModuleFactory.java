@@ -18,6 +18,25 @@ import ua.demo.agentlab.ui.discovery.runtime.RuntimeEvidenceArtifactWriter;
 import ua.demo.agentlab.ui.discovery.runtime.RuntimeEvidenceCollectorFactory;
 import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiDiscoveryConfig;
 import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiEventBuffer;
+import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4jRuntimeConfig;
+import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
+import ua.demo.agentlab.ui.discovery.spa.SpaInventoryArtifactWriter;
+import ua.demo.agentlab.ui.discovery.spa.SpaInventoryBuilder;
+import ua.demo.agentlab.ui.discovery.spa.SpaInventoryGraphWriter;
+import ua.demo.agentlab.ui.discovery.spa.SpaEvidenceLifecycleGraphWriter;
+import ua.demo.agentlab.ui.discovery.spa.ComponentInteractionGraphArtifactWriter;
+import ua.demo.agentlab.ui.discovery.spa.ComponentInteractionGraphBuilder;
+import ua.demo.agentlab.ui.discovery.spa.ComponentInteractionGraphWriter;
+import ua.demo.agentlab.ui.discovery.spa.LiveTargetedVerificationArtifactWriter;
+import ua.demo.agentlab.ui.discovery.spa.LiveTargetedVerificationRunner;
+import ua.demo.agentlab.ui.discovery.spa.SpaEvidenceRetentionGraphWriter;
+import ua.demo.agentlab.ui.discovery.spa.SpaTargetedVerificationArtifactWriter;
+import ua.demo.agentlab.ui.discovery.spa.SpaTargetedVerificationPlanner;
+import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaInventoryAgent;
+import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaComponentInteractionGraphAgent;
+import ua.demo.agentlab.ui.discovery.spa.agent.UiLiveSpaTargetedVerificationAgent;
+import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaEvidenceRetentionAgent;
+import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaTargetedVerificationAgent;
 import ua.demo.agentlab.ui.flow.RuleBasedCanonicalPageFlowMapper;
 
 public class DiscoveryModuleFactory {
@@ -56,7 +75,34 @@ public class DiscoveryModuleFactory {
                 ),
                 new UiDiscoveryArtifactPersistenceAgent(new LocalDiscoveryArtifactWriter()),
                 new UiPageModelAgent(new PageModelBuilder(), new PageModelArtifactWriter()),
-                new UiPageMappingAgent(new RuleBasedPageMapper())
+                new UiPageMappingAgent(new RuleBasedPageMapper()),
+                new UiSpaInventoryAgent(
+                        new PropertiesSpaInventoryConfig(),
+                        new SpaInventoryBuilder(),
+                        new SpaInventoryArtifactWriter(),
+                        new SpaInventoryGraphWriter(new PropertiesNeo4jRuntimeConfig())
+                ),
+                new UiSpaComponentInteractionGraphAgent(
+                        new ComponentInteractionGraphBuilder(),
+                        new ComponentInteractionGraphWriter(new PropertiesNeo4jRuntimeConfig()),
+                        new ComponentInteractionGraphArtifactWriter()
+                ),
+                new UiSpaTargetedVerificationAgent(
+                        new PropertiesSpaInventoryConfig(),
+                        new SpaTargetedVerificationPlanner(),
+                        new SpaEvidenceLifecycleGraphWriter(new PropertiesNeo4jRuntimeConfig()),
+                        new SpaTargetedVerificationArtifactWriter()
+                ),
+                new UiLiveSpaTargetedVerificationAgent(
+                        new PropertiesSpaInventoryConfig(),
+                        new LiveTargetedVerificationRunner(),
+                        new SpaEvidenceLifecycleGraphWriter(new PropertiesNeo4jRuntimeConfig()),
+                        new LiveTargetedVerificationArtifactWriter()
+                ),
+                new UiSpaEvidenceRetentionAgent(
+                        new PropertiesSpaInventoryConfig(),
+                        new SpaEvidenceRetentionGraphWriter(new PropertiesNeo4jRuntimeConfig())
+                )
         );
     }
 }

@@ -20,6 +20,7 @@ public class ElementClassifier {
                         element.id(),
                         element.name(),
                         element.ariaLabel(),
+                        element.attributes().get("agentlab.field.label"),
                         semanticType.toLowerCase(Locale.ROOT),
                         element.rawElementId()
                 )),
@@ -34,6 +35,7 @@ public class ElementClassifier {
         String tag = normalize(element.tag());
         String type = normalize(element.type());
         String role = normalize(element.role());
+        String cssClass = normalize(element.cssClass());
         if ("input".equals(tag)) {
             return switch (type) {
                 case "email" -> "EMAIL_INPUT";
@@ -47,6 +49,13 @@ public class ElementClassifier {
         }
         if ("button".equals(tag) || "button".equals(role)) {
             return "BUTTON";
+        }
+        if ("combobox".equals(role)
+                || "listbox".equals(normalize(element.attributes().get("aria-haspopup")))
+                || (element.attributes().containsKey("tabindex")
+                && !"-1".equals(normalize(element.attributes().get("tabindex")))
+                && containsAny(cssClass, "select", "autocomplete", "combobox"))) {
+            return "DROPDOWN";
         }
         if (tag.matches("h[1-6]")) {
             return "HEADING";
@@ -68,13 +77,13 @@ public class ElementClassifier {
         if ("form".equals(tag)) {
             return "FORM";
         }
-        if ("table".equals(tag)) {
+        if ("table".equals(tag) || "table".equals(role) || "grid".equals(role)) {
             return "TABLE";
         }
-        if ("tr".equals(tag)) {
+        if ("tr".equals(tag) || "row".equals(role) || "rowgroup".equals(role)) {
             return "TABLE_ROW";
         }
-        if ("td".equals(tag) || "th".equals(tag)) {
+        if ("td".equals(tag) || "th".equals(tag) || "cell".equals(role) || "columnheader".equals(role)) {
             return "TABLE_CELL";
         }
         if ("dialog".equals(tag) || "dialog".equals(role) || containsAny(element.cssClass(), "modal")) {

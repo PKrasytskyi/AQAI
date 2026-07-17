@@ -6,6 +6,7 @@ import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredPageSnapshot;
 import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveryLocatorKey;
 import ua.demo.agentlab.ui.discovery.selenium.model.RawElement;
 import ua.demo.agentlab.ui.discovery.selenium.model.SeleniumDiscoveryResult;
+import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessResult;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,17 +18,23 @@ import java.util.Set;
 public class SeleniumDiscoveryStabilityAggregator {
 
     public SeleniumDiscoveryResult aggregate(List<SeleniumDiscoveryResult> runs) {
-        List<SeleniumDiscoveryResult> successfulRuns = runs == null
-                ? List.of()
-                : runs.stream().filter(run -> run != null && !run.pages().isEmpty()).toList();
+        List<SeleniumDiscoveryResult> allRuns = runs == null ? List.of() : runs.stream().filter(run -> run != null).toList();
+        List<SeleniumDiscoveryResult> successfulRuns = allRuns.stream().filter(run -> !run.pages().isEmpty()).toList();
         if (successfulRuns.isEmpty()) {
-            return new SeleniumDiscoveryResult("", List.of(), List.of(), 1, Map.of());
+            List<DiscoveryAuthenticationResult> attempts = allRuns.stream()
+                    .flatMap(run -> run.authenticationResults().stream()).toList();
+            List<PageReadinessResult> readiness = allRuns.stream()
+                    .flatMap(run -> run.readinessResults().stream()).toList();
+            String baseUrl = allRuns.isEmpty() ? "" : allRuns.get(0).baseUrl();
+            return new SeleniumDiscoveryResult(baseUrl, List.of(), List.of(), Math.max(1, allRuns.size()), Map.of(), attempts, readiness);
         }
         SeleniumDiscoveryResult representative = successfulRuns.get(0);
         Map<String, Integer> counts = new LinkedHashMap<>();
         List<DiscoveryAuthenticationResult> authenticationResults = new ArrayList<>();
+        List<PageReadinessResult> readinessResults = new ArrayList<>();
         for (SeleniumDiscoveryResult run : successfulRuns) {
             authenticationResults.addAll(run.authenticationResults());
+            readinessResults.addAll(run.readinessResults());
             Set<String> runKeys = new LinkedHashSet<>();
             for (DiscoveredPageSnapshot page : run.pages()) {
                 collectPageKeys(page, runKeys);
@@ -42,7 +49,8 @@ public class SeleniumDiscoveryStabilityAggregator {
                 representative.transitions(),
                 successfulRuns.size(),
                 counts,
-                authenticationResults
+                authenticationResults,
+                readinessResults
         );
     }
 

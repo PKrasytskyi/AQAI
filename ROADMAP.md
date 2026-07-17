@@ -102,29 +102,46 @@ This means the platform must eventually support four capability groups:
 
 ## Current Delivery Focus
 
-The immediate delivery focus is intentionally narrow:
+The immediate delivery focus is intentionally narrow and evidence-driven:
 
-1. finish one strong universal Selenium UI vertical slice;
-2. remove ParaBank-specific thinking from the architecture, even if ParaBank remains a demo target;
-3. stabilize template-driven generation and support contracts;
-4. restore OpenAI only after deterministic UI generation is stable.
+1. stabilize a capability-based SPA UI vertical slice: authentication -> authenticated area -> module navigation -> record list -> filter;
+2. make `PromptUiEvidence` depend only on page-owned, live-verified or DB-stable evidence;
+3. complete the Neo4j lifecycle loop: candidate -> live verification -> smoke feedback -> confirmed/degraded -> reuse;
+4. prove deterministic POM output through writer, persistence, compile, review, and smoke gates;
+5. keep LLM usage constrained to typed enrichment and `pom-contract-v1` planning, never Java generation.
 
-API, healing, approval, and broader execution flows should not overtake UI completion.
+API expansion, failure healing, approval workflows, and external-source adapters remain planned product work. They must not weaken the current UI/SPA evidence boundary.
 
 ---
 
 ## Current Baseline
 
-The project already contains a solid foundation:
+The active architecture is no longer a sequential demo workflow. It currently contains:
 
-- sequential orchestration through `WorkflowAgent` and `AgentOrchestrator`;
-- requirement loading from file and URL;
-- rule-based and OpenAI-backed functional planning;
-- UI test planning and code generation;
-- persistence of generated files;
-- generated code review and compilation validation.
+- dependency-based orchestration through typed `WorkflowArtifact` contracts, `PipelineAgent`, `PipelineArtifactStore`, and a DAG-resolving `AgentOrchestrator`;
+- project-profile driven onboarding with YAML profile resolution, environment/JVM overrides, and file/URL requirement inputs;
+- normalized and capability-first requirements, typed assertion contracts, canonical test cases, and structured SPA behavior contracts;
+- Selenium discovery, PageModel mapping, locator quality scoring, semantic actions, SPA inventory, component interaction graphs, and targeted live verification;
+- PromptUiEvidence filtering, runtime skill-based LLM prompts, JSON Schema validation, deterministic POM Java generation, source maps, compile/review/smoke gates;
+- Neo4j/Qdrant knowledge retrieval plus artifact reuse, lifecycle promotion, namespace/version controls, and DB impact metrics;
+- an API generation foundation for endpoint evidence, DTO/client/test specs, quality gating, and RestAssured/TestNG writing.
 
-This means the roadmap does not start from zero. It extends the current architecture in controlled layers.
+`WorkflowState` is now primarily a compatibility run envelope/read model. It is not fully removed, so typed artifact ownership remains an active architecture-maintenance task.
+
+## 2026-07 Definition of Success Assessment
+
+This review is based on the current source tree, the checked-in unit suite, and the latest SPA artifact analysis. `[x]` means implemented and covered by the platform test suite; `[~]` means functional in a constrained vertical slice but not yet product-complete; `[ ]` means not yet implemented as an executable product capability.
+
+| Definition of Success capability | Status | Evidence and boundary |
+| --- | --- | --- |
+| Read requirements from configurable external sources | `[~]` | File and URL readers work through `RequirementSource`; CSV, Jira, and TestRail adapters are not implemented. |
+| Normalize into a traceable canonical model | `[x]` | `NormalizedRequirement`, structured capability sections, assertion contracts, canonical test cases, and POM source maps exist. Traceability still needs a single cross-layer query model. |
+| Generate UI and API automation through templates and rules | `[~]` | UI POM contract -> deterministic Java is implemented. API has specs, quality gate, and RestAssured writer, but a full CRUD demo run is not yet the release bar. Generated UI tests remain prompt-only. |
+| Validate generated code before acceptance | `[~]` | POM writer -> persistence -> compile -> review -> smoke is wired and unit-tested. The new Recruitment/Vacancies SPA vertical slice still needs a clean live proof after the current evidence-scope fixes. |
+| Analyze failed executions from collected evidence | `[~]` | Discovery/runtime artifacts, screenshots, HTML, logs, source maps, and needs-review artifacts exist. There is no complete failure classification -> remediation workflow yet. |
+| Propose safe changes with human approval | `[ ]` | Policy flags and needs-review artifacts exist; executable healing proposals, approval records, and controlled patch application do not. |
+
+**Conclusion:** the repository is a strong AI-assisted UI POM platform and an advanced SPA discovery prototype. It does **not** yet meet the full product Definition of Success. The next release gate is a repeatable SPA vertical slice, not broader feature expansion.
 
 ---
 
@@ -448,14 +465,14 @@ Status legend:
 
 ### Track C. Production Readiness Rules
 
-1. [ ] Prevent `WorkflowState` from becoming a god object by introducing clearer typed ownership boundaries.
-2. [ ] Introduce a dedicated traceability model instead of relying only on string artifacts.
-3. [~] Introduce project-level profile/config abstractions for reusable multi-project setup.
-4. [ ] Introduce template versioning or template set identification for controlled evolution.
-5. [ ] Add contract tests for template-driven generation.
-6. [ ] Add regression checks for generated UI artifacts after template changes.
+1. [~] Prevent `WorkflowState` from becoming a god object by introducing clearer typed ownership boundaries. `PipelineArtifactStore` and typed artifacts are primary for new stages; compatibility projections remain.
+2. [~] Introduce a dedicated traceability model instead of relying only on string artifacts. POM source maps and generated traceability artifacts exist, but requirement ownership is not yet queryable end-to-end.
+3. [x] Introduce project-level profile/config abstractions for reusable multi-project setup.
+4. [x] Introduce template versioning or template set identification for controlled evolution through runtime skill/schema/template versions.
+5. [~] Add contract tests for template-driven generation. POM schemas, quality-gate tests, golden prompt tests, and onboarding tests exist; UI test-spec coverage remains incomplete.
+6. [~] Add regression checks for generated UI artifacts after template changes. Prompt leakage and POM contract regressions are covered; generated test regression coverage is pending.
 7. [x] Keep deterministic generation logic separate from AI-assisted logic.
-8. [ ] Do not expand the API/healing branches until one Selenium UI vertical slice is fully stable end to end.
+8. [~] Do not expand the API/healing branches until one Selenium UI vertical slice is fully stable end to end. API foundations exist; the full CRUD demo remains deferred until SPA evidence closure.
 
 ### Track D. Universal Onboarding Implementation Plan
 
@@ -467,9 +484,9 @@ This track is the step-by-step implementation plan for the current main objectiv
 4. [x] Introduce a canonical page/flow model that sits between raw discovery and generated page objects.
 5. [x] Refactor UI planning so that scenario-to-page mapping can come from discovery + profile, not only from hardcoded keyword rules.
 6. [x] Refactor templates so they consume generic page/flow metadata instead of assuming one demo target.
-7. [x] Stabilize one end-to-end onboarding flow: `project profile -> requirements -> discovery -> UI plan -> generated code -> compile -> smoke run`.
-8. [ ] Restore OpenAI only after step 7 is stable and connect it first to planning, ambiguity detection, and controlled discovery assistance.
-9. [ ] Keep AI out of framework plumbing generation when deterministic templates already cover the need.
+7. [~] Stabilize one end-to-end onboarding flow: `project profile -> requirements -> discovery -> UI plan -> generated code -> compile -> smoke run`. Authentication is proven; the protected SPA Recruitment/Vacancies flow is the active completion target.
+8. [x] Re-enable OpenAI only as controlled JSON-contract enrichment/planning with schema, prompt, quality, and deterministic-writer boundaries.
+9. [x] Keep AI out of framework plumbing generation when deterministic templates already cover the need.
 10. [ ] Add human approval gates for ambiguous locator selection, inferred assertions, and healing proposals.
 
 ### Track E. DB-Backed Artifact Reuse and QA Knowledge Graph
@@ -492,9 +509,9 @@ The later expansion is broader semantic reuse:
 - `[x]` Stable locator evidence can be queried from Neo4j and used before prompt assembly.
 - `[x]` DB impact comparison reports LLM calls, token estimates, DB hits, cache hits, and compile readiness.
 - `[x]` Dedicated artifact registry terminology, contracts, and Neo4j writer MVP exist for validated generated artifacts.
-- `[ ]` POM contract generation does not yet check a stable artifact fingerprint before calling the LLM.
+- `[x]` POM contract generation checks a compact, deterministic stable-artifact fingerprint before calling the LLM.
 - `[x]` Neo4j artifact registry schema models `Run -> PRODUCED/REUSED -> Artifact`, `Artifact -> Page`, and `Artifact -> QualityGate`.
-- `[ ]` Flow reuse is not yet modeled as a first-class graph capability.
+- `[x]` Flow contracts and semantic candidates are modeled as first-class graph capabilities; reuse remains conservative and requires Neo4j exact confirmation.
 
 #### Complexity Assessment
 
@@ -998,13 +1015,16 @@ Status: `[x]` Implemented in `framework.properties`, the OrangeHRM YAML profile,
 
 ### Recommended Execution Order
 
-1. [x] Finish Track A through stable compile, test-compile, and smoke execution.
-2. [x] Execute Track D steps 1-7 to remove demo-target thinking from the UI architecture.
-3. [x] Implement Track E phases E1-E6 for POM contract artifact reuse before expanding semantic reuse.
-4. [ ] Add traceability and evidence basics from Track A and Track C.
-5. [ ] Re-enable OpenAI according to Track B and Track D with strict boundaries.
-6. [ ] Expand AI usage only after deterministic UI generation and artifact reuse validation are stable.
-7. [ ] Return to API, healing, approval, and broader execution tracks after the UI slice is product-stable.
+The former sequence is superseded by the following release-oriented plan.
+
+1. [~] **SPA evidence closure (P0).** Complete a clean `valid-author.md` run where discovery confirms Dashboard -> Recruitment -> Vacancies, targeted live verification selects component-scoped evidence, and POM prompts contain only live-verified or DB-stable locators. No empty POM may be marked successful.
+2. [~] **DB locator lifecycle proof (P0).** Run the same capability flow at least twice with Neo4j enabled and verify `CANDIDATE -> CONFIRMED` promotion only after live verification plus smoke feedback. Then prove the next run reuses the stable locator/artifact without an unnecessary POM LLM call.
+3. [ ] **SPA interaction acceptance suite (P0).** Add executable acceptance coverage for `MODULE_NAVIGATION`, `FILTER` readiness, `FILTER` with scenario data, `USER_MENU -> LOGOUT`, and a negative path that produces actionable `needs-review` evidence.
+4. [ ] **POM/test contract closure (P1).** Keep LLM output JSON-only; complete deterministic UI test-spec writing and run generated test code through compile/review/smoke. Make requirement -> contract -> field/method -> generated source traceability queryable from one artifact.
+5. [ ] **Failure-analysis and review loop (P1).** Consolidate runtime screenshot/DOM/log/source-map evidence into typed failure classification and human-review records. Do not implement automatic code mutation in this phase.
+6. [ ] **API CRUD demo closure (P1).** Demonstrate endpoint discovery/seed -> canonical API case -> typed assertions -> RestAssured/TestNG source -> quality gate -> compile -> controlled CRUD execution.
+7. [ ] **Product onboarding expansion (P2).** Add CSV first, then Jira/TestRail adapters behind `RequirementSource`; add profile validation and fixture-based acceptance tests per source.
+8. [ ] **Controlled healing and approval (P2).** Add proposal, approval, diff, targeted rerun, and audit contracts only after failure evidence is stable.
 
 ### Closure Plan for Recommended Execution Order Item 2
 
@@ -1057,11 +1077,14 @@ Exit criteria for item 2:
 
 ## Definition of Success
 
-The project will be considered successful when it can:
+The project is successful only when all of the following measurable release conditions are met:
 
-- read requirements from configurable external sources;
-- normalize them into a traceable canonical model;
-- generate UI and API automation through templates and rules;
-- validate generated code before acceptance;
-- analyze failed executions from collected evidence;
-- propose safe changes with human approval instead of uncontrolled self-modification.
+1. **Onboarding:** file, URL, CSV, and at least one work-management adapter produce the same `NormalizedRequirementBundle` contract with source traceability.
+2. **UI:** two independent project profiles complete `requirements -> discovery -> semantic evidence -> POM contract -> deterministic Java -> compile -> review -> live smoke`; one profile must include a protected SPA flow beyond login.
+3. **Evidence:** POM prompts contain only page-owned, confirmed current-run or DB-stable evidence. Candidate/fallback/excluded evidence never becomes an allowed locator or generated method.
+4. **Knowledge reuse:** stable page/locator/artifact reuse is namespace-safe, lifecycle-gated, observable in run metrics, and rejected after degraded runtime/compile/smoke feedback.
+5. **API:** one full CRUD API profile completes endpoint evidence -> typed API contract -> RestAssured/TestNG source -> quality gate -> compile -> controlled execution.
+6. **Failure handling:** a failed generated flow produces a typed evidence bundle, classification, human-review item, and targeted rerun proposal; no fix is silently applied.
+7. **Governance:** every generated source and reusable artifact is traceable to requirements, profile, schema/template versions, quality gates, and approval state where applicable.
+
+Until all seven conditions are met, the platform should be described as an **AI-assisted QA automation platform in active product stabilization**, not as a fully autonomous test-generation product.

@@ -105,16 +105,18 @@ public class RuleBasedPageClassificationService implements PageClassificationSer
                     "Security checkpoint signals detected from headings, route, or capabilities");
         }
 
-        if (hasDetailsSignals(snapshot, route)) {
-            capabilities.add("detail-view");
-            return buildResult(CanonicalPageType.DETAILS, snapshot, new ArrayList<>(capabilities), knownPages,
-                    "Details signals detected from route, headings, or page capabilities");
-        }
-
         if (hasOverviewSignals(snapshot, route)) {
             capabilities.add("list-page");
             return buildResult(CanonicalPageType.DASHBOARD, snapshot, new ArrayList<>(capabilities), knownPages,
                     "Overview or authenticated area signals detected");
+        }
+
+        // A dashboard commonly contains generic "view" links. Route/authenticated evidence is more specific
+        // than those incidental details signals, so keep the page capability stable for later ownership slicing.
+        if (hasDetailsSignals(snapshot, route)) {
+            capabilities.add("detail-view");
+            return buildResult(CanonicalPageType.DETAILS, snapshot, new ArrayList<>(capabilities), knownPages,
+                    "Details signals detected from route, headings, or page capabilities");
         }
 
         if (hasGenericFormSignals(snapshot, route)) {
@@ -179,9 +181,10 @@ public class RuleBasedPageClassificationService implements PageClassificationSer
     }
 
     private boolean hasListingSignals(DiscoveredPageSnapshot snapshot, String route) {
-        return containsAny(route, "/collections", "/catalog", "/category", "/shop")
+        return containsAny(route, "/collections", "/catalog", "/category", "/shop", "/recruitment", "/vacanc")
                 || snapshot.capabilities().contains("listing")
                 || snapshot.headings().stream().anyMatch(this::containsListingKeyword)
+                || containsAny(summarize(snapshot), "recruitment", "vacancy", "vacancies", "search results")
                 || hasMultipleRecordLinks(snapshot);
     }
 
@@ -286,7 +289,8 @@ public class RuleBasedPageClassificationService implements PageClassificationSer
     }
 
     private boolean containsListingKeyword(String text) {
-        return containsAny(lower(text), "collection", "collections", "catalog", "records", "items", "list");
+        return containsAny(lower(text), "collection", "collections", "catalog", "records", "items", "list",
+                "recruitment", "vacancy", "vacancies", "search results");
     }
 
     private boolean isEmailField(DiscoveredField field) {

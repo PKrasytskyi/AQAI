@@ -5,6 +5,7 @@ import ua.demo.agentlab.ai.assertions.model.AssertionType;
 public record ExpectedResultContract(
         String requirementId,
         AssertionType assertionType,
+        String target,
         String expectedValue,
         String ownerPage,
         String route,
@@ -13,6 +14,7 @@ public record ExpectedResultContract(
 ) {
     public ExpectedResultContract {
         requirementId = safe(requirementId);
+        target = safe(target);
         expectedValue = safe(expectedValue);
         ownerPage = safe(ownerPage);
         route = safe(route);

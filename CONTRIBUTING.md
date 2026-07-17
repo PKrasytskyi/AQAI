@@ -31,7 +31,7 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" test
 Unit tests live under:
 
 ```text
-src/test/unit/tests
+src/test/java/unit/tests
 ```
 
 ## Configuration
@@ -58,6 +58,28 @@ Before opening a pull request:
 - No files under `target/`, local DB folders, Maven caches, or IDE metadata are included.
 - Public configuration defaults remain safe for a first clone.
 - README/docs are updated when behavior or commands change.
+
+## Branching And Integration
+
+`main` and `dev` are stable branches. `main` is the public/release baseline;
+`dev` is the stable integration baseline. Do not commit new feature work directly
+to either branch.
+
+Create a short-lived branch from the current `dev` branch for every change:
+
+```powershell
+git switch dev
+git pull --ff-only
+git switch -c feature/<area>-<short-description>
+```
+
+Use `feature/`, `fix/`, `refactor/`, or `docs/` prefixes. Merge reviewed,
+validated work into `dev`; promote `dev` to `main` only through a release pull
+request. Create urgent `hotfix/` branches from `main`, then merge the same fix
+back into `dev`.
+
+The detailed operating procedure is in
+[Developer Onboarding and Delivery Guide](docs/DEVELOPER_ONBOARDING.md).
 
 ## Commit Style
 

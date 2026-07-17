@@ -103,9 +103,9 @@ public class LiveCapabilitySmokeService {
             String password,
             List<LiveUiSmokeStep> steps
     ) {
-        By usernameInput = byFromSource(sourcePage, "usernameInput", By.cssSelector("input[name='username'], input#username, input[type='email'], input[name*='user' i], input[id*='user' i]"));
-        By passwordInput = byFromSource(sourcePage, "passwordInput", By.cssSelector("input[type='password'], input[name='password'], input#password, input[name*='pass' i], input[id*='pass' i]"));
-        By loginButton = byFromSource(sourcePage, "loginButton", By.cssSelector("button[type='submit'], input[type='submit'], button"));
+        By usernameInput = requiredByFromSource(sourcePage, "usernameInput");
+        By passwordInput = requiredByFromSource(sourcePage, "passwordInput");
+        By loginButton = requiredByFromSource(sourcePage, "loginButton");
         wait.until(ExpectedConditions.visibilityOfElementLocated(usernameInput)).clear();
         driver.findElement(usernameInput).sendKeys(username);
         steps.add(step("satisfy-precondition-enter-username", "PASSED", "username input accepted"));
@@ -142,9 +142,8 @@ public class LiveCapabilitySmokeService {
     }
 
     private void validatePostcondition(WebDriverWait wait, LiveSmokePlan plan, List<LiveUiSmokeStep> steps) {
-        Optional<By> logoutLink = optionalByFromSource(plan.targetPage(), "logoutLink")
-                .or(() -> Optional.of(By.cssSelector("a[href*='logout'], a[href*='signout'], button[name*='logout' i], button[id*='logout' i]")));
-        WebElement logout = wait.until(ExpectedConditions.visibilityOfElementLocated(logoutLink.get()));
+        By logoutLink = requiredByFromSource(plan.targetPage(), "logoutLink");
+        WebElement logout = wait.until(ExpectedConditions.visibilityOfElementLocated(logoutLink));
         steps.add(step("validate-postcondition-logout-visible", logout.isDisplayed() ? "PASSED" : "FAILED", "logout action visibility checked"));
         logout.click();
         if (!plan.postActionRoute().isBlank()) {
@@ -167,8 +166,9 @@ public class LiveCapabilitySmokeService {
         return Optional.of(by(matcher.group(1), unescapeJava(matcher.group(2))));
     }
 
-    private By byFromSource(GeneratedSourceFile source, String fieldName, By fallback) {
-        return optionalByFromSource(source, fieldName).orElse(fallback);
+    private By requiredByFromSource(GeneratedSourceFile source, String fieldName) {
+        return optionalByFromSource(source, fieldName)
+                .orElseThrow(() -> new IllegalStateException("Generated POM is missing required locator field: " + fieldName));
     }
 
     private By by(String strategy, String value) {

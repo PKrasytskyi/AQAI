@@ -69,6 +69,13 @@ public class AssertionContractBuilder {
     }
 
     private AssertionType resolveAssertionType(CanonicalTestCase testCase, AssertionIntent intent) {
+        if (intent != null) {
+            try {
+                return AssertionType.valueOf(intent.kind().name());
+            } catch (IllegalArgumentException ignored) {
+                // Legacy broad intents are resolved from their expected value below.
+            }
+        }
         String text = normalize(firstNonBlank(
                 intent == null ? "" : intent.expectedValue(),
                 firstAssertion(testCase),
@@ -118,6 +125,13 @@ public class AssertionContractBuilder {
             case CONTENT_VISIBLE -> AssertionType.TEXT_VISIBLE;
             case ENTITY_PRESENT_IN_CONTAINER, ITEM_PRESENT_IN_CONTAINER,
                     CONTAINER_EMPTY -> AssertionType.DATA_STATE_MATCHES;
+            default -> {
+                try {
+                    yield AssertionType.valueOf(kind.name());
+                } catch (IllegalArgumentException exception) {
+                    yield AssertionType.DATA_STATE_MATCHES;
+                }
+            }
         };
     }
 
@@ -153,7 +167,7 @@ public class AssertionContractBuilder {
         if (type == AssertionType.AUTHENTICATED_AREA_VISIBLE && containsAny(text, "dashboard", "successful login state")) {
             return "dashboardHeading";
         }
-        return firstNonBlank(intent.expectedValue(), firstAssertion(testCase), testCase.title());
+        return firstNonBlank(intent.expectedValue(), intent.target(), firstAssertion(testCase), testCase.title());
     }
 
     private double confidence(AssertionType type, String expectedValue) {

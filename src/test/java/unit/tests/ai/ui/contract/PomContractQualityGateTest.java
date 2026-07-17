@@ -108,6 +108,28 @@ public class PomContractQualityGateTest {
     }
 
     @Test
+    public void acceptsProtectedPageRouteContractWhenCachedLogoutLocatorIsNotAnOwnedAction() {
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("DashboardPage", "/dashboard/index", "AUTHENTICATED_AREA", "openDashboard"),
+                List.of(confirmedLocator("logoutLink", "Logout", "css", "a[href='/logout']", "link")),
+                List.of(),
+                List.of(new PomAssertionSpec(
+                        "isLogoutLinkVisible",
+                        "boolean",
+                        List.of(new PomCheckSpec(PomCheckType.VISIBLE, "logoutLink", "", "", "", "")),
+                        "AND"
+                )),
+                List.of(),
+                List.of()
+        );
+
+        PomContractQualityReport report = gate.validate(contract);
+
+        Assert.assertFalse(report.hasBlockingIssues(), report.issues().toString());
+    }
+
+    @Test
     public void acceptsProtectedPageLogoutWithUserMenuPrerequisite() {
         PomContractSpec contract = new PomContractSpec(
                 "pom-contract-v1",

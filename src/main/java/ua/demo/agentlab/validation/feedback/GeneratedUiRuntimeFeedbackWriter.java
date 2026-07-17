@@ -43,16 +43,7 @@ public class GeneratedUiRuntimeFeedbackWriter {
             Map<String, Object> payload = payload(smokeResult, compileResult, reviewReport, runId);
             httpClient.post(
                     commitUrl(),
-                    Map.of("statements", List.of(
-                            Map.of(
-                                    "statement", statement(),
-                                    "parameters", payload
-                            ),
-                            Map.of(
-                                    "statement", stableLocatorFeedbackStatement(),
-                                    "parameters", payload
-                            )
-                    )),
+                    Map.of("statements", List.of(Map.of("statement", statement(), "parameters", payload))),
                     headers()
             );
             return new RuntimeFeedbackDbUpdateResult(true, "neo4j", 1,
@@ -105,26 +96,6 @@ public class GeneratedUiRuntimeFeedbackWriter {
                     n.reviewFindings = $reviewFindings,
                     n.qualitySignal = $qualitySignal
                 RETURN n.feedbackId
-                """;
-    }
-
-    private String stableLocatorFeedbackStatement() {
-        return """
-                MATCH (l:UiStableLocator {runId: $runId})
-                SET l.validationStatus = $locatorValidationStatus,
-                    l.status = $locatorStatus,
-                    l.runtimePassRate = $locatorRuntimePassRate,
-                    l.flakyRate = $locatorFlakyRate,
-                    l.demotionReason = $demotionReason,
-                    l.lastFeedbackAt = $createdAt,
-                    l.lastSmokeStatus = $smokeStatus,
-                    l.lastCompileStatus = $compileStatus,
-                    l.lastReviewFindings = $reviewFindings,
-                    l.lastSuccessfulSmoke = CASE
-                      WHEN $locatorValidationStatus = 'PASSED' THEN $createdAt
-                      ELSE coalesce(l.lastSuccessfulSmoke, '')
-                    END
-                RETURN count(l) AS updatedLocators
                 """;
     }
 

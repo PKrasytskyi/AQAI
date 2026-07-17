@@ -39,11 +39,11 @@ public class PromptPageEligibilityEvaluatorTest {
         PromptPage promptPage = new PromptPageEligibilityEvaluator().evaluate(scope);
 
         Assert.assertFalse(promptPage.eligible());
-        Assert.assertTrue(promptPage.reasons().stream().anyMatch(reason -> reason.contains("no raw DOM evidence")));
+        Assert.assertTrue(promptPage.reasons().stream().anyMatch(reason -> reason.contains("does not require a generated POM")));
     }
 
     @Test
-    public void routeOnlyContractIsPromptEligibleWithoutLocators() {
+    public void routeOnlyContractIsSkippedBecauseBasePageAlreadyOwnsRouteNavigation() {
         AiPageObjectPromptScope scope = scope(new PromptUiEvidence(
                 "ProtectedRoutePage",
                 "/dashboard/index",
@@ -65,12 +65,12 @@ public class PromptPageEligibilityEvaluatorTest {
 
         PromptPage promptPage = new PromptPageEligibilityEvaluator().evaluate(scope);
 
-        Assert.assertTrue(promptPage.eligible());
+        Assert.assertFalse(promptPage.eligible());
         Assert.assertTrue(promptPage.routeOnlyContract());
     }
 
     @Test
-    public void routeBackedContractWithMissingLocatorAssertionsIsPromptEligibleForCoverageGaps() {
+    public void routeBackedContractWithMissingLocatorAssertionsIsSkippedUntilPageEvidenceExists() {
         AiPageObjectPromptScope scope = scope(new PromptUiEvidence(
                 "DashboardPage",
                 "/dashboard/index",
@@ -101,9 +101,9 @@ public class PromptPageEligibilityEvaluatorTest {
 
         PromptPage promptPage = new PromptPageEligibilityEvaluator().evaluate(scope);
 
-        Assert.assertTrue(promptPage.eligible());
+        Assert.assertFalse(promptPage.eligible());
         Assert.assertTrue(promptPage.routeOnlyContract());
-        Assert.assertTrue(promptPage.reasons().stream().anyMatch(reason -> reason.contains("coverage gaps")));
+        Assert.assertTrue(promptPage.reasons().stream().anyMatch(reason -> reason.contains("does not require a generated POM")));
     }
 
     private AiPageObjectPromptScope scope(PromptUiEvidence evidence) {

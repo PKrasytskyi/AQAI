@@ -7,6 +7,7 @@ import ua.demo.agentlab.ai.pageenrichment.model.PageModelEnrichmentRecord;
 import ua.demo.agentlab.ai.pageenrichment.service.PageModelEnrichedKnowledgeAssembler;
 import ua.demo.agentlab.ai.pageenrichment.service.PageModelEnrichmentClient;
 import ua.demo.agentlab.ai.pageenrichment.service.OpenAiPageModelEnrichmentClient;
+import ua.demo.agentlab.ai.pageenrichment.service.PageEnrichmentPersistencePolicy;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
@@ -45,6 +46,7 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
     private final PageModelEnrichmentClient enrichmentClient;
     private final PageModelEnrichedKnowledgeAssembler knowledgeAssembler;
     private final PageKnowledgeFingerprintCalculator fingerprintCalculator = new PageKnowledgeFingerprintCalculator();
+    private final PageEnrichmentPersistencePolicy persistencePolicy = new PageEnrichmentPersistencePolicy();
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
 
     public PageModelEnrichmentAgent(PageModelEnrichmentClient enrichmentClient) {
@@ -71,7 +73,8 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
                 WorkflowArtifact.PAGE_MODEL_BUNDLE,
                 WorkflowArtifact.MAPPED_UI_KNOWLEDGE,
                 WorkflowArtifact.FLOW_SCOPED_KNOWLEDGE_PACKAGE,
-                WorkflowArtifact.PAGE_KNOWLEDGE_CACHE_LOOKUP
+                WorkflowArtifact.PAGE_KNOWLEDGE_CACHE_LOOKUP,
+                WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS
         );
     }
 
@@ -106,7 +109,10 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
                 state.getPageModelBundle(),
                 state.getMappedUiKnowledge(),
                 state.getFlowScopedKnowledgePackage(),
-                state.getPageKnowledgeCacheLookupResult()
+                state.getPageKnowledgeCacheLookupResult(),
+                store.get(WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS)
+                        .map(value -> (List<ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorContract>) value)
+                        .orElse(List.of())
         );
     }
 
@@ -158,11 +164,17 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         int actualTotalTokens = enrichmentClient instanceof OpenAiPageModelEnrichmentClient openAiClient
                 ? openAiClient.lastActualTotalTokens()
                 : 0;
+        Set<String> failedPageIds = failureDetails.stream()
+                .map(PageModelEnrichmentFailure::pageId)
+                .collect(java.util.stream.Collectors.toSet());
+        List<PageModelEnrichmentRecord> persistableRecords = records.stream()
+                .filter(record -> persistencePolicy.isEligible(record, failedPageIds))
+                .toList();
         return new PageModelEnrichmentOutput(
                 records,
                 cachedRecords,
                 generatedRecords,
-                knowledgeAssembler.merge(selectedKnowledge, records),
+                knowledgeAssembler.merge(selectedKnowledge, persistableRecords),
                 failures,
                 failureDetails,
                 openAiAttempts,
@@ -251,7 +263,10 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         String applicationHost = applicationHost(input);
         return knowledge.pages().stream()
                 .filter(page -> cacheMiss(input, page))
-                .map(page -> toInput(page, findModel(models, page), pageOwnedEvidence(input, page), applicationHost))
+                .map(page -> new PageEnrichmentCandidate(page, pageOwnedEvidence(input, page)))
+                .filter(candidate -> candidate.evidence().hasOwnedEvidence())
+                .map(candidate -> toInput(candidate.page(), findModel(models, candidate.page()),
+                        candidate.evidence(), applicationHost))
                 .toList();
     }
 
@@ -261,14 +276,18 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         }
         MappedUiKnowledge knowledge = selectedKnowledge(input);
         if (knowledge == null || knowledge.pages().isEmpty()) {
-            return input.cacheLookupResult().cachedRecords();
+            return List.of();
         }
         List<PageModelEnrichmentRecord> records = new ArrayList<>();
         for (MappedPage page : knowledge.pages()) {
+            PageRequirementEvidence evidence = pageOwnedEvidence(input, page);
+            if (!evidence.hasOwnedEvidence()) {
+                continue;
+            }
             String fingerprint = fingerprintCalculator.fingerprint(page);
             input.cacheLookupResult().hitFor(page.pageId(), fingerprint)
                     .map(PageKnowledgeCacheEntry::enrichmentRecord)
-                    .map(record -> rebindCachedRecord(record, page, pageOwnedEvidence(input, page)))
+                    .map(record -> rebindCachedRecord(record, page, evidence))
                     .ifPresent(records::add);
         }
         return records;
@@ -284,49 +303,21 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         }
         MappedPage safePage = currentPage;
         PageRequirementEvidence safeEvidence = evidence == null ? PageRequirementEvidence.empty() : evidence;
-        boolean hasCurrentRequirementEvidence = !safeEvidence.testCaseIds().isEmpty()
-                || !safeEvidence.requirementRefs().isEmpty()
-                || !safeEvidence.actionsByRequirement().isEmpty()
-                || !safeEvidence.postconditionsByRequirement().isEmpty();
-        if (!hasCurrentRequirementEvidence) {
-            return safePage == null
-                    ? cached
-                    : new PageModelEnrichmentRecord(
-                    safePage.pageId(),
-                    safePage.pageName(),
-                    safePage.urlPattern(),
-                    cached.businessIntent(),
-                    cached.pageSummary(),
-                    cached.supportedActions(),
-                    cached.stableLocators(),
-                    cached.preconditions(),
-                    cached.postconditions(),
-                    cached.risks(),
-                    cached.coverageGaps(),
-                    cached.requirementTraceability(),
-                    cached.actionsByRequirement(),
-                    cached.postconditionsByRequirement(),
-                    cached.confidenceScore(),
-                    "db-cache"
-            );
-        }
         return new PageModelEnrichmentRecord(
                 safePage == null ? cached.pageId() : safePage.pageId(),
                 safePage == null ? cached.pageName() : safePage.pageName(),
                 safePage == null ? cached.route() : safePage.urlPattern(),
                 cached.businessIntent(),
                 cached.pageSummary(),
-                safeEvidence.actions().isEmpty() ? cached.supportedActions() : safeEvidence.actions(),
+                safeEvidence.actions(),
                 cached.stableLocators(),
-                safeEvidence.preconditions().isEmpty() ? cached.preconditions() : safeEvidence.preconditions(),
-                safeEvidence.assertions().isEmpty() ? cached.postconditions() : safeEvidence.assertions(),
+                safeEvidence.preconditions(),
+                safeEvidence.assertions(),
                 cached.risks(),
                 cached.coverageGaps(),
-                safeEvidence.requirementRefs().isEmpty() ? cached.requirementTraceability() : safeEvidence.requirementRefs(),
-                safeEvidence.actionsByRequirement().isEmpty() ? cached.actionsByRequirement() : safeEvidence.actionsByRequirement(),
-                safeEvidence.postconditionsByRequirement().isEmpty()
-                        ? cached.postconditionsByRequirement()
-                        : safeEvidence.postconditionsByRequirement(),
+                safeEvidence.requirementRefs(),
+                safeEvidence.actionsByRequirement(),
+                safeEvidence.postconditionsByRequirement(),
                 cached.confidenceScore(),
                 "db-cache"
         );
@@ -346,7 +337,25 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
 
     private MappedUiKnowledge selectedKnowledge(PageModelEnrichmentInputBundle input) {
         MappedUiKnowledge rawKnowledge = input.mappedUiKnowledge();
-        if (rawKnowledge == null || input.uiTestPlan() == null) {
+        if (rawKnowledge == null) {
+            return null;
+        }
+        if (input.finalizedBehaviorBindings() != null) {
+            Set<String> finalizedPages = input.finalizedBehaviorBindings().stream()
+                    .filter(binding -> !binding.pageId().isBlank())
+                    .filter(binding -> binding.executable() || !binding.steps().isEmpty()
+                            || binding.assertions().stream().anyMatch(assertion -> assertion.verifiable()))
+                    .flatMap(binding -> java.util.stream.Stream.of(normalize(binding.pageId()), normalize(binding.route())))
+                    .filter(value -> !value.isBlank())
+                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+            List<MappedPage> finalized = rawKnowledge.pages().stream()
+                    .filter(page -> finalizedPages.contains(normalize(page.pageId()))
+                            || finalizedPages.contains(normalize(page.urlPattern()))
+                            || finalizedPages.contains(normalize(page.url())))
+                    .toList();
+            return subset(rawKnowledge, finalized);
+        }
+        if (input.uiTestPlan() == null) {
             return input.flowScopedKnowledgePackage() == null ? rawKnowledge : input.flowScopedKnowledgePackage().mappedUiKnowledge();
         }
         Set<String> exactRoutes = new LinkedHashSet<>();
@@ -365,6 +374,13 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
                 : routeMatched;
         if (selectedPages.isEmpty()) {
             return input.flowScopedKnowledgePackage() == null ? rawKnowledge : input.flowScopedKnowledgePackage().mappedUiKnowledge();
+        }
+        return subset(rawKnowledge, selectedPages);
+    }
+
+    private MappedUiKnowledge subset(MappedUiKnowledge rawKnowledge, List<MappedPage> selectedPages) {
+        if (rawKnowledge == null || selectedPages == null || selectedPages.isEmpty()) {
+            return new MappedUiKnowledge(List.of(), List.of(), List.of(), List.of(), List.of());
         }
         Set<String> pageIds = selectedPages.stream().map(MappedPage::pageId).map(this::normalize)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
@@ -539,14 +555,6 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
                 .limit(12)
                 .forEach(selected::add);
 
-        if (selected.isEmpty()) {
-            candidates.stream()
-                    .filter(this::isSafePageIdentityLocator)
-                    .sorted(locatorComparator(relevantTerms))
-                    .limit(5)
-                    .forEach(selected::add);
-        }
-
         return selected.stream()
                 .map(candidate -> locatorFact(candidate, isRequirementRelevant(candidate, relevantTerms)))
                 .distinct()
@@ -673,8 +681,6 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         java.util.stream.Stream.of(
                         evidence.actions(),
                         evidence.assertions(),
-                        evidence.testCaseIds(),
-                        evidence.requirementRefs(),
                         evidence.preconditions()
                 )
                 .flatMap(List::stream)
@@ -699,10 +705,19 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
             terms.add(routeMatcher.group());
         }
         for (String token : normalized.split("[^a-z0-9/_\\-]+")) {
-            if (token.length() >= 4 || token.startsWith("/")) {
+            if ((token.length() >= 4 || token.startsWith("/")) && !isLocatorStopWord(token)) {
                 terms.add(token);
             }
         }
+    }
+
+    private boolean isLocatorStopWord(String value) {
+        String token = normalize(value);
+        return Set.of(
+                "open", "click", "module", "page", "route", "user", "authenticated", "application",
+                "navigation", "navigate", "visible", "displayed", "content", "action", "control",
+                "expected", "result", "requirement", "current", "target", "source", "available"
+        ).contains(token);
     }
 
     private boolean isRequirementRelevant(LocatorEvidence candidate, Set<String> relevantTerms) {
@@ -734,17 +749,6 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
             }
         }
         return false;
-    }
-
-    private boolean isSafePageIdentityLocator(LocatorEvidence candidate) {
-        if (candidate == null || candidate.locator() == null) {
-            return false;
-        }
-        LocatorCandidate locator = candidate.locator();
-        return locator.sameOrigin()
-                && locator.stabilityScore() >= 0.75d
-                && locator.uniqueOnPage()
-                && locator.risks().isEmpty();
     }
 
     private boolean containsAnyToken(Set<String> terms, String... needles) {
@@ -1007,6 +1011,11 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
             return flatten(postconditionsByRequirement);
         }
 
+        private boolean hasOwnedEvidence() {
+            return !requirementRefs.isEmpty() && (!actionsByRequirement.isEmpty()
+                    || !postconditionsByRequirement.isEmpty());
+        }
+
         private static PageRequirementEvidence empty() {
             return new PageRequirementEvidence(Map.of(), Map.of(), List.of(), List.of(), List.of());
         }
@@ -1021,5 +1030,8 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
     }
 
     private record LocatorEvidence(MappedElement element, LocatorCandidate locator) {
+    }
+
+    private record PageEnrichmentCandidate(MappedPage page, PageRequirementEvidence evidence) {
     }
 }

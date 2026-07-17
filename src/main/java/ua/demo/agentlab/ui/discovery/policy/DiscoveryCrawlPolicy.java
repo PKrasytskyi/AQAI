@@ -3,6 +3,7 @@ package ua.demo.agentlab.ui.discovery.policy;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
+import ua.demo.agentlab.requirements.normalization.StructuredRequirementContext;
 
 import java.net.URI;
 import java.util.LinkedHashSet;
@@ -52,7 +53,10 @@ public record DiscoveryCrawlPolicy(
                 false,
                 true,
                 List.of("delete", "remove", "pay", "confirm", "close account", "submit order"),
-                List.of("logout", "signout", "sign-out", "delete", "remove")
+                // Action labels still block destructive Remove clicks. A route containing
+                // "remove" can describe a safe requirement-owned page such as
+                // /add_remove_elements and must remain discoverable as an explicit seed.
+                List.of("logout", "signout", "sign-out", "delete")
         );
     }
 
@@ -70,6 +74,10 @@ public record DiscoveryCrawlPolicy(
                 .map(route -> toAbsoluteUrl(projectProfile.baseUrl(), route))
                 .distinct()
                 .toList();
+    }
+
+    public int effectiveMaxPages(ProjectProfile projectProfile, NormalizedRequirementBundle requirements) {
+        return Math.max(maxPages, absoluteStartUrls(projectProfile, requirements).size());
     }
 
     public boolean allowsNavigation(String baseUrl, String targetUrl) {
@@ -145,6 +153,8 @@ public record DiscoveryCrawlPolicy(
         }
         Set<String> routes = new LinkedHashSet<>();
         for (NormalizedRequirement requirement : requirements.requirements()) {
+            addConcreteRoute(routes, StructuredRequirementContext.sourceRoute(requirement));
+            addConcreteRoute(routes, StructuredRequirementContext.targetRoute(requirement));
             String text = String.join(" ",
                     requirement.title(),
                     requirement.statement(),

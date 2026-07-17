@@ -1,6 +1,8 @@
 package ua.demo.agentlab.ui.discovery.selenium.crawler;
 
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
 import ua.demo.agentlab.ui.discovery.evidence.PageEvidenceCaptureService;
@@ -14,8 +16,10 @@ import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredPageSnapshot;
 import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredTransition;
 import ua.demo.agentlab.ui.discovery.selenium.model.SeleniumDiscoveryResult;
 import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessRule;
+import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessResult;
 import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessRuleResolver;
 import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessWaiter;
+import ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer;
 import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiSessionManager;
 
 import java.net.URI;
@@ -38,6 +42,7 @@ public class SafeNavigationCrawler {
     private final PageReadinessRuleResolver pageReadinessRuleResolver;
     private final PageReadinessWaiter pageReadinessWaiter;
     private final BiDiSessionManager biDiSessionManager;
+    private final RequirementNavigationTargetSelector requirementTargetSelector = new RequirementNavigationTargetSelector();
 
     public SafeNavigationCrawler(
             PageSnapshotCollector pageSnapshotCollector,
@@ -114,14 +119,18 @@ public class SafeNavigationCrawler {
         Map<String, DiscoveredPageSnapshot> pagesById = new LinkedHashMap<>();
         List<DiscoveredTransition> transitions = new ArrayList<>();
         List<DiscoveryAuthenticationResult> authenticationResults = new ArrayList<>();
+        List<PageReadinessResult> readinessResults = new ArrayList<>();
         Set<String> visitedUrls = new LinkedHashSet<>();
         ArrayDeque<NavigationTarget> queue = new ArrayDeque<>();
+        boolean authenticatedSession = false;
 
-        for (String startUrl : crawlPolicy.absoluteStartUrls(projectProfile, requirementBundle)) {
-            queue.add(new NavigationTarget(null, startUrl, "seed-route", "DIRECT", 0));
+        List<String> explicitStartUrls = crawlPolicy.absoluteStartUrls(projectProfile, requirementBundle);
+        for (String startUrl : explicitStartUrls) {
+            queue.add(new NavigationTarget(null, "", startUrl, "seed-route", "DIRECT", 0));
         }
 
-        while (!queue.isEmpty() && pagesById.size() < crawlPolicy.maxPages()) {
+        int effectiveMaxPages = crawlPolicy.effectiveMaxPages(projectProfile, requirementBundle);
+        while (!queue.isEmpty() && pagesById.size() < effectiveMaxPages) {
             NavigationTarget target = queue.poll();
             String normalizedUrl = normalizeUrl(target.targetUrl());
             if (visitedUrls.contains(normalizedUrl)) {
@@ -135,17 +144,17 @@ public class SafeNavigationCrawler {
             try {
                 DiscoveryAuthenticationResult authenticationResult =
                         DiscoveryAuthenticationResult.skipped(false, false, target.targetUrl(), "authentication not attempted");
-                boolean authenticated = false;
-                if (crawlPolicy.allowAuthentication() && authenticationService != null) {
+                if (!authenticatedSession && crawlPolicy.allowAuthentication() && authenticationService != null) {
                     authenticationResult = authenticationService.authenticate(driver, projectProfile, target.targetUrl());
                     biDiSessionManager.drain(driver);
                     if (authenticationResult.protectedTarget()) {
                         authenticationResults.add(authenticationResult);
                     }
-                    authenticated = authenticationResult.success();
+                    authenticatedSession = authenticationResult.success();
                 }
+                boolean authenticated = authenticatedSession;
                 if (!authenticated || !currentPageMatchesTarget(driver, projectProfile, target.targetUrl())) {
-                    driver.navigate().to(target.targetUrl());
+                    navigateToTarget(driver, target);
                     biDiSessionManager.start(driver, buildPageIdHint(driver.getCurrentUrl()), driver.getCurrentUrl());
                     biDiSessionManager.drain(driver);
                 }
@@ -154,8 +163,15 @@ public class SafeNavigationCrawler {
                         requirementBundle,
                         target.targetUrl()
                 );
-                pageReadinessWaiter.waitUntilReady(driver, readinessRule);
+                PageReadinessResult readinessResult = pageReadinessWaiter.waitUntilReady(driver, readinessRule);
+                readinessResults.add(readinessResult);
                 biDiSessionManager.drain(driver);
+                if (!readinessResult.ready()) {
+                    // A timed-out SPA shell is useful diagnostic evidence, but it must not become
+                    // mapper input or replace a previously rendered page in stability aggregation.
+                    visitedUrls.add(normalizedUrl);
+                    continue;
+                }
                 if (shouldSkipRedirectedProtectedPage(driver, projectProfile, authenticationResult)) {
                     visitedUrls.add(normalizedUrl);
                     continue;
@@ -187,12 +203,28 @@ public class SafeNavigationCrawler {
                     continue;
                 }
 
+                // The session can remain authenticated after a SPA module transition even when
+                // a shallow snapshot does not classify that module as an authenticated-area page.
+                // Continue requirement-led traversal so multi-hop paths stay generic.
+                if (authenticatedSession || snapshot.authenticatedArea()) {
+                    enqueueRequirementTargets(
+                            queue,
+                            snapshot.pageId(),
+                            snapshot.url(),
+                            snapshot.links(),
+                            target.depth() + 1,
+                            projectProfile.baseUrl(),
+                            visitedUrls,
+                            requirementBundle
+                    );
+                }
+
                 if (crawlPolicy.followLinks()) {
-                    enqueueTargets(queue, snapshot.pageId(), snapshot.links(), "LINK", target.depth() + 1, projectProfile.baseUrl(), visitedUrls);
+                    enqueueTargets(queue, snapshot.pageId(), snapshot.url(), snapshot.links(), "LINK", target.depth() + 1, projectProfile.baseUrl(), visitedUrls);
                 }
 
                 if (crawlPolicy.followButtons()) {
-                    enqueueTargets(queue, snapshot.pageId(), snapshot.buttons(), "BUTTON", target.depth() + 1, projectProfile.baseUrl(), visitedUrls);
+                    enqueueTargets(queue, snapshot.pageId(), snapshot.url(), snapshot.buttons(), "BUTTON", target.depth() + 1, projectProfile.baseUrl(), visitedUrls);
                 }
             } finally {
                 biDiSessionManager.stop(driver);
@@ -205,13 +237,15 @@ public class SafeNavigationCrawler {
                 transitions,
                 1,
                 Map.of(),
-                authenticationResults
+                authenticationResults,
+                readinessResults
         );
     }
 
     private void enqueueTargets(
             Queue<NavigationTarget> queue,
             String fromPageId,
+            String fromUrl,
             List<DiscoveredInteractiveElement> elements,
             String actionType,
             int depth,
@@ -219,6 +253,9 @@ public class SafeNavigationCrawler {
             Set<String> visitedUrls
     ) {
         for (DiscoveredInteractiveElement element : elements) {
+            if (!element.visible()) {
+                continue;
+            }
             String href = element.href();
             if (href == null || href.isBlank()) {
                 continue;
@@ -237,9 +274,40 @@ public class SafeNavigationCrawler {
 
             queue.add(new NavigationTarget(
                     fromPageId,
+                    fromUrl,
                     href,
                     element.visibleText() == null ? actionType.toLowerCase(Locale.ROOT) : element.visibleText(),
                     actionType,
+                    depth
+            ));
+        }
+    }
+
+    private void enqueueRequirementTargets(
+            ArrayDeque<NavigationTarget> queue,
+            String fromPageId,
+            String fromUrl,
+            List<DiscoveredInteractiveElement> links,
+            int depth,
+            String baseUrl,
+            Set<String> visitedUrls,
+            NormalizedRequirementBundle requirements
+    ) {
+        List<DiscoveredInteractiveElement> selected = requirementTargetSelector.select(links, requirements);
+        for (int index = selected.size() - 1; index >= 0; index--) {
+            DiscoveredInteractiveElement element = selected.get(index);
+            String href = element.href();
+            if (!crawlPolicy.allowsNavigation(baseUrl, href) || visitedUrls.contains(normalizeUrl(href))) {
+                continue;
+            }
+            queue.addFirst(new NavigationTarget(
+                    fromPageId,
+                    fromUrl,
+                    href,
+                    element.visibleText() == null || element.visibleText().isBlank()
+                            ? "targeted navigation"
+                            : element.visibleText(),
+                    "TARGETED_LINK",
                     depth
             ));
         }
@@ -258,6 +326,38 @@ public class SafeNavigationCrawler {
         } catch (Exception exception) {
             return "page";
         }
+    }
+
+    private void navigateToTarget(WebDriver driver, NavigationTarget target) {
+        if (targetedLinkClicked(driver, target)) {
+            return;
+        }
+        driver.navigate().to(target.targetUrl());
+    }
+
+    private boolean targetedLinkClicked(WebDriver driver, NavigationTarget target) {
+        if (driver == null || target == null || !"TARGETED_LINK".equals(target.actionType())
+                || target.sourceUrl() == null || target.sourceUrl().isBlank()
+                || !routeMatches(RouteCanonicalizer.canonicalize(driver.getCurrentUrl()),
+                RouteCanonicalizer.canonicalize(target.sourceUrl()))) {
+            return false;
+        }
+        String targetRoute = RouteCanonicalizer.canonicalize(target.targetUrl());
+        for (WebElement link : driver.findElements(By.cssSelector("a[href]"))) {
+            try {
+                if (!link.isDisplayed() || !link.isEnabled()) {
+                    continue;
+                }
+                String href = link.getAttribute("href");
+                if (routeMatches(RouteCanonicalizer.canonicalize(href), targetRoute)) {
+                    link.click();
+                    return true;
+                }
+            } catch (Exception ignored) {
+                // The href navigation fallback remains constrained by the crawl policy.
+            }
+        }
+        return false;
     }
 
     private String normalizeUrl(String value) {
@@ -314,6 +414,7 @@ public class SafeNavigationCrawler {
 
     private record NavigationTarget(
             String fromPageId,
+            String sourceUrl,
             String targetUrl,
             String actionLabel,
             String actionType,

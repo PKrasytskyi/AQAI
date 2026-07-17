@@ -246,7 +246,7 @@ The second runtime/BiDi phase promotes runtime evidence into the knowledge layer
 | 9 | Semantic graph summaries are added as Qdrant vector documents for page, component, action, intent, network, and transition retrieval. |
 | 10 | Runtime feedback is written to discovery artifacts and `target/ai-run/need-review`, giving human reviewers a structured place to approve, reject, or follow up on weak runtime evidence. |
 
-### SPA discovery MVP and component model
+### SPA discovery inventory and component model
 
 SPA support is implemented as a universal discovery layer, not as a separate workflow. Classical multi-page sites still pass through the same layer; they usually produce simple components such as a login form or content block. SPA-like pages produce richer component evidence for navigation, search, tables, widgets, and protected content.
 
@@ -259,21 +259,77 @@ flowchart TD
     E --> F[global uniqueness]
     E --> G[component-scoped uniqueness]
     D --> H[SemanticActionModel]
-    H --> I[PromptUiEvidence]
+    H --> I[SpaPageInventory (CANDIDATE only)]
+    I --> J[Neo4j candidate inventory]
+    I --> J2[Component interaction graph]
+    J2 --> L[Live targeted browser verification]
+    L --> M[Generated POM live-smoke feedback]
+    M --> N[Promotion / degradation / retention]
+    N -. confirmed evidence only .-> K[PromptUiEvidence]
 ```
 
-The first SPA MVP adds the following contracts and artifacts:
+The inventory layer is universal: it runs for classical pages too, but SPA-heavy pages usually expose more components. Its broad discovery output is intentionally **not** prompt evidence. Every inventory locator and action starts as `CANDIDATE`; targeted verification promotes evidence only after requirement-scoped browser-count validation and the configured lifecycle threshold is reached.
+
+| Discovery mode | Current boundary |
+|---|---|
+| `inventory` | Builds a full candidate map from the already discovered pages. Use explicitly for occasional baseline scans. |
+| `targeted` | Default mode. Builds inventory only for pages referenced by current canonical test cases, then selects owned components, locators, and actions. |
+| `refresh` | Reuses the same targeted lifecycle path for current requirement scope; DB counters decide whether evidence remains degraded or returns to confirmed. |
+| `force` | Builds inventory regardless of reuse/cache decisions. |
+
+The P0-P3 contracts and artifacts are:
 
 | Class / artifact | Responsibility |
 |---|---|
-| `ui.discovery.component.ComponentBoundaryDetector` | Groups PageModel elements into deterministic component boundaries: `FORM`, `SEARCH`, `NAVIGATION`, `TABLE`, and `CONTENT`. |
+| `ui.discovery.component.ComponentBoundaryDetector` | Groups PageModel elements into deterministic component boundaries: `HEADER`, `USER_MENU`, `FORM`, `FILTER_PANEL`, `SEARCH`, `NAVIGATION`, `RESULTS_COLLECTION`, `TABLE`, `MODAL`, and `CONTENT`. It prefers nearest DOM landmark/container ancestry and ARIA role before keyword fallback. |
 | `ui.discovery.component.ScopedLocatorValidationService` | Computes `globalMatchCount`, `scopedMatchCount`, `uniqueOnPage`, `uniqueWithinComponent`, and score breakdown for each scoped locator. |
 | `ui.discovery.component.model.SemanticComponentModel` | Stores component type, owned element IDs, root locator fallback, scoped locators, confidence, risks, and source trace. |
 | `ui.discovery.component.model.ScopedLocatorCandidate` | Stores locator strategy/value plus uniqueness, stability, readability, semantic, and final scores. |
 | `ui.discovery.component.ComponentModelArtifactWriter` | Writes `target/discovery/component-model.json`. |
 | `ui.discovery.selenium.collector.RuntimeLocatorCountCollector` | Verifies candidate locators in the browser with `driver.findElements(...)` and stores global and nearest-component counts on raw elements. |
+| `ui.discovery.spa.model.SpaPageInventory` | Typed inventory page: page identity, route, fingerprint, run metadata, and component inventory. |
+| `ui.discovery.spa.model.SemanticComponentInventory` | Candidate component boundary with root locator, element ownership, candidate locators, and candidate actions. |
+| `ui.discovery.spa.model.CandidateLocatorEvidence` | Candidate locator quality, browser global/component counts, stability, observed evidence type, and risks. |
+| `ui.discovery.spa.model.CandidateActionEvidence` | Candidate action intent, owning component, required locator IDs, preconditions, postconditions, and trace. |
+| `ui.discovery.spa.agent.UiSpaInventoryAgent` | Runs after mapper output, writes `target/discovery/spa-inventory.json`, and best-effort persists candidate facts in Neo4j. |
+| `ui.discovery.spa.SpaInventoryGraphWriter` | Stores `SpaPageInventory`, `SpaComponentInventory`, `SpaCandidateLocator`, and `SpaCandidateAction` separately from `UiStableLocator`. |
+| `ui.discovery.spa.agent.UiSpaTargetedVerificationAgent` | Runs after canonical test-case planning; selects only requirement-owned inventory facts, validates them against browser-derived counts, and writes targeted verification artifacts. |
+| `ui.discovery.spa.ComponentInteractionGraphBuilder` | Builds deterministic prerequisite edges between component actions. Example: `OPEN_MENU -> LOGOUT`; a logout control is not treated as independently actionable. |
+| `ui.discovery.spa.TypedComponentFlowBuilder` | Produces candidate-only `MODULE_NAVIGATION`, `FILTER_RESULTS`, `TABLE_SORT`, `TABLE_PAGINATION`, and modal flow contracts from component-owned action evidence. |
+| `ui.discovery.spa.LiveTargetedVerificationRunner` | Uses a fresh authenticated browser session to replay confirmed component actions. For sidebar/module navigation it clicks only an internal `href` evidence locator, waits for the SPA route, and maps the route to an already inventoried target page when available. |
+| `ui.catalog.Neo4jStableCapabilityLookupService` | Reuses only pages whose Neo4j component evidence has a `CONFIRMED` locator and a passing smoke result in the same application/base-url/schema namespace. |
+| `ui.discovery.spa.LiveTargetedVerificationRunner` | Uses a fresh browser session to authenticate when required, open the exact confirmed route, wait for readiness, and verify only selected locators/actions. Destructive/session-ending actions are opt-in. |
+| `ui.discovery.spa.SpaSmokeEvidenceFeedbackWriter` | Links generated POM source selectors and live-smoke outcome back to `locatorId`/`actionId`, adding a runtime execution signal to promotion. |
+| `ui.discovery.spa.SpaEvidenceLifecycleGraphWriter` | Atomically increments live-verification counters in Neo4j; promotion additionally requires a successful generated-POM live-smoke signal. |
+| `ui.discovery.spa.SpaEvidenceRetentionGraphWriter` | Soft-retires expired `DEGRADED` and orphan candidates by default. Hard deletion is explicitly opt-in. |
 
 This is intentionally artifact-first. The component model does not yet force generated Java component classes. It gives the mapper and prompt layers better evidence so later stages can decide whether a component should stay internal to a page or become a reusable `SidebarComponent`, `LoginFormComponent`, `SearchComponent`, or `TableComponent`.
+
+The inventory database records include the normal knowledge namespace (`runId`, `appId`, `baseUrlHash`, `requirementSetHash`, `discoverySessionId`, `schemaVersion`, `createdAt`, `sourceAgent`, and `confidence`) plus `pageFingerprintHash`. Page snapshots use the fingerprint as identity, while component/locator/action lifecycle uses stable `pageId + componentId + locatorId/actionId` identity and records the latest fingerprint as metadata. This avoids resetting evidence history on harmless SPA DOM drift. Inventory records are distinct from stable locator records, so an inventory scan cannot silently alter `Allowed locators` or the generated POM contract.
+
+`target/discovery/typed-component-flows.json` is the candidate flow inventory. It is deliberately not direct POM evidence: a flow must first have confirmed locators/actions, live verification, and smoke feedback. `target/ai-run/validation/pom-source-map.json` records generated POM field/method provenance to contract locator/action references. Smoke feedback consumes that structured map rather than searching generated Java source for selector strings.
+
+Each typed flow also declares a `FlowPostconditionContract`. Navigation has a route-transition proof; filter/table/modal flows remain `needs-review` until a requirement supplies an observable result such as row visibility, changed count/order/page, or modal closure. The review queue at `target/ai-run/need-review/spa-evidence-needs-review.json` includes the requirement IDs, exact evidence ID, selector/count/score context, failure reason, and a specific remediation. It is the first artifact to inspect before changing a locator or prompt.
+
+Targeted verification closes that boundary deliberately:
+
+```text
+CanonicalTestCaseBundle
+  -> page/route ownership match
+  -> capability-to-component selection
+  -> browser-count + stability + risk check
+  -> fresh browser: authenticate -> exact route -> SPA readiness -> targeted locator/action verification
+  -> component prerequisites (for example open user menu before logout)
+  -> generated-POM live-smoke feedback linked to locatorId/actionId
+  -> SpaCandidateLocator / SpaCandidateAction lifecycle update
+  -> CONFIRMED only after configured live successes and at least one successful generated-POM smoke
+  -> DbStableLocatorEvidenceService reads promoted same-origin evidence
+  -> PromptUiEvidenceAssembler admits CONFIRMED_LOCATOR only
+```
+
+Failures do not become fallback POM evidence. A failed candidate remains unavailable to the prompt and becomes `DEGRADED` after the configured failure threshold. This preserves the rule that broad inventory and database cache are never a source of truth by themselves.
+
+Retention is intentionally conservative: `spa.evidence.retention.enabled=true` marks expired degraded/orphan candidates as `RETIRED`, retaining source trace and failure history for review. `spa.evidence.retention.hard-delete=true` is available only for a deliberately managed knowledge database.
 
 SPA-specific locator risks are now classified before promotion:
 
@@ -1011,6 +1067,12 @@ The test suite also includes a non-OrangeHRM onboarding acceptance fixture that 
 | `target/ai-run/run-summary.md` | Compact review entry point for the current run. |
 | `target/ai-run/debug/flow-scoped-knowledge/flow-scoped-knowledge-package.json` | Requirement-scoped mapper/retrieval context when `ai.debug.artifacts=true`. |
 | `target/discovery/component-model.json` | Component boundaries and global/component-scoped locator validation for SPA-heavy pages. |
+| `target/discovery/spa-inventory.json` | Full candidate-only SPA inventory consumed by targeted verification; it is not POM-ready evidence by itself. |
+| `target/discovery/spa-targeted-verification.json` | Requirement-scoped locator/action verification with a concrete reason for every accepted or rejected candidate. |
+| `target/discovery/component-interaction-graph.json` | Deterministic component action prerequisites such as `openUserMenu -> logout`. |
+| `target/discovery/spa-live-targeted-verification.json` | Fresh-browser verification of the exact protected route and scoped candidate evidence. |
+| `target/discovery/spa-evidence-lifecycle.json` | Neo4j lifecycle update summary: verification counts, confirmed/degraded evidence counts, and persistence status. |
+| `target/ai-run/validation/spa-smoke-evidence-feedback.json` | Locator/action IDs referenced by generated POM source and updated from live smoke. |
 | `target/discovery/semantic-action-model.json` | Deterministic semantic elements, action candidates, and business-intent candidates before POM prompt generation. |
 | `target/ai-run/debug/context/ai-context-package.json` | Full prompt-ready state before per-page slicing when `ai.debug.artifacts=true`. |
 | `target/ai-run/debug/page-object-spec/<Page>-scope-trace.json` | Accepted/rejected scenarios, matched pages, PageModels, and route collisions when `ai.debug.artifacts=true`. |
@@ -1029,6 +1091,7 @@ Relevant configuration is in `src/main/resources/framework.properties`.
 | Expected application messages | `project.message.*` |
 | Browser and timeout | `ui.*` |
 | Protected-page discovery bridge | `discovery.auth.*` |
+| SPA inventory modes and lifecycle thresholds | `spa.inventory.*`, `spa.discovery.mode`, `spa.targeted-verification.*`, `spa.live-verification.*`, `spa.evidence.*` |
 | OpenAI runtime | `openai.*`, `rag.openai.*` |
 | Qdrant | `knowledge.vector.*` |
 | Neo4j | `knowledge.graph.neo4j.*` |

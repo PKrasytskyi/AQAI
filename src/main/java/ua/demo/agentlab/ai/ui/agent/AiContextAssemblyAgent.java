@@ -10,6 +10,7 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
+import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
 
 import java.util.Set;
 
@@ -37,7 +38,9 @@ public class AiContextAssemblyAgent implements WorkflowAgent,
                 WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE,
                 WorkflowArtifact.PAGE_MODEL_ENRICHMENT_RECORDS,
                 WorkflowArtifact.REFRESHED_FLOW_SCOPED_KNOWLEDGE_PACKAGE,
-                WorkflowArtifact.ASSERTION_CONTRACTS
+                WorkflowArtifact.ASSERTION_CONTRACTS,
+                WorkflowArtifact.SPA_TARGETED_VERIFICATION,
+                WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION
         );
     }
 
@@ -66,7 +69,11 @@ public class AiContextAssemblyAgent implements WorkflowAgent,
 
     @Override
     public AiContextAssemblyInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
-        return AiContextAssemblyInput.from(state);
+        var verification = store.get(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION)
+                .map(value -> (SpaLiveTargetedVerificationResult) value)
+                .orElse(null);
+        return AiContextAssemblyInput.from(state,
+                new ua.demo.agentlab.ai.context.CurrentRunSpaLocatorEvidenceAdapter().adapt(verification));
     }
 
     @Override

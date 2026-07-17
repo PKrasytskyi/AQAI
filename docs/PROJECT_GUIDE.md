@@ -1,5 +1,12 @@
 # AgentLab Project Guide
 
+> **Reference snapshot.** This guide contains useful architecture detail but is
+> not the operational source of truth. Use
+> [Developer Onboarding and Delivery Guide](DEVELOPER_ONBOARDING.md) for current
+> setup, run commands, artifact review, and branch policy. Consolidate or archive
+> this document after its still-relevant technical detail is absorbed into the
+> current architecture documentation.
+
 ## 1. Project Purpose
 
 AgentLab is a Java platform for requirement-driven automation generation. It combines deterministic parsing, UI/API discovery, typed contracts, optional AI enrichment, executable quality gates, and controlled artifact writing.

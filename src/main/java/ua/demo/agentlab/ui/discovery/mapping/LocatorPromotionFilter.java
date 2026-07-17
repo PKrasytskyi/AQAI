@@ -30,6 +30,13 @@ public class LocatorPromotionFilter {
                 .filter(page -> !isBrowserErrorPage(page))
                 .map(this::filterPage)
                 .toList();
+        Set<String> pageIds = pages.stream().map(MappedPage::pageId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        List<ua.demo.agentlab.ui.discovery.mapping.model.MappedTransition> transitions = knowledge.transitions().stream()
+                .filter(transition -> transition.success() && transition.confidenceScore() >= 0.80d)
+                .filter(transition -> pageIds.contains(transition.fromPageId()))
+                .filter(transition -> transition.toPageId().isBlank() || pageIds.contains(transition.toPageId()))
+                .toList();
         PageKnowledgeArtifactBuilder artifactBuilder = new PageKnowledgeArtifactBuilder();
         List<PageKnowledgeGraphNode> graphNodes = new ArrayList<>(artifactBuilder.buildGraphNodes(pages));
         List<PageKnowledgeGraphNode> supplementalNodes = supplementalGraphNodes(knowledge.graphNodes());
@@ -37,13 +44,13 @@ public class LocatorPromotionFilter {
         Set<String> graphNodeIds = graphNodes.stream()
                 .map(PageKnowledgeGraphNode::nodeId)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        List<PageKnowledgeGraphEdge> graphEdges = new ArrayList<>(artifactBuilder.buildGraphEdges(pages, knowledge.transitions()));
+        List<PageKnowledgeGraphEdge> graphEdges = new ArrayList<>(artifactBuilder.buildGraphEdges(pages, transitions));
         graphEdges.addAll(supplementalGraphEdges(knowledge.graphEdges(), graphNodeIds));
-        List<PageKnowledgeVectorDocument> vectorDocuments = new ArrayList<>(artifactBuilder.buildVectorDocuments(pages, knowledge.transitions()));
+        List<PageKnowledgeVectorDocument> vectorDocuments = new ArrayList<>(artifactBuilder.buildVectorDocuments(pages, transitions));
         vectorDocuments.addAll(supplementalVectorDocuments(knowledge.vectorDocuments()));
         return new MappedUiKnowledge(
                 pages,
-                knowledge.transitions(),
+                transitions,
                 graphNodes,
                 graphEdges,
                 vectorDocuments
@@ -123,7 +130,9 @@ public class LocatorPromotionFilter {
                 elements,
                 forms,
                 page.actions(),
-                page.assertionHints(),
+                page.assertionHints().stream()
+                        .filter(hint -> hint.confidenceScore() >= 0.80d && !hint.target().isBlank())
+                        .toList(),
                 page.stateHints(),
                 page.screenshotPath(),
                 page.htmlPath(),

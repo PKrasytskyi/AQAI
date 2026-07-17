@@ -1,7 +1,6 @@
 package ua.demo.agentlab.ai.ui.contract.rule;
 
 import ua.demo.agentlab.ai.ui.contract.PomActionSpec;
-import ua.demo.agentlab.ai.ui.contract.PomAssertionSpec;
 import ua.demo.agentlab.ai.ui.contract.PomComponentSpec;
 import ua.demo.agentlab.ai.ui.contract.PomContractIssue;
 import ua.demo.agentlab.ai.ui.contract.PomContractSpec;
@@ -22,12 +21,18 @@ public class PomProtectedPageFlowRule implements PomContractRule {
         if (!containsAny(page, "dashboard", "secure", "authenticated", "protected")) {
             return;
         }
-        String behavior = behaviorText(spec);
-        boolean mentionsLogout = containsAny(behavior, "logout", "signout", "sign out");
-        if (!mentionsLogout) {
+        boolean hasLogoutAction = allActions(spec).stream()
+                .map(PomActionSpec::methodName)
+                .map(this::normalize)
+                .anyMatch(method -> containsAny(method, "logout", "signout", "sign out"));
+        if (!hasLogoutAction) {
             return;
         }
-        boolean hasUserMenuAction = containsAny(behavior, "openusermenu", "userdropdown", "userdrop", "dropdown", "profilemenu");
+        boolean hasUserMenuAction = allActions(spec).stream()
+                .map(PomActionSpec::methodName)
+                .map(this::normalize)
+                .anyMatch(method -> containsAny(method,
+                        "openusermenu", "userdropdown", "userdrop", "dropdown", "profilemenu"));
         boolean hasUserMenuLocator = allLocators(spec).stream().anyMatch(this::isUserMenuLocator);
         boolean directLogoutAvailable = logoutActionClicksLogout(spec);
         boolean hasGap = spec.coverageGaps().stream()
@@ -154,30 +159,6 @@ public class PomProtectedPageFlowRule implements PomContractRule {
     private boolean isLogoutLocator(PomLocatorSpec locator) {
         String evidence = normalize(locator.id() + " " + locator.elementName() + " " + locator.value());
         return containsAny(evidence, "logout", "log out", "signout", "sign out");
-    }
-
-    private String behaviorText(PomContractSpec spec) {
-        StringBuilder builder = new StringBuilder();
-        appendActions(builder, spec.actions());
-        appendAssertions(builder, spec.assertions());
-        for (PomComponentSpec component : spec.components()) {
-            builder.append(' ').append(component.name()).append(' ').append(component.type()).append(' ');
-            appendActions(builder, component.actions());
-            appendAssertions(builder, component.assertions());
-        }
-        spec.locators().forEach(locator -> builder.append(' ')
-                .append(locator.id()).append(' ')
-                .append(locator.elementName()).append(' ')
-                .append(locator.value()).append(' '));
-        return builder.toString().toLowerCase(Locale.ROOT);
-    }
-
-    private void appendActions(StringBuilder builder, List<PomActionSpec> actions) {
-        actions.forEach(action -> builder.append(' ').append(action.methodName()).append(' '));
-    }
-
-    private void appendAssertions(StringBuilder builder, List<PomAssertionSpec> assertions) {
-        assertions.forEach(assertion -> builder.append(' ').append(assertion.methodName()).append(' '));
     }
 
     private boolean containsAny(String value, String... fragments) {

@@ -78,6 +78,7 @@ public class TargetAwareContextSlicer {
                 pageModelEnrichments,
                 context.templateCapabilities(),
                 sliceDbStableLocators(context, mappedUiKnowledge),
+                sliceCurrentRunSpaLocators(context, mappedUiKnowledge),
                 PromptUiEvidence.empty("prompt-evidence:slicer-bootstrap")
         );
         return new AiContextPackage(
@@ -98,6 +99,7 @@ public class TargetAwareContextSlicer {
                 scopedPackage.pageModelEnrichments(),
                 scopedPackage.templateCapabilities(),
                 scopedPackage.dbStableLocatorEvidence(),
+                scopedPackage.currentRunSpaLocatorEvidence(),
                 promptUiEvidenceBuilder.build(scopedPackage)
         );
     }
@@ -122,6 +124,21 @@ public class TargetAwareContextSlicer {
                             || routes.stream().anyMatch(route -> normalized.equals("db-route:" + route));
                 }))
                 .toList();
+    }
+
+    private List<PromptLocatorEvidence> sliceCurrentRunSpaLocators(AiContextPackage context, MappedUiKnowledge mappedUiKnowledge) {
+        if (context == null || context.currentRunSpaLocatorEvidence().isEmpty() || mappedUiKnowledge == null) return List.of();
+        Set<String> pageIds = mappedUiKnowledge.pages().stream().map(MappedPage::pageId).map(this::normalize)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Set<String> routes = mappedUiKnowledge.pages().stream()
+                .flatMap(page -> java.util.stream.Stream.of(page.urlPattern(), page.url()))
+                .map(this::normalize).filter(value -> !value.isBlank())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        return context.currentRunSpaLocatorEvidence().stream().filter(locator -> locator.sourceTrace().stream().anyMatch(trace -> {
+            String normalized = normalize(trace);
+            return pageIds.stream().anyMatch(pageId -> normalized.equals("spa-page-id:" + pageId))
+                    || routes.stream().anyMatch(route -> normalized.equals("spa-route:" + route));
+        })).toList();
     }
 
     private MappedUiKnowledgeCurated sliceCuratedKnowledge(AiContextPackage context, MappedUiKnowledge mappedUiKnowledge) {

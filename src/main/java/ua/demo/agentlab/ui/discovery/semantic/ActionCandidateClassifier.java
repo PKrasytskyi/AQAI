@@ -12,6 +12,18 @@ import java.util.Map;
 
 public class ActionCandidateClassifier {
 
+    private final ActionElementCompatibilityPolicy compatibilityPolicy;
+
+    public ActionCandidateClassifier() {
+        this(new ActionElementCompatibilityPolicy());
+    }
+
+    ActionCandidateClassifier(ActionElementCompatibilityPolicy compatibilityPolicy) {
+        this.compatibilityPolicy = compatibilityPolicy == null
+                ? new ActionElementCompatibilityPolicy()
+                : compatibilityPolicy;
+    }
+
     public List<ActionCandidate> classify(PageElementModel element, String semanticType) {
         if (element == null || !element.visible() || ignoredSystemElement(element)) {
             return List.of();
@@ -47,6 +59,9 @@ public class ActionCandidateClassifier {
                 add(candidates, "UNCHECK", element.elementId(), 0.86d, "semantic-element:CHECKBOX");
             }
             case "FILE_INPUT" -> add(candidates, "UPLOAD", element.elementId(), 0.90d, "semantic-element:FILE_INPUT");
+            case "RANGE_SLIDER" -> add(candidates, "SET_SLIDER", element.elementId(), 0.90d,
+                    "semantic-element:RANGE_SLIDER");
+            case "IMAGE" -> add(candidates, "HOVER", element.elementId(), 0.78d, "semantic-element:IMAGE");
             case "COLLECTION" -> add(candidates, "READ", element.elementId(), 0.78d, "semantic-element:COLLECTION");
             default -> {
                 if (containsAny(evidence, "button", "click", "submit", "link")) {
@@ -90,10 +105,15 @@ public class ActionCandidateClassifier {
         if (containsAny(evidence, "logout", "log out", "sign out")) {
             add(candidates, "LOGOUT", element.elementId(), 0.92d, "semantic-evidence:logout");
         }
+        if (containsAny(evidence, "new window", "open window")) {
+            add(candidates, "OPEN_NEW_WINDOW", element.elementId(), 0.86d, "semantic-evidence:new-window");
+        }
         if (containsAny(evidence, "user_menu_trigger", "user menu", "userdropdown", "dropdown")) {
             add(candidates, "OPEN_MENU", element.elementId(), 0.86d, "semantic-evidence:user-menu");
         }
-        return new ArrayList<>(candidates.values());
+        return candidates.values().stream()
+                .filter(candidate -> compatibilityPolicy.allows(element, semanticType, candidate.action()))
+                .toList();
     }
 
     private void add(
@@ -134,6 +154,9 @@ public class ActionCandidateClassifier {
             case "check" -> "CHECK";
             case "uncheck" -> "UNCHECK";
             case "upload" -> "UPLOAD";
+            case "hover" -> "HOVER";
+            case "setslider", "slider", "range" -> "SET_SLIDER";
+            case "opennewwindow", "openwindow" -> "OPEN_NEW_WINDOW";
             case "download" -> "DOWNLOAD";
             case "read", "inspect" -> "READ";
             default -> actionType == null ? "" : actionType.trim().toUpperCase(Locale.ROOT);

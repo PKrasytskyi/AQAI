@@ -115,10 +115,10 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
         state.addArtifact("generated.ui.smoke.issue.count", String.valueOf(output.issues().size()));
         writeSmokeArtifact(output, state);
         state.addArtifact("generated.ui.live.smoke.enabled", String.valueOf(liveSmokeService.isEnabled()));
-        LiveUiSmokeResult liveSmoke = liveSmokeService.smoke(new GeneratedUiSources(
-                state.getPageObjectFiles(),
-                state.getUiTestFiles()
-        ));
+        LiveUiSmokeResult liveSmoke = output.passed()
+                ? liveSmokeService.smoke(new GeneratedUiSources(state.getPageObjectFiles(), state.getUiTestFiles()))
+                : new LiveUiSmokeResult(ua.demo.agentlab.validation.smoke.GeneratedUiSmokeStatus.SKIPPED,
+                "Live browser smoke skipped because generated source smoke is not green", "", List.of(), List.of());
         writeLiveSmokeArtifact(liveSmoke, state);
         state.addFinding(output.summary());
         state.addFinding(liveSmoke.summary());

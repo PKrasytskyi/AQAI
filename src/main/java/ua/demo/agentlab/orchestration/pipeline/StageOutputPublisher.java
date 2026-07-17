@@ -38,6 +38,8 @@ import ua.demo.agentlab.ui.discovery.runtime.model.RuntimeEvidenceBundle;
 import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackAnalyzer;
 import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackArtifactWriter;
 import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackSummary;
+import ua.demo.agentlab.ui.discovery.spa.agent.SpaInventoryOutput;
+import ua.demo.agentlab.ui.discovery.spa.agent.SpaTargetedVerificationOutput;
 import ua.demo.agentlab.ui.discovery.semantic.SemanticActionModelArtifactWriter;
 import ua.demo.agentlab.ui.discovery.semantic.SemanticActionModelBuilder;
 import ua.demo.agentlab.ui.discovery.semantic.model.SemanticActionModel;
@@ -352,6 +354,56 @@ public class StageOutputPublisher {
         putArtifact(state, "ui.mapped.vector.document.count", String.valueOf(mappedUiKnowledge.vectorDocuments().size()));
         writeSemanticActionModel(state, mappedUiKnowledge);
         addFinding(state, "Page mapper prepared " + mappedUiKnowledge.pages().size() + " mapped UI page(s)");
+    }
+
+    public void publishSpaInventory(SpaInventoryOutput output, WorkflowState state) {
+        if (state == null || output == null || output.inventory() == null) {
+            return;
+        }
+        int componentCount = output.inventory().pages().stream()
+                .mapToInt(page -> page.components().size())
+                .sum();
+        int locatorCount = output.inventory().pages().stream()
+                .flatMap(page -> page.components().stream())
+                .mapToInt(component -> component.locators().size())
+                .sum();
+        int actionCount = output.inventory().pages().stream()
+                .flatMap(page -> page.components().stream())
+                .mapToInt(component -> component.actions().size())
+                .sum();
+        putArtifact(state, "spa.inventory.mode", output.inventory().mode().name());
+        putArtifact(state, "spa.inventory.page.count", String.valueOf(output.inventory().pages().size()));
+        putArtifact(state, "spa.inventory.component.count", String.valueOf(componentCount));
+        putArtifact(state, "spa.inventory.candidate.locator.count", String.valueOf(locatorCount));
+        putArtifact(state, "spa.inventory.candidate.action.count", String.valueOf(actionCount));
+        putArtifact(state, "spa.inventory.artifact.files", String.join(",", output.writtenFiles()));
+        putArtifact(state, "spa.inventory.neo4j.persisted", String.valueOf(output.persistence().executed()));
+        putArtifact(state, "spa.inventory.persistence.details", output.persistence().details());
+        addFinding(state, "SPA inventory prepared " + output.inventory().pages().size()
+                + " page(s), " + componentCount + " component(s), " + locatorCount
+                + " candidate locator(s); POM promotion remains disabled for inventory evidence");
+    }
+
+    public void publishSpaTargetedVerification(SpaTargetedVerificationOutput output, WorkflowState state) {
+        if (state == null || output == null || output.verification() == null || output.lifecycle() == null) {
+            return;
+        }
+        long verifiedLocators = output.verification().locatorVerifications().stream()
+                .filter(verification -> verification.verified()).count();
+        long verifiedActions = output.verification().actionVerifications().stream()
+                .filter(verification -> verification.verified()).count();
+        putArtifact(state, "spa.targeted.verification.locator.count",
+                String.valueOf(output.verification().locatorVerifications().size()));
+        putArtifact(state, "spa.targeted.verification.locator.verified.count", String.valueOf(verifiedLocators));
+        putArtifact(state, "spa.targeted.verification.action.count",
+                String.valueOf(output.verification().actionVerifications().size()));
+        putArtifact(state, "spa.targeted.verification.action.verified.count", String.valueOf(verifiedActions));
+        putArtifact(state, "spa.evidence.lifecycle.executed", String.valueOf(output.lifecycle().executed()));
+        putArtifact(state, "spa.evidence.lifecycle.details", output.lifecycle().details());
+        putArtifact(state, "spa.targeted.verification.artifact.files", String.join(",", output.writtenFiles()));
+        addFinding(state, "SPA targeted verification processed " + verifiedLocators + "/"
+                + output.verification().locatorVerifications().size() + " locator(s) and " + verifiedActions + "/"
+                + output.verification().actionVerifications().size() + " action(s)");
     }
 
     private void writeSemanticActionModel(WorkflowState state, MappedUiKnowledge mappedUiKnowledge) {

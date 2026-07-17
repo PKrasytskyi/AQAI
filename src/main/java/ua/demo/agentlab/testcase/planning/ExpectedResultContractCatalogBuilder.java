@@ -6,6 +6,7 @@ import ua.demo.agentlab.requirements.normalization.model.SourceReference;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Stream;
 
 class ExpectedResultContractCatalogBuilder {
 
@@ -15,24 +16,49 @@ class ExpectedResultContractCatalogBuilder {
         }
         List<ExpectedResultContract> contracts = units.stream()
                 .filter(unit -> unit.type() == RequirementUnitType.ASSERTION
-                        || unit.type() == RequirementUnitType.ROUTE_EXPECTATION)
-                .map(this::toContract)
+                        || unit.type() == RequirementUnitType.ROUTE_EXPECTATION
+                        || hasStructuredExpectedResult(unit))
+                .flatMap(this::toContracts)
                 .toList();
         return new ExpectedResultContractCatalog(contracts);
     }
 
-    private ExpectedResultContract toContract(RequirementUnit unit) {
+    private Stream<ExpectedResultContract> toContracts(RequirementUnit unit) {
         NormalizedRequirement requirement = unit.requirement();
+        if (requirement.structuredAssertions() != null && !requirement.structuredAssertions().isEmpty()) {
+            return requirement.structuredAssertions().stream().map(assertion -> new ExpectedResultContract(
+                    requirement.id(),
+                    structuredAssertionType(assertion.type()),
+                    assertion.target(),
+                    assertion.expectedValue(),
+                    unit.ownerPage(),
+                    unit.route(),
+                    sourceReference(assertion.sourceReference()),
+                    0.96d
+            ));
+        }
         String expectedValue = expectedValue(requirement, unit);
-        return new ExpectedResultContract(
+        return Stream.of(new ExpectedResultContract(
                 requirement.id(),
                 assertionType(unit, expectedValue),
+                "",
                 expectedValue,
                 unit.ownerPage(),
                 unit.route(),
                 sourceReference(requirement.sourceReference()),
                 unit.type() == RequirementUnitType.ROUTE_EXPECTATION ? 1.0d : 0.88d
-        );
+        ));
+    }
+
+    private AssertionType structuredAssertionType(String value) {
+        if (value == null || value.isBlank()) {
+            return AssertionType.ELEMENT_VISIBLE;
+        }
+        try {
+            return AssertionType.valueOf(value.trim().toUpperCase(Locale.ROOT).replace('-', '_'));
+        } catch (IllegalArgumentException exception) {
+            return AssertionType.DATA_STATE_MATCHES;
+        }
     }
 
     private String expectedValue(NormalizedRequirement requirement, RequirementUnit unit) {
@@ -54,10 +80,23 @@ class ExpectedResultContractCatalogBuilder {
         if (unit.capability() == RequirementCapability.AUTHENTICATED_AREA) {
             return AssertionType.AUTHENTICATED_AREA_VISIBLE;
         }
+        if (unit.capability() == RequirementCapability.FILTER
+                || unit.capability() == RequirementCapability.RESULTS_COLLECTION
+                || containsAny(text, "results refresh", "matching all configured criteria", "matching vacancy", "displayed vacancy")) {
+            return AssertionType.DATA_STATE_MATCHES;
+        }
         if (containsAny(text, "visible", "displays", "accessible", "see")) {
             return AssertionType.ELEMENT_VISIBLE;
         }
         return AssertionType.TEXT_VISIBLE;
+    }
+
+    private boolean hasStructuredExpectedResult(RequirementUnit unit) {
+        return unit != null && unit.requirement() != null
+                && unit.requirement().tags() != null
+                && unit.requirement().tags().contains("structured-requirement")
+                && unit.requirement().expectedResult() != null
+                && !unit.requirement().expectedResult().isBlank();
     }
 
     private String sourceReference(SourceReference reference) {

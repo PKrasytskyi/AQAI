@@ -161,6 +161,25 @@ public class AiRunQualitySummaryTest {
     }
 
     @Test
+    public void summaryUsesFinalSanitizedPromptLocatorArtifactsInsteadOfRawEvidenceCount() {
+        AiRunQualitySummary summary = new AiRunQualitySummaryService().summarize(new AiRunQualitySummaryInput(
+                null,
+                null,
+                null,
+                MappedUiKnowledge.empty(),
+                Map.of(
+                        "prompt.ui.evidence.locator.count", "155",
+                        "ai.page.object.prompt.DashboardPage.allowedLocators", "0"
+                )
+        ));
+
+        Assert.assertEquals(summary.pageObjectPrompts(), 1);
+        Assert.assertEquals(summary.promptPagesWithoutAllowedLocators(), 1);
+        Assert.assertTrue(summary.qualityScore() < 80,
+                "A final prompt with zero allowed locators must not inherit global raw locator coverage");
+    }
+
+    @Test
     public void summaryExposesRetrievalHealthMetadata() {
         AiRunQualitySummary summary = new AiRunQualitySummaryService().summarize(new AiRunQualitySummaryInput(
                 null,
@@ -233,5 +252,22 @@ public class AiRunQualitySummaryTest {
         Assert.assertEquals(summary.pageEnrichmentOpenAiSuccesses(), 1);
         Assert.assertEquals(summary.pageEnrichmentOpenAiFailures(), 1);
         Assert.assertEquals(summary.pageEnrichmentOpenAiFallbacks(), 1);
+    }
+
+    @Test
+    public void terminalScopeGateFailureMakesQualityScoreZero() {
+        AiRunQualitySummary summary = new AiRunQualitySummaryService().summarize(new AiRunQualitySummaryInput(
+                null,
+                null,
+                null,
+                MappedUiKnowledge.empty(),
+                Map.of(
+                        "ai.workflow.terminal.status", "FAILED",
+                        "ai.workflow.terminal.stage", "pom-contract-generation",
+                        "ai.workflow.terminal.blocking.issues", "11"
+                )
+        ));
+
+        Assert.assertEquals(summary.qualityScore(), 0);
     }
 }

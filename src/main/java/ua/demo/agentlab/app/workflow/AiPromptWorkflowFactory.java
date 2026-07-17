@@ -2,6 +2,8 @@ package ua.demo.agentlab.app.workflow;
 
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaSourceStateBindingAgent;
+import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaTargetStateBindingAgent;
 
 import java.util.List;
 
@@ -28,15 +30,23 @@ public class AiPromptWorkflowFactory {
         List<WorkflowAgent> agents = List.of(
                 core.requirementReaderAgent(),
                 core.requirementNormalizationAgent(),
+                ai.structuredBehaviorContractAgent(),
                 core.policyLoadingAgent(),
                 core.uiDiscoveryAgent(),
                 core.uiRuntimeEvidenceAgent(),
                 core.uiPageModelAgent(),
                 core.uiPageMappingAgent(),
+                core.uiSpaInventoryAgent(),
+                core.uiSpaComponentInteractionGraphAgent(),
                 core.uiPageKnowledgePersistenceAgent(),
                 core.uiDiscoveryArtifactPersistenceAgent(),
                 ai.flowScopedKnowledgeAgent(),
                 core.requirementToTestCaseAgent(),
+                new UiSpaSourceStateBindingAgent(),
+                core.uiSpaTargetedVerificationAgent(),
+                core.uiLiveSpaTargetedVerificationAgent(),
+                new UiSpaTargetStateBindingAgent(),
+                core.uiSpaEvidenceRetentionAgent(),
                 core.flowContractBuilderAgent(),
                 core.flowContractPersistenceAgent(),
                 core.flowSemanticIndexAgent(),
@@ -49,12 +59,14 @@ public class AiPromptWorkflowFactory {
                 ai.pageModelEnrichmentAgent(),
                 ai.flowScopedKnowledgeRefreshAgent(),
                 ai.aiContextAssemblyAgent(),
+                ai.uiEvidenceFunnelAgent(),
                 ai.aiPageObjectSpecAgent(),
                 ai.pomContractPageObjectWriterAgent(),
                 core.filePersistenceAgent(),
                 core.generatedCodeCompileAgent(),
                 core.generatedCodeReviewAgent(),
                 core.generatedUiSmokeAgent(),
+                core.uiSpaSmokeEvidenceFeedbackAgent(),
                 core.artifactLifecyclePromotionAgent(),
                 core.flowRuntimeFeedbackAgent(),
                 core.artifactReuseMetricsAgent(),

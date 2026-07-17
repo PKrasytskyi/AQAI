@@ -330,6 +330,7 @@ The platform has executable checks for:
 
 ## Documentation
 
+- [Developer Onboarding and Delivery Guide](docs/DEVELOPER_ONBOARDING.md)
 - [License](LICENSE)
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
@@ -342,6 +343,11 @@ The platform has executable checks for:
 - [RAG Layer Guide](docs/RAG_LAYER_GUIDE.md)
 - [Target Architecture](docs/TARGET_ARCHITECTURE.md)
 - [Roadmap](ROADMAP.md)
+
+Development happens on short-lived `feature/`, `fix/`, `refactor/`, or `docs/`
+branches created from `dev`. `dev` is the stable integration baseline and
+`main` is the public/release baseline; see the onboarding guide for the merge
+and hotfix policy.
 
 ## Repository Hygiene
 

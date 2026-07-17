@@ -333,6 +333,7 @@ public class AiPageObjectSpecGenerator {
             artifacts.put("ai.workflow.terminal.stage", llmEnabled
                     ? "pom-contract-deterministic-java"
                     : "deterministic-page-object-prompts");
+            artifacts.put("ai.workflow.terminal.status", "SUCCESS");
             artifactFiles.add(promptArtifactWriter.writeJson("pom-llm-token-usage.json", Map.of(
                     "schemaVersion", "llm-token-usage.v1",
                     "stage", "pom-contract",
@@ -355,6 +356,7 @@ public class AiPageObjectSpecGenerator {
                     exception.report()
             ));
             artifacts.put("openai.page.object.status", "prompt-quality-gate-failed");
+            markTerminalFailure(artifacts, "prompt-quality-gate", exception);
             putPomLlmArtifacts(artifacts, pomLlmAttempts, pomLlmSuccesses, pomLlmPromptChars, pomLlmResponseChars,
                     pomLlmInputTokens, pomLlmOutputTokens, pomLlmTotalTokens);
             putArtifactReuseArtifacts(artifacts, artifactReuseHits, artifactReuseMisses, artifactReuseSkippedLlmCalls,
@@ -374,6 +376,7 @@ public class AiPageObjectSpecGenerator {
                     "openai.page.object.status",
                     runtimeConfig.strict() ? "active-generation-failed-strict" : "active-generation-failed-no-output"
             );
+            markTerminalFailure(artifacts, "pom-contract-generation", exception);
             putPomLlmArtifacts(artifacts, pomLlmAttempts, pomLlmSuccesses, pomLlmPromptChars, pomLlmResponseChars,
                     pomLlmInputTokens, pomLlmOutputTokens, pomLlmTotalTokens);
             putArtifactReuseArtifacts(artifacts, artifactReuseHits, artifactReuseMisses, artifactReuseSkippedLlmCalls,
@@ -385,6 +388,20 @@ public class AiPageObjectSpecGenerator {
             }
             return new AiPageObjectGenerationResult(specs, contracts, artifactFiles, artifacts, findings);
         }
+    }
+
+    private void markTerminalFailure(Map<String, String> artifacts, String stage, Exception exception) {
+        if (artifacts == null) {
+            return;
+        }
+        artifacts.put("ai.workflow.terminal.status", "FAILED");
+        artifacts.put("ai.workflow.terminal.stage", stage == null ? "unknown" : stage);
+        String message = exception == null || exception.getMessage() == null ? "" : exception.getMessage();
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("with\\s+(\\d+)\\s+blocking issue", java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(message);
+        artifacts.put("ai.workflow.terminal.blocking.issues", matcher.find() ? matcher.group(1) : "1");
+        artifacts.put("ai.workflow.terminal.failure.message", message);
     }
 
     private void putPomLlmArtifacts(
