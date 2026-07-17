@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "canonical-test-case-bundle.v1",
+  "fixtureStatus": "EXPECTED_SHAPE",
+  "scenarioIds": ["REQ-001", "REQ-002", "REQ-003", "REQ-004"],
+  "atomicity": "EACH_SCENARIO_RECREATES_REQUIRED_STATE",
+  "requiredOperations": ["OPEN_PAGE", "AUTHENTICATE", "OPEN_MENU", "LOGOUT"],
+  "finalRoute": "/auth/login"
+}

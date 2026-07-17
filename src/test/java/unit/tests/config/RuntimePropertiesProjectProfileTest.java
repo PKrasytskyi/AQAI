@@ -13,6 +13,49 @@ import java.util.Properties;
 public class RuntimePropertiesProjectProfileTest {
 
     @Test
+    public void activeFrameworkConfigurationResolvesFrozenOrangeHrmDemoBundle() {
+        RuntimeProperties runtimeProperties = new RuntimeProperties();
+        PropertiesProjectProfileLoader loader = new PropertiesProjectProfileLoader(runtimeProperties);
+        ProjectProfile profile = loader.loadDefaultProfile();
+
+        Assert.assertEquals(runtimeProperties.profileFile(),
+                "demo/orangehrm-login-logout/project-profile.yaml");
+        Assert.assertEquals(profile.profileId(), "orangeHRM");
+        Assert.assertEquals(profile.projectName(), "OrangeHRM Login Logout Demo");
+        Assert.assertEquals(loader.defaultRequirementLocation(),
+                "demo/orangehrm-login-logout/requirements.md");
+        Assert.assertTrue(runtimeProperties.readBoolean("demo.preflight.enabled", "false"));
+        Assert.assertEquals(runtimeProperties.readValue("demo.manifest.file", ""),
+                "demo/orangehrm-login-logout/demo-manifest.yaml");
+    }
+
+    @Test
+    public void orangeHrmProfileResolvesAuthenticationUserMenuLogoutFixture() {
+        Properties framework = new Properties();
+        framework.setProperty("project.profile.file", "profiles/orangehrm.project-profile.yaml");
+        framework.setProperty("project.output.generated-pages-package", "ua.demo.agentlab.ui.generated.pages");
+        framework.setProperty("project.output.generated-tests-package", "ua.demo.agentlab.ui.generated.tests");
+
+        RuntimeProperties runtimeProperties = new RuntimeProperties(framework);
+        PropertiesProjectProfileLoader loader = new PropertiesProjectProfileLoader(runtimeProperties);
+        ProjectProfile profile = loader.loadDefaultProfile();
+
+        Assert.assertEquals(profile.profileId(), "orangeHRM");
+        Assert.assertEquals(profile.baseUrl(), "https://opensource-demo.orangehrmlive.com/web/index.php");
+        Assert.assertEquals(profile.homeRoute(), "/auth/login");
+        Assert.assertEquals(profile.loginRoute(), "/auth/login");
+        Assert.assertEquals(profile.authenticatedRoute(), "/dashboard/index");
+        Assert.assertEquals(loader.defaultRequirementLocation(),
+                "requirements/orangehrm-authentication-user-menu-logout.md");
+        Assert.assertEquals(runtimeProperties.readValue("discovery.auth.submit-selector", ""),
+                "button[type='submit'], input[type='submit']");
+        Assert.assertTrue(runtimeProperties.readBoolean(
+                "spa.live-verification.execute-session-ending-actions", "false"));
+        Assert.assertTrue(runtimeProperties.readBoolean("spa.live-verification.execute-safe-actions", "false"));
+        Assert.assertFalse(runtimeProperties.readBoolean("spa.live-verification.execute-data-actions", "true"));
+    }
+
+    @Test
     public void profileValuesOverrideFrameworkAndSystemPropertiesOverrideProfile() throws Exception {
         Path profile = Files.createTempFile("project-profile", ".yaml");
         Files.writeString(profile, """
@@ -74,4 +117,3 @@ public class RuntimePropertiesProjectProfileTest {
         }
     }
 }
-

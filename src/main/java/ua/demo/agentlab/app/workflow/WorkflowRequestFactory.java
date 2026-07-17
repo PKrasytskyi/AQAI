@@ -48,10 +48,9 @@ public class WorkflowRequestFactory {
                         ? DEFAULT_REQUIREMENT_LOCATION
                         : profileRequirementLocation.trim());
 
-        if (isMissingFileLocation(requestedLocation) && Files.exists(Path.of(DEFAULT_REQUIREMENT_LOCATION))) {
-            System.err.println("Requirement file not found: " + requestedLocation
-                    + ". Falling back to " + DEFAULT_REQUIREMENT_LOCATION + ".");
-            return DEFAULT_REQUIREMENT_LOCATION;
+        if (isMissingFileLocation(requestedLocation)) {
+            throw new IllegalArgumentException("Requirement file not found: " + requestedLocation
+                    + ". Strict profile mode does not allow fallback requirements.");
         }
 
         return requestedLocation;

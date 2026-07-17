@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "normalized-requirement-bundle.v1",
+  "fixtureStatus": "EXPECTED_SHAPE",
+  "requirements": [
+    {"id": "REQ-001", "capability": "AUTHENTICATION", "expectedAssertionCount": 4},
+    {"id": "REQ-002", "capability": "AUTHENTICATION", "expectedAssertionCount": 3},
+    {"id": "REQ-003", "capability": "LOGOUT", "expectedAssertionCount": 3},
+    {"id": "REQ-004", "capability": "LOGOUT", "expectedAssertionCount": 3}
+  ]
+}

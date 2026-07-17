@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "pom-contract-v1",
+  "fixtureStatus": "EXPECTED_SHAPE",
+  "pages": [
+    {
+      "name": "LoginPage",
+      "route": "/auth/login",
+      "capability": "AUTHENTICATION",
+      "requiredActions": ["login"],
+      "requiredAssertions": ["authentication route", "authentication form visible"]
+    },
+    {
+      "name": "DashboardPage",
+      "route": "/dashboard/index",
+      "capability": "AUTHENTICATED_AREA",
+      "requiredActions": ["open user menu", "logout"],
+      "requiredAssertions": ["dashboard route", "authenticated heading visible", "logout visible"]
+    }
+  ],
+  "forbidden": ["raw WebDriver", "fallback locator", "external-origin navigation", "cross-page action"]
+}

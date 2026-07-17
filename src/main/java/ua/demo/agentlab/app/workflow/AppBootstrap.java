@@ -1,9 +1,16 @@
 package ua.demo.agentlab.app.workflow;
 
 import ua.demo.agentlab.ai.artifactdiff.AiRunWorkingDirectoryArchiver;
+import ua.demo.agentlab.ai.debug.AiRunArtifactWriter;
 import ua.demo.agentlab.config.ProjectProfile;
+import ua.demo.agentlab.config.RuntimeProperties;
+import ua.demo.agentlab.demo.DemoManifestLoader;
+import ua.demo.agentlab.demo.DemoManifestPreflightService;
+import ua.demo.agentlab.demo.DemoPreflightReport;
 import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.requirements.model.RequirementInput;
+
+import java.nio.file.Path;
 
 public class AppBootstrap {
 
@@ -53,12 +60,35 @@ public class AppBootstrap {
         WorkflowCoreComponents core = coreModuleFactory.create(request.projectProfile());
         if (request.mode() == WorkflowMode.AI_PROMPT) {
             new AiRunWorkingDirectoryArchiver().archiveAndCleanBeforeRun();
+            validateDemoManifest();
             return aiPromptWorkflowFactory.create(initialState, core);
         }
         if (request.mode() == WorkflowMode.API_DEMO) {
             return apiDemoWorkflowFactory.create(initialState, core);
         }
         return deterministicWorkflowFactory.create(initialState, core);
+    }
+
+    private void validateDemoManifest() {
+        RuntimeProperties properties = new RuntimeProperties();
+        if (!properties.readBoolean("demo.preflight.enabled", "false")) {
+            return;
+        }
+        String configuredManifest = properties.readValue("demo.manifest.file", "");
+        if (configuredManifest.isBlank()) {
+            throw new IllegalStateException("Demo preflight is enabled but demo.manifest.file is not configured.");
+        }
+        var manifest = new DemoManifestLoader().load(Path.of(configuredManifest));
+        DemoPreflightReport report = new DemoManifestPreflightService().validate(
+                manifest, Path.of("").toAbsolutePath().normalize());
+        new AiRunArtifactWriter().writeJson("quality", "demo-input-readiness.json", report);
+        if (!report.ready()) {
+            String details = report.issues().stream()
+                    .map(issue -> issue.code() + ": " + issue.message())
+                    .reduce((left, right) -> left + "; " + right)
+                    .orElse("unknown demo preflight failure");
+            throw new IllegalStateException("Demo preflight failed: " + details);
+        }
     }
 
     private WorkflowState initialState(WorkflowRequest request) {
