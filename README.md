@@ -142,6 +142,7 @@ artifact.reuse.force-refresh=false
 
 - `KNOWLEDGE_DB_STATUS=false` disables RAG, Neo4j, Qdrant, and artifact reuse for a no-DB comparison run.
 - `KNOWLEDGE_DB_STATUS=true` enables RAG, Neo4j, Qdrant, and artifact reuse for a DB-backed run.
+- Demo manifests use `runtime.databaseMode: environment-controlled`, so the same immutable demo input supports both runs. Fixed `without-db-baseline` and `with-db-required` modes remain available for dedicated manifests.
 - `ai.page-enrichment.llm.enabled` controls whether page enrichment can call OpenAI.
 - `rag.enabled` controls retrieval/indexing behavior and must not be treated as the page-enrichment switch.
 - `knowledge.graph.enabled` and `knowledge.vector.enabled` control Neo4j/Qdrant persistence and retrieval availability.

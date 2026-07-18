@@ -78,7 +78,7 @@ TEST_VALID_PASSWORD
 KNOWLEDGE_DB_STATUS
 ```
 
-`KNOWLEDGE_DB_STATUS=false` disables RAG, Neo4j, Qdrant, and artifact reuse together for a clean no-DB comparison run. `true` enables the configured knowledge integrations; reachable services and required keys are still necessary.
+`KNOWLEDGE_DB_STATUS=false` disables RAG, Neo4j, Qdrant, and artifact reuse together for a clean no-DB comparison run. `true` enables the configured knowledge integrations; reachable services and required keys are still necessary. The shared demo manifests declare `runtime.databaseMode: environment-controlled`, so switching this single variable does not require editing or duplicating the manifest.
 
 ## 4. Run Modes
 

@@ -141,7 +141,7 @@ The work is divided into five daily checkpoints. A day is complete only when its
 
 ### BW-01: Add a demo manifest
 
-Status: **COMPLETE** on branch `codex/feature-orangehrm-demo`.
+Status: **COMPLETE** on branch `feature-orangehrm-demo`.
 
 Implemented artifacts:
 
@@ -162,7 +162,7 @@ Create a versioned demo descriptor containing:
 - expected scenario IDs;
 - expected POM names;
 - expected final route/state;
-- database mode;
+- database mode policy (`environment-controlled` for paired DB/no-DB runs, or a fixed mode for a dedicated baseline);
 - AI mode;
 - schema versions.
 

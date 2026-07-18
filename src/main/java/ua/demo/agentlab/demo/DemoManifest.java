@@ -18,7 +18,7 @@ public record DemoManifest(
         List<String> expectedLifecycle,
         String expectedFinalRoute,
         String expectedFinalState,
-        String databaseMode,
+        DemoDatabaseMode databaseMode,
         String aiMode,
         Map<String, String> schemaVersions
 ) {
@@ -37,7 +37,7 @@ public record DemoManifest(
         expectedLifecycle = copy(expectedLifecycle);
         expectedFinalRoute = safe(expectedFinalRoute);
         expectedFinalState = safe(expectedFinalState);
-        databaseMode = safe(databaseMode);
+        databaseMode = databaseMode == null ? DemoDatabaseMode.UNKNOWN : databaseMode;
         aiMode = safe(aiMode);
         schemaVersions = schemaVersions == null ? Map.of() : Map.copyOf(schemaVersions);
     }

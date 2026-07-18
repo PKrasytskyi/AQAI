@@ -36,7 +36,7 @@ expected:
   finalState: UNAUTHENTICATED_LOGIN_READY
 
 runtime:
-  databaseMode: without-db-baseline
+  databaseMode: environment-controlled
   aiMode: pom-contract-only
 
 schemas:

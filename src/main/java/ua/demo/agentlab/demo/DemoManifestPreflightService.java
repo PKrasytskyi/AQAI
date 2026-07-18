@@ -205,11 +205,25 @@ public final class DemoManifestPreflightService {
                     "Missing required environment variables: " + String.join(", ", missing) + "."));
         }
         String dbStatus = environment.apply("KNOWLEDGE_DB_STATUS");
-        if (dbStatus != null && !dbStatus.isBlank()
-                && manifest.databaseMode().equalsIgnoreCase("without-db-baseline")
-                && Boolean.parseBoolean(dbStatus.trim())) {
+        if (dbStatus == null || dbStatus.isBlank()) {
+            return;
+        }
+        String normalizedStatus = dbStatus.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("true", "false").contains(normalizedStatus)) {
+            issues.add(issue("DATABASE_STATUS_INVALID",
+                    "KNOWLEDGE_DB_STATUS must be either true or false."));
+            return;
+        }
+        boolean databaseEnabled = Boolean.parseBoolean(normalizedStatus);
+        if (manifest.databaseMode() == DemoDatabaseMode.WITHOUT_DB_BASELINE && databaseEnabled) {
             issues.add(issue("DATABASE_MODE_MISMATCH",
                     "Demo manifest requires KNOWLEDGE_DB_STATUS=false for the without-DB baseline run."));
+        } else if (manifest.databaseMode() == DemoDatabaseMode.WITH_DB_REQUIRED && !databaseEnabled) {
+            issues.add(issue("DATABASE_MODE_MISMATCH",
+                    "Demo manifest requires KNOWLEDGE_DB_STATUS=true for the with-DB run."));
+        } else if (manifest.databaseMode() == DemoDatabaseMode.UNKNOWN) {
+            issues.add(issue("DATABASE_MODE_INVALID",
+                    "Demo manifest databaseMode must be without-db-baseline, with-db-required, or environment-controlled."));
         }
     }
 

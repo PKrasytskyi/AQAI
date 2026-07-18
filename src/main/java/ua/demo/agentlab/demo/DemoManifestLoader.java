@@ -39,7 +39,7 @@ public final class DemoManifestLoader {
                     strings(expected.get("lifecycle")),
                     text(expected.get("finalRoute")),
                     text(expected.get("finalState")),
-                    text(runtime.get("databaseMode")),
+                    DemoDatabaseMode.from(text(runtime.get("databaseMode"))),
                     text(runtime.get("aiMode")),
                     stringMap(root.get("schemas"))
             );

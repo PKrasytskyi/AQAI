@@ -2,6 +2,7 @@ package unit.tests.demo;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
+import ua.demo.agentlab.demo.DemoDatabaseMode;
 import ua.demo.agentlab.demo.DemoManifest;
 import ua.demo.agentlab.demo.DemoManifestLoader;
 import ua.demo.agentlab.demo.DemoManifestPreflightService;
@@ -75,7 +76,7 @@ public class DemoManifestPreflightServiceTest {
     }
 
     @Test
-    public void withDbOverrideIsRejectedForBaselineManifest() {
+    public void environmentControlledManifestAcceptsWithDbRun() {
         DemoManifest manifest = new DemoManifestLoader().load(MANIFEST);
         Map<String, String> environment = Map.of(
                 "TEST_VALID_USERNAME", "configured-user",
@@ -87,9 +88,35 @@ public class DemoManifestPreflightServiceTest {
         var report = new DemoManifestPreflightService().validate(
                 manifest, WORKSPACE, environment::get);
 
+        Assert.assertTrue(report.ready(), report.issues().toString());
+        Assert.assertTrue(report.issues().isEmpty());
+    }
+
+    @Test
+    public void fixedWithoutDbBaselineStillRejectsWithDbRun() {
+        DemoManifest manifest = withDatabaseMode(
+                new DemoManifestLoader().load(MANIFEST),
+                DemoDatabaseMode.WITHOUT_DB_BASELINE
+        );
+
+        var report = new DemoManifestPreflightService().validate(
+                manifest, WORKSPACE, configuredEnvironment("true")::get);
+
         Assert.assertFalse(report.ready());
         Assert.assertEquals(report.issues().size(), 1);
         Assert.assertEquals(report.issues().get(0).code(), "DATABASE_MODE_MISMATCH");
+    }
+
+    @Test
+    public void invalidDatabaseStatusIsReportedExplicitly() {
+        DemoManifest manifest = new DemoManifestLoader().load(MANIFEST);
+
+        var report = new DemoManifestPreflightService().validate(
+                manifest, WORKSPACE, configuredEnvironment("enabled")::get);
+
+        Assert.assertFalse(report.ready());
+        Assert.assertEquals(report.issues().size(), 1);
+        Assert.assertEquals(report.issues().get(0).code(), "DATABASE_STATUS_INVALID");
     }
 
     private Map<String, String> configuredEnvironment(String dbStatus) {
@@ -98,6 +125,26 @@ public class DemoManifestPreflightServiceTest {
                 "TEST_VALID_PASSWORD", "configured-password",
                 "OPENAI_API_KEY", "configured-openai-key",
                 "KNOWLEDGE_DB_STATUS", dbStatus
+        );
+    }
+
+    private DemoManifest withDatabaseMode(DemoManifest manifest, DemoDatabaseMode databaseMode) {
+        return new DemoManifest(
+                manifest.schemaVersion(),
+                manifest.demoId(),
+                manifest.projectProfilePath(),
+                manifest.requirementFixturePath(),
+                manifest.requiredEnvironmentVariables(),
+                manifest.expectedPageCapabilities(),
+                manifest.expectedScenarioIds(),
+                manifest.expectedPomNames(),
+                manifest.expectedLogoutAccessMode(),
+                manifest.expectedLifecycle(),
+                manifest.expectedFinalRoute(),
+                manifest.expectedFinalState(),
+                databaseMode,
+                manifest.aiMode(),
+                manifest.schemaVersions()
         );
     }
 }
