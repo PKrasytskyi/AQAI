@@ -152,7 +152,7 @@ public class FormStructureExtractor {
 
     private String safeAttribute(WebElement element, String attribute) {
         try {
-            String value = element.getAttribute(attribute);
+            String value = element.getDomAttribute(attribute);
             return value == null ? null : value.trim();
         } catch (Exception exception) {
             return null;

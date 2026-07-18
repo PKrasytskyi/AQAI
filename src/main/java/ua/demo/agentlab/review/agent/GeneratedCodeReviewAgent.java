@@ -11,6 +11,7 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.persistence.GeneratedUiSources;
+import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
 import java.util.List;
 import java.util.Set;
@@ -53,13 +54,32 @@ public class GeneratedCodeReviewAgent implements WorkflowAgent,
 
     @Override
     public GeneratedUiSources inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        if (store == null) {
+            return new GeneratedUiSources(state.getPageObjectFiles(), state.getUiTestFiles());
+        }
+        List<GeneratedSourceFile> pageObjectFiles = store.getList(
+                WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES,
+                GeneratedSourceFile.class
+        );
+        if (pageObjectFiles.isEmpty()) {
+            pageObjectFiles = store.getList(
+                    WorkflowArtifact.PAGE_OBJECT_FILES,
+                    GeneratedSourceFile.class
+            );
+        }
+        if (pageObjectFiles.isEmpty()) {
+            pageObjectFiles = state.getPageObjectFiles();
+        }
+        List<GeneratedSourceFile> uiTestFiles = store.getList(
+                WorkflowArtifact.UI_TEST_FILES,
+                GeneratedSourceFile.class
+        );
+        if (uiTestFiles.isEmpty()) {
+            uiTestFiles = state.getUiTestFiles();
+        }
         return new GeneratedUiSources(
-                store == null ? state.getPageObjectFiles() : (List<ua.demo.agentlab.ui.writer.GeneratedSourceFile>)
-                        store.get(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES)
-                                .or(() -> store.get(WorkflowArtifact.PAGE_OBJECT_FILES))
-                                .orElse(state.getPageObjectFiles()),
-                store == null ? state.getUiTestFiles() : (List<ua.demo.agentlab.ui.writer.GeneratedSourceFile>)
-                        store.get(WorkflowArtifact.UI_TEST_FILES).orElse(state.getUiTestFiles())
+                pageObjectFiles,
+                uiTestFiles
         );
     }
 

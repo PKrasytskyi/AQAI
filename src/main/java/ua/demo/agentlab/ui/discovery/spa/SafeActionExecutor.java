@@ -226,7 +226,7 @@ public final class SafeActionExecutor {
     private boolean isSameOriginControl(WebDriver driver, WebElement control) {
         try {
             URI current = URI.create(driver.getCurrentUrl());
-            String href = control.getAttribute("href");
+            String href = control.getDomProperty("href");
             if (href == null || href.isBlank() || "#".equals(href.trim())) return true;
             URI target = current.resolve(href.trim());
             return target.getHost() == null || current.getHost() != null
@@ -273,7 +273,7 @@ public final class SafeActionExecutor {
     }
 
     private String value(WebElement element) {
-        String value = element.getAttribute("value");
+        String value = element.getDomProperty("value");
         return value == null ? "" : value;
     }
 

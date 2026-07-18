@@ -348,7 +348,7 @@ public class SafeNavigationCrawler {
                 if (!link.isDisplayed() || !link.isEnabled()) {
                     continue;
                 }
-                String href = link.getAttribute("href");
+                String href = link.getDomProperty("href");
                 if (routeMatches(RouteCanonicalizer.canonicalize(href), targetRoute)) {
                     link.click();
                     return true;

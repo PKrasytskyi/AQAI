@@ -426,7 +426,7 @@ public class DeterministicPomJavaWriter {
             case TEXT_PRESENT -> "!child(" + locatorReference(check.locator()) + ").getText().isBlank()";
             case TEXT_CONTAINS -> "child(" + locatorReference(check.locator()) + ").getText().contains(" + expected + ")";
             case TEXT_EQUALS -> "child(" + locatorReference(check.locator()) + ").getText().equals(" + expected + ")";
-            case ATTRIBUTE_EQUALS -> "child(" + locatorReference(check.locator()) + ").getAttribute(\""
+            case ATTRIBUTE_EQUALS -> "child(" + locatorReference(check.locator()) + ").getDomAttribute(\""
                     + escapeJava(check.attribute()) + "\").equals(" + expected + ")";
             case URL_CONTAINS -> "getCurrentUrl().contains(" + valueExpression("", firstNonBlank(check.route(), check.expectedValue())) + ")";
             case URL_EQUALS -> "getCurrentUrl().equals(" + valueExpression("", firstNonBlank(check.route(), check.expectedValue())) + ")";

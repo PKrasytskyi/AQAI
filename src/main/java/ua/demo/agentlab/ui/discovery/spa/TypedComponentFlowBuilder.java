@@ -66,5 +66,19 @@ public final class TypedComponentFlowBuilder {
     }
     private List<SemanticComponentInventory> results(Map<ComponentType,List<SemanticComponentInventory>> map){ List<SemanticComponentInventory> r=new ArrayList<>();r.addAll(map.getOrDefault(ComponentType.RESULTS_COLLECTION,List.of()));r.addAll(map.getOrDefault(ComponentType.TABLE,List.of()));return r; }
     private List<CandidateActionEvidence> actions(List<SemanticComponentInventory> c, Set<String> intents){return c.stream().flatMap(x->x.actions().stream()).filter(a->intents.contains(a.intent())).toList();}
-    private List<String> ids(List<SemanticComponentInventory>... groups){return Arrays.stream(groups).filter(Objects::nonNull).flatMap(Collection::stream).map(SemanticComponentInventory::componentId).distinct().toList();}
+    private List<String> ids(List<SemanticComponentInventory> group) {
+        return ids(group, List.of());
+    }
+
+    private List<String> ids(
+            List<SemanticComponentInventory> first,
+            List<SemanticComponentInventory> second
+    ) {
+        return java.util.stream.Stream.of(first, second)
+                .filter(Objects::nonNull)
+                .flatMap(Collection::stream)
+                .map(SemanticComponentInventory::componentId)
+                .distinct()
+                .toList();
+    }
 }

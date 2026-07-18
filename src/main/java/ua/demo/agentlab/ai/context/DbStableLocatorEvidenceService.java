@@ -124,7 +124,7 @@ public class DbStableLocatorEvidenceService {
 
     private Map<String, String> properties(JsonNode node) {
         Map<String, String> properties = new LinkedHashMap<>();
-        node.fields().forEachRemaining(entry -> properties.put(entry.getKey(), entry.getValue().asText("")));
+        node.properties().forEach(entry -> properties.put(entry.getKey(), entry.getValue().asText("")));
         return properties;
     }
 

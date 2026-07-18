@@ -110,7 +110,7 @@ public class RuntimeLocatorCountCollector {
 
     private String safeAttribute(WebElement element, String attribute) {
         try {
-            String value = element.getAttribute(attribute);
+            String value = element.getDomAttribute(attribute);
             return value == null ? "" : value.trim();
         } catch (Exception ignored) {
             return "";

@@ -140,7 +140,7 @@ public class DropdownInteractionSnapshotExpander {
 
     private boolean hasNavigationHref(WebElement element) {
         try {
-            String href = element.getAttribute("href");
+            String href = element.getDomProperty("href");
             return href != null && !href.isBlank();
         } catch (Exception ignored) {
             return false;

@@ -4,6 +4,7 @@ import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -27,6 +28,20 @@ public class PipelineArtifactStore {
             return Optional.empty();
         }
         return Optional.ofNullable(artifacts.get(artifact));
+    }
+
+    public <T> List<T> getList(WorkflowArtifact artifact, Class<T> elementType) {
+        if (elementType == null) {
+            throw new IllegalArgumentException("elementType cannot be null");
+        }
+        Object value = get(artifact).orElse(null);
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> values)) {
+            throw new IllegalStateException("Pipeline artifact is not a list: " + artifact);
+        }
+        return values.stream().map(elementType::cast).toList();
     }
 
     @SuppressWarnings("unchecked")

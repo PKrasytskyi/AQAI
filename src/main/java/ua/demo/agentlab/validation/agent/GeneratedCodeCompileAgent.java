@@ -55,9 +55,15 @@ public class GeneratedCodeCompileAgent implements WorkflowAgent,
         if (store == null) {
             return state.getWrittenFiles();
         }
-        return (List<String>) store.get(WorkflowArtifact.PERSISTED_GENERATED_SOURCES)
-                .or(() -> store.get(WorkflowArtifact.WRITTEN_FILES))
-                .orElse(state.getWrittenFiles());
+        List<String> persistedSources = store.getList(
+                WorkflowArtifact.PERSISTED_GENERATED_SOURCES,
+                String.class
+        );
+        if (!persistedSources.isEmpty()) {
+            return persistedSources;
+        }
+        List<String> writtenFiles = store.getList(WorkflowArtifact.WRITTEN_FILES, String.class);
+        return writtenFiles.isEmpty() ? state.getWrittenFiles() : writtenFiles;
     }
 
     @Override

@@ -20,7 +20,7 @@ public class UploadCapabilityAdapter implements BrowserCapabilityAdapter {
         if (!Files.isRegularFile(file)) return BrowserCapabilityResult.failed("Upload file does not exist");
         WebElement input = driver.findElement(locators.resolve(request));
         input.sendKeys(file.toString());
-        String value = input.getAttribute("value");
+        String value = input.getDomProperty("value");
         return value == null || value.isBlank()
                 ? BrowserCapabilityResult.failed("File input did not retain a selected file")
                 : BrowserCapabilityResult.passed("File input accepted the configured file");

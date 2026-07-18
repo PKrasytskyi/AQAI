@@ -29,6 +29,7 @@ import ua.demo.agentlab.ui.discovery.pagemodel.model.PageLocatorModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.PageKnowledgeFingerprintCalculator;
+import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorContract;
 import ua.demo.agentlab.ui.UiTestScenario;
 import ua.demo.agentlab.ui.contract.UiOperationKind;
 
@@ -102,6 +103,9 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
         if (state == null) {
             throw new IllegalArgumentException("state cannot be null");
         }
+        List<BoundSpaBehaviorContract> behaviorBindings = store.require(
+                WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS
+        );
         return new PageModelEnrichmentInputBundle(
                 state.getProjectProfile(),
                 state.getUiTestPlan(),
@@ -110,9 +114,7 @@ public class PageModelEnrichmentAgent implements WorkflowAgent,
                 state.getMappedUiKnowledge(),
                 state.getFlowScopedKnowledgePackage(),
                 state.getPageKnowledgeCacheLookupResult(),
-                store.get(WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS)
-                        .map(value -> (List<ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorContract>) value)
-                        .orElse(List.of())
+                behaviorBindings
         );
     }
 

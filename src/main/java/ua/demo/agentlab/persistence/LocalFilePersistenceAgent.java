@@ -61,14 +61,16 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
 
     @Override
     public GeneratedUiSources inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        List<GeneratedSourceFile> pageObjectFiles = store.getList(
+                WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES,
+                GeneratedSourceFile.class
+        );
+        if (pageObjectFiles.isEmpty()) {
+            pageObjectFiles = store.getList(WorkflowArtifact.PAGE_OBJECT_FILES, GeneratedSourceFile.class);
+        }
         return new GeneratedUiSources(
-                store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES)
-                        .or(() -> store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.PAGE_OBJECT_FILES))
-                        .map(value -> (java.util.List<GeneratedSourceFile>) value)
-                        .orElse(List.of()),
-                store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.UI_TEST_FILES)
-                        .map(value -> (java.util.List<GeneratedSourceFile>) value)
-                        .orElse(List.of())
+                pageObjectFiles,
+                store.getList(WorkflowArtifact.UI_TEST_FILES, GeneratedSourceFile.class)
         );
     }
 

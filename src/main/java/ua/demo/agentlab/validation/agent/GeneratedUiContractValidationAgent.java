@@ -10,6 +10,7 @@ import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.persistence.GeneratedUiSources;
 import ua.demo.agentlab.validation.GeneratedUiContractValidationResult;
 import ua.demo.agentlab.validation.GeneratedUiContractValidator;
+import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
 import java.util.List;
 import java.util.Set;
@@ -54,11 +55,20 @@ public class GeneratedUiContractValidationAgent implements WorkflowAgent,
 
     @Override
     public GeneratedUiSources inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        if (store == null) {
+            return new GeneratedUiSources(state.getPageObjectFiles(), state.getUiTestFiles());
+        }
+        List<GeneratedSourceFile> pageObjectFiles = store.getList(
+                WorkflowArtifact.PAGE_OBJECT_FILES,
+                GeneratedSourceFile.class
+        );
+        List<GeneratedSourceFile> uiTestFiles = store.getList(
+                WorkflowArtifact.UI_TEST_FILES,
+                GeneratedSourceFile.class
+        );
         return new GeneratedUiSources(
-                store == null ? state.getPageObjectFiles() : (List<ua.demo.agentlab.ui.writer.GeneratedSourceFile>)
-                        store.get(WorkflowArtifact.PAGE_OBJECT_FILES).orElse(state.getPageObjectFiles()),
-                store == null ? state.getUiTestFiles() : (List<ua.demo.agentlab.ui.writer.GeneratedSourceFile>)
-                        store.get(WorkflowArtifact.UI_TEST_FILES).orElse(state.getUiTestFiles())
+                pageObjectFiles.isEmpty() ? state.getPageObjectFiles() : pageObjectFiles,
+                uiTestFiles.isEmpty() ? state.getUiTestFiles() : uiTestFiles
         );
     }
 

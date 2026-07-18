@@ -98,7 +98,7 @@ public class ElementActions {
     }
 
     public String attribute(By locator, String attributeName) {
-        return waits.visible(locator).getAttribute(attributeName);
+        return waits.visible(locator).getDomAttribute(attributeName);
     }
 
     public String domProperty(By locator, String propertyName) {

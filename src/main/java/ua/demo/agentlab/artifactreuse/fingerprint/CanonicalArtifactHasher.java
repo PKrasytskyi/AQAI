@@ -3,6 +3,7 @@ package ua.demo.agentlab.artifactreuse.fingerprint;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -15,9 +16,10 @@ import java.util.Map;
 
 public class CanonicalArtifactHasher {
 
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
-            .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+    private final ObjectMapper objectMapper = JsonMapper.builder()
+            .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+            .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+            .build();
 
     public ArtifactFingerprint hash(Map<String, Object> canonicalInput) {
         try {
@@ -28,7 +30,6 @@ public class CanonicalArtifactHasher {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private Object canonicalize(Object value) {
         if (value == null) {
             return "";
@@ -62,9 +63,6 @@ public class CanonicalArtifactHasher {
         }
         if (value instanceof Enum<?> enumValue) {
             return enumValue.name();
-        }
-        if (value instanceof Map) {
-            return canonicalize((Map<String, Object>) value);
         }
         return normalize(String.valueOf(value));
     }

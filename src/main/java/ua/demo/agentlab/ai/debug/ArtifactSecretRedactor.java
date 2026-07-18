@@ -38,7 +38,7 @@ public final class ArtifactSecretRedactor {
         if (node == null || node.isNull()) return node;
         if (node.isObject()) {
             ObjectNode result = ((ObjectNode) node).deepCopy();
-            result.fields().forEachRemaining(entry -> {
+            result.properties().forEach(entry -> {
                 boolean sensitive = sensitiveContext || sensitiveField(entry.getKey())
                         || "resolvedData".equalsIgnoreCase(entry.getKey());
                 result.set(entry.getKey(), redactNode(entry.getValue(), sensitive, secrets));

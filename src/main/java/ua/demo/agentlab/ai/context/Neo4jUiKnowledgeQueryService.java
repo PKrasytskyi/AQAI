@@ -86,7 +86,7 @@ public class Neo4jUiKnowledgeQueryService {
             Map<String, String> metadata = new LinkedHashMap<>();
             JsonNode metadataNode = row.get(6);
             if (metadataNode != null && metadataNode.isObject()) {
-                metadataNode.fields().forEachRemaining(entry -> metadata.put(entry.getKey(), entry.getValue().asText("")));
+                metadataNode.properties().forEach(entry -> metadata.put(entry.getKey(), entry.getValue().asText("")));
             }
             matches.add(new UiKnowledgeGraphMatch(
                     row.get(0).asText(""),
