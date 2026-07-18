@@ -11,6 +11,18 @@ Verify the atomic authentication lifecycle: login form readiness, valid authenti
 * Each requirement recreates its prerequisite state inside the same scenario.
 * Only same-origin, visible, enabled, live-verified controls are executable evidence.
 
+## UI Expectations
+
+* GOV-001: Username and password values must come only from the configured environment-backed test data.
+
+## Runtime Evidence Expectations
+
+* GOV-002: Authentication and logout route transitions must be confirmed by current-run browser evidence.
+
+## Quality Expectations
+
+* GOV-003: Candidate or fallback locators must not be promoted into executable Page Object evidence.
+
 ---
 
 ## Requirement: REQ-001 Authentication Form Is Ready
@@ -52,7 +64,9 @@ Verify the atomic authentication lifecycle: login form readiness, valid authenti
 
 * `pageCapability: AUTHENTICATION`
 * `componentCapability: FORM`
+* `sourceRoute: project-profile.loginRoute`
 * `targetRoute: project-profile.loginRoute`
+* `sourcePage: discovery-confirmed authentication page`
 * `targetPage: discovery-confirmed authentication page`
 
 ### Data Requirements
@@ -149,6 +163,7 @@ Verify the atomic authentication lifecycle: login form readiness, valid authenti
 * `componentCapability: USER_MENU`
 * `sourceRoute: project-profile.authenticatedRoute`
 * `targetRoute: project-profile.authenticatedRoute`
+* `sourcePage: discovery-confirmed authenticated area page`
 * `targetPage: discovery-confirmed authenticated area page`
 * `logoutAccessMode: USER_MENU`
 

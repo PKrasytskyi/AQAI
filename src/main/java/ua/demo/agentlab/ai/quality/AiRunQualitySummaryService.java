@@ -60,11 +60,15 @@ public class AiRunQualitySummaryService {
                 .filter(locator -> locator.stabilityScore() < LOW_CONFIDENCE_LOCATOR_THRESHOLD
                         || locator.risks().stream().anyMatch(this::isUnstableRisk))
                 .count();
-        int confirmedLocators = evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CONFIRMED_LOCATOR);
-        int candidateLocators = evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CANDIDATE_LOCATOR);
+        int promptAllowedLocators = finalPromptAllowedLocatorCount(input);
+        int confirmedLocators = Math.max(
+                evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CONFIRMED_LOCATOR),
+                promptAllowedLocators
+        );
+        int candidateLocators = Math.max(0,
+                evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CANDIDATE_LOCATOR) - confirmedLocators);
         int fallbackLocators = evidenceTypeCount(locatorCandidates, LocatorEvidenceType.FALLBACK_LOCATOR);
         int promptBlockingIssues = promptBlockingIssues(input);
-        int promptAllowedLocators = finalPromptAllowedLocatorCount(input);
         int runtimeFeedbackIssues = intArtifact(input, "ui.runtime.feedback.issue.count", 0);
         double runtimeLocatorPassRate = doubleArtifact(input, "ui.runtime.feedback.locator.pass.rate", 1.0d);
         double runtimeFlakyRiskScore = doubleArtifact(input, "ui.runtime.feedback.flaky.risk.score", 0.0d);

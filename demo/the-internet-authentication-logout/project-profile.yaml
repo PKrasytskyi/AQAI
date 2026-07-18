@@ -1,0 +1,67 @@
+schemaVersion: project-profile.v1
+
+project:
+  id: the-internet
+  name: The Internet Authentication Logout Demo
+  baseUrl: https://the-internet.herokuapp.com
+
+requirements:
+  file: requirements/the-internet-authentication-logout.md
+
+routes:
+  home: /
+  login: /login
+  authenticated: /secure
+
+ui:
+  baseUrl: https://the-internet.herokuapp.com
+  browser: chrome
+  headless: true
+  timeoutSeconds: 10
+
+auth:
+  enabled: true
+  usernameEnv: TEST_VALID_USERNAME
+  passwordEnv: TEST_VALID_PASSWORD
+  usernameSelector: "input#username, input[name='username']"
+  passwordSelector: "input#password, input[name='password'], input[type='password']"
+  submitSelector: "button[type='submit'], input[type='submit']"
+
+ai:
+  openAiEnabled: true
+  pageEnrichmentLlmEnabled: true
+  pageObjectLlmEnabled: true
+  uiTestLlmEnabled: false
+
+knowledge:
+  ragEnabled: true
+  graphEnabled: true
+  vectorEnabled: true
+
+artifactReuse:
+  enabled: true
+  forceRefresh: false
+  stableRoot: target/ai-run-history/stable
+  promptTemplateVersion: pom-json-generation-v3
+  flowContractEnabled: true
+  pomContractEnabled: true
+  testDataEnabled: false
+  policy: strict
+  explainDecisions: true
+  writerVersion: deterministic-pom-java-writer-v1
+
+semantic:
+  reuseEnabled: true
+
+spa:
+  inventory:
+    enabled: false
+  discovery:
+    mode: targeted
+  targetedVerification:
+    enabled: true
+  liveVerification:
+    enabled: true
+    executeSessionEndingActions: true
+    executeSafeActions: true
+    executeDataActions: false

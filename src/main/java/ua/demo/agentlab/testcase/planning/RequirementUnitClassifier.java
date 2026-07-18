@@ -102,13 +102,11 @@ class RequirementUnitClassifier {
     }
 
     private RequirementIntent intent(NormalizedRequirement requirement, RequirementUnitType type, RequirementCapability capability) {
-        String text = text(requirement);
-        if (hasTag(requirement, "structured-requirement")) {
-            if (capability == RequirementCapability.MODULE_NAVIGATION) return RequirementIntent.MODULE_NAVIGATION;
-            if (capability == RequirementCapability.FILTER) return RequirementIntent.FILTER;
-            if (capability == RequirementCapability.SEARCH) return RequirementIntent.SEARCH;
-            if (capability == RequirementCapability.RESULTS_COLLECTION) return RequirementIntent.INSPECT_CONTENT;
+        RequirementIntent structuredIntent = structuredIntent(requirement, capability);
+        if (structuredIntent != null) {
+            return structuredIntent;
         }
+        String text = text(requirement);
         if (type == RequirementUnitType.ROUTE_EXPECTATION || containsAny(text, "route", "url")) {
             return RequirementIntent.VERIFY_ROUTE;
         }
@@ -152,6 +150,31 @@ class RequirementUnitClassifier {
             return containsAny(text, "accessible") ? RequirementIntent.VERIFY_PAGE_ACCESSIBLE : RequirementIntent.OPEN_PAGE;
         }
         return RequirementIntent.INSPECT_CONTENT;
+    }
+
+    private RequirementIntent structuredIntent(NormalizedRequirement requirement, RequirementCapability capability) {
+        if (!hasTag(requirement, "structured-requirement")) {
+            return null;
+        }
+        String actions = normalize(String.join(" ", requirement.structuredSections()
+                .getOrDefault("action", List.of())));
+        if ((actions.contains("logout") && containsAny(actions, "click", "activate", "select"))
+                || containsAny(actions, "sign out", "log out")) {
+            return RequirementIntent.LOGOUT;
+        }
+        if (containsAny(actions, "open the authenticated user menu", "open user menu", "open the user menu")) {
+            return RequirementIntent.OPEN_MENU;
+        }
+        if (containsAny(actions, "enter username", "enter password") && containsAny(actions, "submit")) {
+            return RequirementIntent.AUTHENTICATE;
+        }
+        if (capability == RequirementCapability.MODULE_NAVIGATION) return RequirementIntent.MODULE_NAVIGATION;
+        if (capability == RequirementCapability.FILTER) return RequirementIntent.FILTER;
+        if (capability == RequirementCapability.SEARCH) return RequirementIntent.SEARCH;
+        if (capability == RequirementCapability.RESULTS_COLLECTION) return RequirementIntent.INSPECT_CONTENT;
+        if (containsAny(actions, "open the target page", "open target page")) return RequirementIntent.OPEN_PAGE;
+        if (containsAny(actions, "inspect", "verify", "read")) return RequirementIntent.INSPECT_CONTENT;
+        return null;
     }
 
     private boolean containsAny(String value, String... fragments) {

@@ -28,6 +28,7 @@ public enum UiOperationKind {
     CREATE_RECORD,
     EDIT_RECORD,
     DELETE_RECORD,
+    OPEN_MENU,
     OPEN_MODAL,
     CONFIRM_ACTION,
     SORT_COLLECTION,

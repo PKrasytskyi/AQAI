@@ -96,12 +96,12 @@ The large `requirements/the-internet-test-flow.md` suite is not a Build Week acc
 
 ## 4. Current Platform Compliance
 
-Assessment date: 2026-07-17. This assessment is based on repository code, workflow composition, artifacts, and 312 passing unit/regression tests. Live browser readiness must be reconfirmed after the latest binding changes.
+Assessment date: 2026-07-18. This assessment is based on repository code, workflow composition, artifacts, and 330 passing unit/regression tests. Live browser readiness must be reconfirmed after the latest binding changes.
 
 | # | Plan capability | Status | Current evidence | Main gap |
 |---:|---|---|---|---|
-| 1 | Fixed demo scope | READY | Versioned `demo/orangehrm-login-logout` bundle contains its manifest, profile, requirements, expected descriptors, and executable preflight validation. | Live run evidence is produced by later checkpoints. |
-| 2 | Requirements pipeline | READY | `RequirementReaderAgent`, `RequirementNormalizationAgent`, `RuleBasedRequirementNormalizer`, structured behavior contracts, canonical test-case planning. | Add a golden normalized-requirement snapshot for the exact demo fixture. |
+| 1 | Fixed demo scope | READY | Versioned OrangeHRM and The Internet demo manifests resolve real profiles, requirement fixtures, routes, logout topology, schemas, and executable preflight validation. | Live run evidence is produced by later checkpoints. |
+| 2 | Requirements pipeline | READY | `RequirementReaderAgent`, `RequirementNormalizationAgent`, `RuleBasedRequirementNormalizer`, structured behavior contracts, canonical test-case planning, and versioned BW-02 golden snapshots. | Cross-product authentication acceptance is the next requirements-level proof. |
 | 3 | UI discovery and PageModel | PARTIAL | Selenium crawler, DOM parser, readiness waits, interactive extraction, component grouping, SPA inventory, runtime evidence. | Repeat-run stability and requirement-targeted coverage are not yet consistently proven for every demo state. |
 | 4 | Locator candidate generation | READY | Page locator models, mapped locator candidates, component-scoped candidates, origin metadata. | Add an explicit demo coverage assertion for automation-relevant elements. |
 | 5 | Deterministic locator scoring | READY | `LocatorQualityEvaluator`, origin resolver, risk classifier, stability tracker, evidence classifier. | Ranking explanation and primary/standby selection are not yet exposed as one compact acceptance artifact. |
@@ -190,6 +190,16 @@ Acceptance gate:
 
 ### BW-02: Golden requirement normalization
 
+Status: **COMPLETE** on branch `codex/feature-orangehrm-demo`.
+
+Implemented artifacts:
+
+- deterministic `GoldenRequirementSnapshotBuilder` over the production normalization, behavior-contract, governance, and canonical-scenario services;
+- versioned normalized-requirement, structured-behavior, canonical-test-case, and governance JSON snapshots;
+- ordering and run-metadata normalization without DB/cache participation;
+- repeated-execution, typed assertion, expected-value, route, and page-ownership acceptance tests;
+- regression coverage proving that logout remains owned by the authenticated source page and is not downgraded to an open-menu action.
+
 Add a snapshot test for:
 
 ```text
@@ -217,6 +227,19 @@ Acceptance gate:
 
 ### BW-03: Cross-product authentication acceptance
 
+Status: **COMPLETE** on branch `codex/feature-orangehrm-demo`.
+
+Implemented artifacts and controls:
+
+- versioned `demo/the-internet-authentication-logout` manifest and project profile;
+- product-neutral demo preflight for `USER_MENU` and `DIRECT_CONTROL` logout topologies;
+- resolved profile, requirement, route, POM-name, scenario, and lifecycle identity in `demo-input-readiness.json`;
+- shared `LogoutAccessMode` capability contract and structured `logoutAccessMode` parsing;
+- canonical atomicity fix that recreates the user-menu-open state before OrangeHRM logout;
+- real manifest/profile/fixture acceptance using the same normalizer and canonical planner for both products;
+- regression checks preventing Dashboard routes/page names/menu operations from entering The Internet artifacts;
+- schema equality checks proving both fixtures retain the same POM contract and supporting contracts.
+
 Run the same logical authentication/logout lifecycle for both required fixtures. Keep the existing The Internet authentication acceptance test and add real profile/fixture resolution assertions for both products.
 
 Expected result:
@@ -233,11 +256,31 @@ Acceptance gate:
 - no OrangeHRM route, CSS class, page name, or menu assumption appears in The Internet artifacts;
 - no direct-logout assumption bypasses OrangeHRM's required menu-opening step.
 
-Day 1 completion artifact: `target/ai-run/quality/demo-input-readiness.json`.
+Day 1 completion artifact: `target/ai-run/quality/demo-input-readiness.json`. It now includes the resolved
+non-secret input identity and expected lifecycle topology for the selected product.
 
 ## Day 2: Close Discovery, Locator Validation, and Catalog
 
 ### BW-04: Requirement-targeted discovery acceptance
+
+Status: **COMPLETE** on branch `codex/feature-orangehrm-demo`.
+
+Implemented artifacts and controls:
+
+- `ui-evidence-funnel.v3` carries one typed `UiEvidenceRequirementTrace` per executable requirement;
+- source page, route, and state are resolved from `SourceStateBinding` plus the current-run state graph;
+- required component capabilities are recovered from bound current-run component inventory when normalized prose no longer contains them;
+- expected action intents are derived from the structured requirement, bound behavior steps, and selected candidate actions;
+- target page, route, and state come from `LiveTransitionDiscovery` and `TargetStateBinding` without inferred fallback pages;
+- discovery route provenance is explicit (`PROJECT_PROFILE`, `CURRENT_RUN_INVENTORY`, or `LIVE_TRANSITION_DISCOVERY`);
+- partial evidence paths remain visible when the requirement stops before POM eligibility;
+- requirement-level readiness is projected from the canonical `EvidenceProjectionTrace`; the funnel no longer
+  reconstructs locator ownership independently from final catalog/prompt decisions;
+- the funnel agent consumes the existing source-binding and live-transition DAG artifacts directly; no parallel discovery pipeline was introduced;
+- cross-product acceptance covers all four OrangeHRM and The Internet requirements and verifies their different logout component topologies;
+- the acceptance gate rejects confirmed paths that omit source state, action intent, target state, or route provenance.
+
+Verification: 385 unit/regression tests pass, including the BW-04 cross-product requirement-targeted discovery acceptance.
 
 For each primary demo requirement, record:
 
@@ -253,6 +296,19 @@ Use the existing source binding, live transition discovery, target binding, and 
 Expected result: every requirement has either a confirmed evidence path or one precise stopped reason.
 
 ### BW-05: Locator candidate coverage report
+
+Status: **IMPLEMENTED; LIVE ACCEPTANCE PENDING** on branch `codex/feature-orangehrm-demo`.
+
+Implemented:
+
+- typed `LocatorCandidateCoverageReport` with one compact record per requirement-owned element;
+- deterministic primary/standby selection, preferring different selector families;
+- pre-catalog safety policy for same-origin, visibility/token, absolute XPath, dynamic hash,
+  positional-selector, uniqueness, and browser-verification checks;
+- candidate and rejected evidence stays in the report and never becomes prompt-allowed evidence;
+- DAG artifact `LOCATOR_CANDIDATE_COVERAGE_REPORT` and
+  `quality/locator-candidate-coverage.json`;
+- regression coverage for authentication controls and the user-menu/logout sequence.
 
 Add a compact per-element artifact:
 
@@ -280,6 +336,20 @@ Acceptance gate:
 - external, hidden, token, absolute XPath, dynamic hash, and unsafe selectors are rejected before catalog assembly.
 
 ### BW-06: Assemble a single confirmed demo catalog
+
+Status: **IMPLEMENTED; LIVE ACCEPTANCE PENDING** on branch `codex/feature-orangehrm-demo`.
+
+Implemented:
+
+- typed `ConfirmedUiCatalog` read model over the effective SPA inventory, live verification,
+  locator coverage, component actions, state graph, and assertion contracts;
+- catalog hierarchy `capability -> page/state -> component -> action -> primary/standby locator -> assertions`;
+- only `CONFIRMED_LOCATOR` records can enter primary or standby catalog slots;
+- deterministic resolution flags for `AUTHENTICATION`, `USER_MENU`, and `LOGOUT`;
+- DAG artifact `CONFIRMED_UI_CATALOG` and `quality/confirmed-ui-catalog.json`;
+- the UI evidence funnel now depends on both compact quality artifacts, preserving one pipeline.
+
+The next live run must still prove `pomReadinessPassed=true` and zero unexplained binding failures.
 
 Create a compact read model over existing page/component/action/locator contracts. Do not replace the detailed raw and curated artifacts.
 
@@ -369,7 +439,7 @@ PromptUiEvidence
   -> persisted source
   -> compile
   -> review
-  -> live smoke
+  -> live smoke through compiled generated POM methods
 ```
 
 Expected result:
@@ -386,6 +456,7 @@ Acceptance gate:
 - compile PASS;
 - review has zero blockers;
 - live login/dashboard/logout smoke PASS;
+- `live-ui-smoke-result.json` reports `executionMode=COMPILED_GENERATED_POM_API`;
 - identical normalized contract produces identical Java source.
 
 Day 3 completion artifact: one POM lifecycle report linking requirement IDs to evidence, contract, source, compile, review, and smoke.
@@ -586,4 +657,12 @@ The iteration is complete when all of the following are true:
 
 ## 9. Immediate Next Task
 
-Start with BW-01 and BW-02. The repository already has most of the required inputs, so the first implementation change should be a frozen demo manifest plus normalized/canonical golden snapshots. This creates a stable baseline before further discovery or test-generation work changes the contracts again.
+Run three consecutive OrangeHRM demo cycles without DB and three with DB. Use the live artifacts to close the
+pending BW-05/BW-06 acceptance gates and prove BW-07 through BW-09 without projection drift. Each run must show:
+
+- exactly the two requirement-owned Login/Dashboard pages;
+- no unrelated authenticated navigation such as Change Password;
+- every executable requirement has a confirmed evidence path;
+- `pomReadinessPassed=true` and non-zero confirmed prompt locators;
+- both generated POMs compile and pass review;
+- live smoke executes the compiled generated POM API and passes login, user-menu, and logout transitions.

@@ -83,6 +83,38 @@ public class SpaTargetedVerificationPlannerTest {
         Assert.assertTrue(result.actionVerifications().get(0).verified());
     }
 
+    @Test
+    public void selectsOnlyTheActualUserMenuOpenerForOpenMenuRequirements() {
+        CandidateLocatorEvidence opener = locator(
+                "dashboard:header:opener", "dashboard:header", "user-menu-trigger", "span.oxd-userdropdown-tab");
+        CandidateLocatorEvidence about = locator(
+                "dashboard:header:about", "dashboard:header", "about", "a.oxd-userdropdown-link[href='#']");
+        CandidateActionEvidence openMenu = action(
+                "dashboard:header:open-menu", "dashboard:header", "OPEN_MENU", "user-menu-trigger", opener.locatorId());
+        CandidateActionEvidence falseOpenMenu = action(
+                "dashboard:header:open-about", "dashboard:header", "OPEN_MENU", "about", about.locatorId());
+        SemanticComponentInventory header = new SemanticComponentInventory(
+                "dashboard:header", "Header", ComponentType.HEADER, "css", "header", "", List.of(), 0.9d,
+                List.of(opener, about), List.of(openMenu, falseOpenMenu), List.of(), List.of("test"));
+        SpaInventoryBundle dashboard = new SpaInventoryBundle(
+                SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+                List.of(new SpaPageInventory("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA",
+                        "fp", metadata(), List.of(header), List.of("test"))), List.of("test"));
+        CanonicalTestCase openMenuCase = new CanonicalTestCase(
+                "REQ-MENU", "Open user menu", List.of("REQ-MENU"), List.of(),
+                List.of(new UiOperationIntent(UiOperationKind.OPEN_MENU, "DashboardPage", null)), List.of(),
+                List.of("DashboardPage"), null, "flow", "OPEN_MENU", "DashboardPage", "DashboardPage",
+                "/dashboard", "/dashboard", "", UiAssertionProfile.BASIC, List.of(), List.of(), List.of(), "test");
+
+        var result = new SpaTargetedVerificationPlanner().verify(
+                dashboard,
+                new CanonicalTestCaseBundle("test", "DashboardPage", List.of("DashboardPage"), List.of(openMenuCase)),
+                config());
+
+        Assert.assertEquals(result.actionVerifications().size(), 1);
+        Assert.assertEquals(result.actionVerifications().get(0).actionId(), openMenu.actionId());
+    }
+
     private SpaInventoryBundle inventory() {
         CandidateLocatorEvidence username = new CandidateLocatorEvidence(
                 "login:form:username", "login:form", "username", "name", "username", 0.92d, true,
@@ -114,6 +146,25 @@ public class SpaTargetedVerificationPlannerTest {
 
     private SpaInventoryConfig config() {
         return new SpaInventoryConfig(true, SpaDiscoveryMode.TARGETED, 30, true, 0.80d, 2, 2);
+    }
+
+    private CandidateLocatorEvidence locator(String locatorId, String componentId, String elementId, String value) {
+        return new CandidateLocatorEvidence(
+                locatorId, componentId, elementId, "css", value, 0.92d, true,
+                1, 1, true, true, true, LocatorEvidenceType.CANDIDATE_LOCATOR,
+                SpaEvidenceStatus.CANDIDATE, List.of());
+    }
+
+    private CandidateActionEvidence action(
+            String actionId,
+            String componentId,
+            String intent,
+            String elementId,
+            String locatorId
+    ) {
+        return new CandidateActionEvidence(
+                actionId, componentId, intent, elementId, 0.91d, List.of(locatorId),
+                List.of("route=/dashboard"), List.of(), List.of("test"), SpaEvidenceStatus.CANDIDATE);
     }
 
     private KnowledgeRunMetadata metadata() {

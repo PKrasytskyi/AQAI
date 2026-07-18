@@ -82,6 +82,7 @@ public class SeleniumDiscoveryStabilityAggregator {
         add(output, pageId, "css", rawElement.placeholder().isBlank()
                 ? ""
                 : rawElement.tag() + "[placeholder='" + escapeCssValue(rawElement.placeholder()) + "']");
+        add(output, pageId, "css", stableClassLocator(rawElement));
         add(output, pageId, "css", submitControlLocator(rawElement));
         if (!rawElement.text().isBlank() && ("button".equals(rawElement.tag()) || "a".equals(rawElement.tag()))) {
             add(output, pageId, "xpath", "//" + rawElement.tag()
@@ -128,6 +129,19 @@ public class SeleniumDiscoveryStabilityAggregator {
         }
         if ("button".equals(tag) || "input".equals(tag)) {
             return tag + "[type='submit']";
+        }
+        return "";
+    }
+
+    private String stableClassLocator(RawElement rawElement) {
+        String tag = safe(rawElement.tag()).toLowerCase(java.util.Locale.ROOT);
+        if (tag.isBlank()) return "";
+        for (String token : safe(rawElement.cssClass()).split("\\s+")) {
+            String value = token.toLowerCase(java.util.Locale.ROOT);
+            if (List.of("dropdown", "breadcrumb", "topbar", "dashboard", "header", "title", "menu", "logout",
+                    "button", "link").stream().anyMatch(value::contains)) {
+                return tag + "." + token.replaceAll("([^a-zA-Z0-9_-])", "\\\\$1");
+            }
         }
         return "";
     }

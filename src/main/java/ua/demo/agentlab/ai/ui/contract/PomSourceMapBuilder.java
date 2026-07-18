@@ -1,5 +1,7 @@
 package ua.demo.agentlab.ai.ui.contract;
 
+import ua.demo.agentlab.ui.generated.PomSourceMap;
+
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
 import java.util.ArrayList;
@@ -11,6 +13,8 @@ import java.util.Set;
 
 /** Builds deterministic member-to-contract provenance without parsing generated Java text. */
 public final class PomSourceMapBuilder {
+    private final PomJavaFieldNameResolver fieldNameResolver = new PomJavaFieldNameResolver();
+
     public PomSourceMap build(List<PomContractSpec> contracts, List<GeneratedSourceFile> sources) {
         Map<String, GeneratedSourceFile> byClass = new LinkedHashMap<>();
         if (sources != null) sources.forEach(source -> byClass.putIfAbsent(source.className(), source));
@@ -18,7 +22,8 @@ public final class PomSourceMapBuilder {
         for (PomContractSpec contract : contracts == null ? List.<PomContractSpec>of() : contracts) {
             Map<String, PomLocatorSpec> locators = locators(contract);
             List<PomSourceMap.FieldEntry> fields = locators.values().stream()
-                    .map(locator -> new PomSourceMap.FieldEntry(locator.id(), locator.id(), locator.strategy(), locator.value(), ""))
+                    .map(locator -> new PomSourceMap.FieldEntry(fieldNameResolver.resolve(locator), locator.id(),
+                            locator.strategy(), locator.value(), ""))
                     .toList();
             List<PomSourceMap.MethodEntry> methods = new ArrayList<>();
             appendMethods(methods, "", contract.actions());

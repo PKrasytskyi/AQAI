@@ -25,9 +25,14 @@ class ScenarioPageResolver {
     }
 
     ScenarioPageResolver(ProjectProfile profile, MappedUiKnowledge knowledge, NormalizedRequirementBundle requirements) {
+        this(profile, knowledge, requirements, true);
+    }
+
+    ScenarioPageResolver(ProjectProfile profile, MappedUiKnowledge knowledge,
+                         NormalizedRequirementBundle requirements, boolean includeStableCache) {
         this.profile = profile;
         this.knowledge = knowledge;
-        this.confirmedPages = new ConfirmedPageSourceResolver()
+        this.confirmedPages = new ConfirmedPageSourceResolver(includeStableCache)
                 .resolve(profile, requirements, stableMappedPages(knowledge));
     }
 
@@ -38,8 +43,15 @@ class ScenarioPageResolver {
     }
 
     String routeFor(NormalizedRequirement requirement, RequirementCapability capability) {
-        String explicitRoute = StructuredRequirementContext.targetRoute(requirement);
-        return explicitRoute.isBlank() ? routeFor(capability) : explicitRoute;
+        String contextRoute = resolveProfileRoute(StructuredRequirementContext.value(
+                requirement, "target context", "targetRoute"));
+        return contextRoute.isBlank() ? routeFor(capability) : contextRoute;
+    }
+
+    String sourceRouteFor(NormalizedRequirement requirement, RequirementCapability fallbackCapability) {
+        String contextRoute = resolveProfileRoute(StructuredRequirementContext.value(
+                requirement, "target context", "sourceRoute"));
+        return contextRoute.isBlank() ? routeFor(fallbackCapability) : contextRoute;
     }
 
     String pageFor(RequirementCapability capability) {
@@ -59,6 +71,21 @@ class ScenarioPageResolver {
 
     String pageFor(NormalizedRequirement requirement, RequirementCapability capability) {
         String route = routeFor(requirement, capability);
+        if (route.isBlank()) {
+            return "";
+        }
+        String mapped = pageNameForRoute(route);
+        if (!mapped.isBlank()) {
+            return mapped;
+        }
+        return confirmedPages == null ? "" : confirmedPages.findByRoute(route)
+                .map(ConfirmedPageCandidate::pageName)
+                .filter(value -> !value.isBlank())
+                .orElse("");
+    }
+
+    String sourcePageFor(NormalizedRequirement requirement, RequirementCapability fallbackCapability) {
+        String route = sourceRouteFor(requirement, fallbackCapability);
         if (route.isBlank()) {
             return "";
         }
@@ -158,5 +185,29 @@ class ScenarioPageResolver {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String resolveProfileRoute(String value) {
+        String explicit = StructuredRequirementContext.explicitRoute(value);
+        if (!explicit.isBlank() || profile == null) {
+            return explicit;
+        }
+        String symbolic = normalize(value).replaceAll("[^a-z0-9]", "");
+        if (symbolic.endsWith("loginroute") || symbolic.endsWith("authenticationroute")) {
+            return profile.loginRoute();
+        }
+        if (symbolic.endsWith("authenticatedroute") || symbolic.endsWith("secureroute")) {
+            return profile.authenticatedRoute();
+        }
+        if (symbolic.endsWith("homeroute")) {
+            return profile.homeRoute();
+        }
+        if (symbolic.endsWith("recoveryroute")) {
+            return profile.recoveryRoute();
+        }
+        if (symbolic.endsWith("formroute")) {
+            return profile.formRoute();
+        }
+        return "";
     }
 }

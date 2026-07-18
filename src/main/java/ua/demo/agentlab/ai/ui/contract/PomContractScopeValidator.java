@@ -113,7 +113,9 @@ public class PomContractScopeValidator {
                     && same(expected, firstNonBlank(check.route(), check.expectedValue()));
         }
         if ("ELEMENT_VISIBLE".equals(type)) {
-            return check.check() == PomCheckType.VISIBLE && same(expected, check.locator());
+            return check.check() == PomCheckType.VISIBLE
+                    && !required.targetLocatorId().isBlank()
+                    && same(required.targetLocatorId(), check.locator());
         }
         return check.check().name().equals(type)
                 && (expected.isBlank() || same(expected, check.expectedValue()) || same(expected, check.locator()));

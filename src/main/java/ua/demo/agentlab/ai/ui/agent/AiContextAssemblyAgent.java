@@ -3,6 +3,7 @@ package ua.demo.agentlab.ai.ui.agent;
 import ua.demo.agentlab.ai.context.AiContextAssemblyInput;
 import ua.demo.agentlab.ai.context.AiContextAssembler;
 import ua.demo.agentlab.ai.context.AiContextPackage;
+import ua.demo.agentlab.ai.context.ConfirmedCatalogLocatorEvidenceProjector;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
@@ -10,14 +11,14 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
-
 import java.util.Set;
 
 public class AiContextAssemblyAgent implements WorkflowAgent,
         PipelineAgent<AiContextAssemblyInput, AiContextPackage> {
 
     private final AiContextAssembler contextAssembler;
+    private final ConfirmedCatalogLocatorEvidenceProjector locatorEvidenceProjector =
+            new ConfirmedCatalogLocatorEvidenceProjector();
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
 
     public AiContextAssemblyAgent(AiContextAssembler contextAssembler) {
@@ -39,8 +40,7 @@ public class AiContextAssemblyAgent implements WorkflowAgent,
                 WorkflowArtifact.PAGE_MODEL_ENRICHMENT_RECORDS,
                 WorkflowArtifact.REFRESHED_FLOW_SCOPED_KNOWLEDGE_PACKAGE,
                 WorkflowArtifact.ASSERTION_CONTRACTS,
-                WorkflowArtifact.SPA_TARGETED_VERIFICATION,
-                WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION
+                WorkflowArtifact.CONFIRMED_UI_CATALOG
         );
     }
 
@@ -69,11 +69,8 @@ public class AiContextAssemblyAgent implements WorkflowAgent,
 
     @Override
     public AiContextAssemblyInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
-        var verification = store.get(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION)
-                .map(value -> (SpaLiveTargetedVerificationResult) value)
-                .orElse(null);
         return AiContextAssemblyInput.from(state,
-                new ua.demo.agentlab.ai.context.CurrentRunSpaLocatorEvidenceAdapter().adapt(verification));
+                locatorEvidenceProjector.project(store.require(WorkflowArtifact.CONFIRMED_UI_CATALOG)));
     }
 
     @Override

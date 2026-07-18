@@ -95,6 +95,29 @@ public class LiveTargetInventoryAssemblerTest {
         Assert.assertTrue(vacancies.components().stream().anyMatch(component -> component.type() == ComponentType.RESULTS_COLLECTION));
     }
 
+    @Test
+    public void preservesUserMenuTriggerAndLogoutFromLiveOverlaySnapshot() {
+        SpaPageInventory dashboard = new SpaPageInventory("dashboard", "DashboardPage", "/dashboard/index",
+                "AUTHENTICATED_AREA", "dashboard-fp", metadata(), List.of(), List.of());
+        DiscoveredPageSnapshot target = dashboardMenuSnapshot();
+        LiveTargetPageSnapshot liveTarget = new LiveTargetPageSnapshot("dashboard", dashboard.route(),
+                "openUserMenu", target.pageId(), dashboard.route(), List.of("REQ-LOGOUT"), target);
+
+        SpaInventoryBundle result = new LiveTargetInventoryAssembler().merge(profile(),
+                new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+                        List.of(dashboard), List.of("base")), List.of(liveTarget), metadata(), config());
+
+        SpaPageInventory mapped = result.pages().stream()
+                .filter(page -> page.route().equals("/dashboard/index"))
+                .findFirst().orElseThrow();
+        var userMenu = mapped.components().stream()
+                .filter(component -> component.type() == ComponentType.USER_MENU)
+                .findFirst().orElseThrow();
+        Assert.assertTrue(userMenu.elementIds().stream().anyMatch(id -> id.contains("user-menu-trigger")));
+        Assert.assertTrue(userMenu.elementIds().stream().anyMatch(id -> id.contains("logout")), userMenu.toString());
+        Assert.assertTrue(userMenu.actions().stream().anyMatch(action -> action.intent().equals("LOGOUT")));
+    }
+
     private DiscoveredPageSnapshot targetSnapshot() {
         List<RawElement> elements = List.of(
                 element("jobTitle", "select", "", "Job Title", "jobTitle", ""),
@@ -152,6 +175,25 @@ public class LiveTargetInventoryAssemblerTest {
                 "https://example.test/recruitment/viewJobVacancy", "Vacancies", List.of("Vacancies"),
                 List.of(), List.of(), List.of(filter), false, true, List.of("form", "authenticated-area"), List.of(),
                 "target-fp", new DiscoveredPageEvidence("", ""), raw, elements);
+    }
+
+    private DiscoveredPageSnapshot dashboardMenuSnapshot() {
+        RawElement trigger = raw("menu-trigger", "span", "", "John Smith", "", "button",
+                "oxd-userdropdown-tab", Map.of("role", "button"),
+                Map.of("css::span.oxd-userdropdown-tab", 1));
+        RawElement logout = new RawElement("logout", "a", "", "Logout", "", "", "", "", "menuitem",
+                "/auth/logout", "", "oxd-userdropdown-link", true, true, false,
+                Map.of("href", "/auth/logout", "role", "menuitem", "agentlab.container.role", "menu"),
+                Map.of("css::a[href='/auth/logout']", 1, "xpath:://a[normalize-space()='Logout']", 1),
+                Map.of("css::a[href='/auth/logout']", 1, "xpath:://a[normalize-space()='Logout']", 1),
+                Map.of("css::a[href='/auth/logout']", "header", "xpath:://a[normalize-space()='Logout']", "header"));
+        RawPageSnapshot raw = new RawPageSnapshot("https://example.test/dashboard/index", "/dashboard/index",
+                "Dashboard", "", "", "Dashboard John Smith Logout", "", "", "", List.of(), Map.of(),
+                Map.of(), List.of(), List.of(), List.of());
+        return new DiscoveredPageSnapshot("dashboard", "https://example.test/dashboard/index", "Dashboard",
+                List.of("Dashboard"), List.of(), List.of(), List.of(), false, true,
+                List.of("authenticated-area", "logout"), List.of(), "dashboard-menu-fp",
+                new DiscoveredPageEvidence("", ""), raw, List.of(trigger, logout));
     }
 
     private RawElement raw(String id, String tag, String type, String text, String name, String role,

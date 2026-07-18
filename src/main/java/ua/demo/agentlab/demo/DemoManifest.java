@@ -1,5 +1,7 @@
 package ua.demo.agentlab.demo;
 
+import ua.demo.agentlab.ui.capability.LogoutAccessMode;
+
 import java.util.List;
 import java.util.Map;
 
@@ -12,13 +14,15 @@ public record DemoManifest(
         List<String> expectedPageCapabilities,
         List<String> expectedScenarioIds,
         List<String> expectedPomNames,
+        LogoutAccessMode expectedLogoutAccessMode,
+        List<String> expectedLifecycle,
         String expectedFinalRoute,
         String expectedFinalState,
         String databaseMode,
         String aiMode,
         Map<String, String> schemaVersions
 ) {
-    public static final String SCHEMA_VERSION = "demo-manifest.v1";
+    public static final String SCHEMA_VERSION = "demo-manifest.v2";
 
     public DemoManifest {
         schemaVersion = safe(schemaVersion);
@@ -29,6 +33,8 @@ public record DemoManifest(
         expectedPageCapabilities = copy(expectedPageCapabilities);
         expectedScenarioIds = copy(expectedScenarioIds);
         expectedPomNames = copy(expectedPomNames);
+        expectedLogoutAccessMode = expectedLogoutAccessMode == null ? LogoutAccessMode.UNKNOWN : expectedLogoutAccessMode;
+        expectedLifecycle = copy(expectedLifecycle);
         expectedFinalRoute = safe(expectedFinalRoute);
         expectedFinalState = safe(expectedFinalState);
         databaseMode = safe(databaseMode);

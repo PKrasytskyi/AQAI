@@ -2,6 +2,7 @@ package ua.demo.agentlab.ui.discovery.semantic;
 
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageActionModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageElementModel;
+import ua.demo.agentlab.ui.discovery.interaction.compatibility.ActionCompatibilityService;
 import ua.demo.agentlab.ui.discovery.semantic.model.ActionCandidate;
 
 import java.util.ArrayList;
@@ -12,16 +13,16 @@ import java.util.Map;
 
 public class ActionCandidateClassifier {
 
-    private final ActionElementCompatibilityPolicy compatibilityPolicy;
+    private final ActionCompatibilityService compatibilityService;
 
     public ActionCandidateClassifier() {
-        this(new ActionElementCompatibilityPolicy());
+        this(new ActionCompatibilityService());
     }
 
-    ActionCandidateClassifier(ActionElementCompatibilityPolicy compatibilityPolicy) {
-        this.compatibilityPolicy = compatibilityPolicy == null
-                ? new ActionElementCompatibilityPolicy()
-                : compatibilityPolicy;
+    ActionCandidateClassifier(ActionCompatibilityService compatibilityService) {
+        this.compatibilityService = compatibilityService == null
+                ? new ActionCompatibilityService()
+                : compatibilityService;
     }
 
     public List<ActionCandidate> classify(PageElementModel element, String semanticType) {
@@ -108,11 +109,11 @@ public class ActionCandidateClassifier {
         if (containsAny(evidence, "new window", "open window")) {
             add(candidates, "OPEN_NEW_WINDOW", element.elementId(), 0.86d, "semantic-evidence:new-window");
         }
-        if (containsAny(evidence, "user_menu_trigger", "user menu", "userdropdown", "dropdown")) {
+        if (containsAny(evidence, "user_menu_trigger", "user menu trigger", "userdropdown-tab", "aria-haspopup")) {
             add(candidates, "OPEN_MENU", element.elementId(), 0.86d, "semantic-evidence:user-menu");
         }
         return candidates.values().stream()
-                .filter(candidate -> compatibilityPolicy.allows(element, semanticType, candidate.action()))
+                .filter(candidate -> compatibilityService.allows(element, semanticType, candidate.action()))
                 .toList();
     }
 

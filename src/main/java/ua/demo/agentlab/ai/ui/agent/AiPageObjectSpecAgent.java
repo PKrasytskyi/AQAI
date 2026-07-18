@@ -54,7 +54,8 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
         return Set.of(
                 WorkflowArtifact.UI_TEST_PLAN,
                 WorkflowArtifact.AI_CONTEXT_PACKAGE,
-                WorkflowArtifact.UI_EVIDENCE_FUNNEL_REPORT
+                WorkflowArtifact.UI_EVIDENCE_FUNNEL_REPORT,
+                WorkflowArtifact.CONFIRMED_UI_CATALOG
         );
     }
 
@@ -99,7 +100,8 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
                         state.getArtifacts()
                 ),
                 WorkflowPipelineSnapshot.from(state),
-                state.getArtifacts()
+                state.getArtifacts(),
+                store.require(WorkflowArtifact.CONFIRMED_UI_CATALOG)
         );
     }
 
@@ -111,7 +113,11 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
 
     @Override
     public AiPageObjectGenerationResult execute(AiPageObjectSpecInput input, WorkflowRunEnvelope run) {
-        if (input.evidenceFunnelReport().metrics().promptEligiblePages() == 0) {
+        boolean catalogEligible = input.confirmedUiCatalog() != null
+                && input.confirmedUiCatalog().pages().stream()
+                .flatMap(page -> page.components().stream())
+                .anyMatch(component -> !component.primaryLocators().isEmpty());
+        if (!catalogEligible) {
             return new AiPageObjectGenerationResult(
                     List.of(),
                     List.of(),
@@ -123,7 +129,7 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
                             "openai.page.object.llm.successes", "0",
                             "pom.contract.spec.count", "0"
                     ),
-                    List.of("Skipped POM prompt and LLM generation because the evidence funnel has zero prompt-eligible pages")
+                    List.of("Skipped POM prompt and LLM generation because ConfirmedUiCatalog has no primary confirmed locators")
             );
         }
         return generator.generate(new AiPageObjectGenerationRequest(
@@ -133,7 +139,8 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
                 input.baselineSpecs(),
                 input.qualitySummaryInput(),
                 input.pipelineSnapshot(),
-                input.artifacts()
+                input.artifacts(),
+                input.confirmedUiCatalog()
         ));
     }
 

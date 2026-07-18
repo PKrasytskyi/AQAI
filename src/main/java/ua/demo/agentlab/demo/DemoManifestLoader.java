@@ -1,6 +1,7 @@
 package ua.demo.agentlab.demo;
 
 import org.yaml.snakeyaml.Yaml;
+import ua.demo.agentlab.ui.capability.LogoutAccessMode;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +35,8 @@ public final class DemoManifestLoader {
                     strings(expected.get("pageCapabilities")),
                     strings(expected.get("scenarioIds")),
                     strings(expected.get("pomNames")),
+                    LogoutAccessMode.from(text(expected.get("logoutAccessMode"))),
+                    strings(expected.get("lifecycle")),
                     text(expected.get("finalRoute")),
                     text(expected.get("finalState")),
                     text(runtime.get("databaseMode")),

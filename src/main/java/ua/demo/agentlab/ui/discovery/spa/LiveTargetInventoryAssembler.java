@@ -20,16 +20,25 @@ public final class LiveTargetInventoryAssembler {
     private final PageModelBuilder pageModelBuilder;
     private final RuleBasedPageMapper pageMapper;
     private final SpaInventoryBuilder inventoryBuilder;
+    private final SpaPageInventoryMergeService pageMergeService;
 
     public LiveTargetInventoryAssembler() {
-        this(new PageModelBuilder(), new RuleBasedPageMapper(), new SpaInventoryBuilder());
+        this(new PageModelBuilder(), new RuleBasedPageMapper(), new SpaInventoryBuilder(),
+                new SpaPageInventoryMergeService());
     }
 
     LiveTargetInventoryAssembler(PageModelBuilder pageModelBuilder, RuleBasedPageMapper pageMapper,
                                  SpaInventoryBuilder inventoryBuilder) {
+        this(pageModelBuilder, pageMapper, inventoryBuilder, new SpaPageInventoryMergeService());
+    }
+
+    LiveTargetInventoryAssembler(PageModelBuilder pageModelBuilder, RuleBasedPageMapper pageMapper,
+                                 SpaInventoryBuilder inventoryBuilder,
+                                 SpaPageInventoryMergeService pageMergeService) {
         this.pageModelBuilder = pageModelBuilder;
         this.pageMapper = pageMapper;
         this.inventoryBuilder = inventoryBuilder;
+        this.pageMergeService = pageMergeService;
     }
 
     public SpaInventoryBundle merge(ProjectProfile profile, SpaInventoryBundle baseInventory,
@@ -52,7 +61,7 @@ public final class LiveTargetInventoryAssembler {
 
         Map<String, SpaPageInventory> byRoute = new LinkedHashMap<>();
         baseInventory.pages().forEach(page -> byRoute.put(routeKey(page.route()), page));
-        targets.pages().forEach(page -> byRoute.put(routeKey(page.route()), page));
+        targets.pages().forEach(page -> byRoute.merge(routeKey(page.route()), page, pageMergeService::merge));
         List<String> trace = new ArrayList<>(baseInventory.sourceTrace());
         trace.add("spa-inventory:live-target-merge");
         trace.add("live-target-pages=" + targets.pages().size());

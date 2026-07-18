@@ -21,6 +21,9 @@ public class ConfirmedPageSourceResolver {
     private final Neo4jStableCapabilityLookupService stableCapabilityLookup;
 
     public ConfirmedPageSourceResolver() { this(new Neo4jStableCapabilityLookupService()); }
+    public ConfirmedPageSourceResolver(boolean includeStableCache) {
+        this(includeStableCache ? new Neo4jStableCapabilityLookupService() : null);
+    }
     ConfirmedPageSourceResolver(Neo4jStableCapabilityLookupService stableCapabilityLookup) {
         this.stableCapabilityLookup = stableCapabilityLookup;
     }

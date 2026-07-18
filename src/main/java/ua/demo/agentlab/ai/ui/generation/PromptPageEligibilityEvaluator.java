@@ -2,8 +2,8 @@ package ua.demo.agentlab.ai.ui.generation;
 
 import ua.demo.agentlab.ai.context.PromptActionEvidence;
 import ua.demo.agentlab.ai.context.PromptAssertionEvidence;
-import ua.demo.agentlab.ai.ui.prompt.scope.PomScopeSanitizer;
 import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
+import ua.demo.agentlab.ai.ui.prompt.scope.ConfirmedUiCatalogPomScopeProjector;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedPage;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModel;
 
@@ -13,7 +13,10 @@ import java.util.Locale;
 
 public class PromptPageEligibilityEvaluator {
 
-    private final PomScopeSanitizer scopeSanitizer = new PomScopeSanitizer();
+    private final PromptEvidenceProjectionInvariantGate projectionInvariantGate =
+            new PromptEvidenceProjectionInvariantGate();
+    private final ConfirmedUiCatalogPomScopeProjector catalogProjector =
+            new ConfirmedUiCatalogPomScopeProjector();
 
     public PromptPage evaluate(AiPageObjectPromptScope scope) {
         if (scope == null || scope.scopedContext() == null) {
@@ -23,12 +26,16 @@ public class PromptPageEligibilityEvaluator {
         String pageName = scope.pageName();
         String route = resolveRoute(scope);
         boolean hasRawEvidence = hasRawEvidence(scope);
-        PromptReadyPomScope sanitizedScope = scopeSanitizer.sanitize(
-                scope.scopedContext(), scope.pageName(), scope.pageScenarios());
+        PromptReadyPomScope sanitizedScope = catalogProjector.project(
+                scope.confirmedUiCatalog(), scope.pageName());
+        projectionInvariantGate.validate(scope, sanitizedScope);
         boolean hasAllowedLocators = !sanitizedScope.allowedLocators().isEmpty();
         boolean hasStableCacheEvidence = hasStableCacheEvidence(scope);
         boolean routeOnly = isRouteBackedContract(sanitizedScope);
         List<String> reasons = new ArrayList<>();
+        if (scope.confirmedUiCatalog() == null || sanitizedScope.targetRoute().isBlank()) {
+            reasons.add("confirmed catalog has no page-owned evidence");
+        }
         if (hasRawEvidence) {
             reasons.add("raw DOM evidence is available");
         }
@@ -38,6 +45,10 @@ public class PromptPageEligibilityEvaluator {
         if (hasStableCacheEvidence) {
             reasons.add("stable cache evidence is available");
         }
+        reasons.add("sanitized scope: actions=" + sanitizedScope.ownedActions().size()
+                + ", assertions=" + sanitizedScope.ownedAssertions().size()
+                + ", locators=" + sanitizedScope.allowedLocators().size()
+                + ", confirmedCatalogLocators=" + scope.scopedContext().confirmedCatalogLocatorEvidence().size());
         if (routeOnly) {
             reasons.add("route-only scope uses inherited BasePage navigation and does not require a generated POM");
         }
@@ -123,10 +134,14 @@ public class PromptPageEligibilityEvaluator {
                 && !scope.scopedContext().promptUiEvidence().targetRoute().isBlank()) {
             return scope.scopedContext().promptUiEvidence().targetRoute();
         }
-        if (scope.scopedContext().mappedUiKnowledge() != null
-                && !scope.scopedContext().mappedUiKnowledge().pages().isEmpty()) {
-            MappedPage page = scope.scopedContext().mappedUiKnowledge().pages().get(0);
-            return page.urlPattern().isBlank() ? page.url() : page.urlPattern();
+        if (scope.confirmedUiCatalog() != null) {
+            return scope.confirmedUiCatalog().pages().stream()
+                    .filter(page -> ua.demo.agentlab.ui.discovery.identity.PageReferenceMatcher.matchesScenarioPage(
+                            page.pageName(), page.route(), scope.pageName()))
+                    .map(ua.demo.agentlab.ui.discovery.catalog.ConfirmedCatalogPage::route)
+                    .filter(route -> !route.isBlank())
+                    .findFirst()
+                    .orElse("");
         }
         return "";
     }

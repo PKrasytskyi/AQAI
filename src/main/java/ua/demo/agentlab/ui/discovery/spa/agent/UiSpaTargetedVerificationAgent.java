@@ -8,7 +8,6 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
-import ua.demo.agentlab.ui.discovery.spa.SpaEvidenceLifecycleGraphWriter;
 import ua.demo.agentlab.ui.discovery.spa.SpaEvidenceNeedsReviewWriter;
 import ua.demo.agentlab.ui.discovery.spa.SpaTargetedVerificationArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.SpaTargetedVerificationPlanner;
@@ -21,19 +20,16 @@ public class UiSpaTargetedVerificationAgent implements WorkflowAgent,
 
     private final PropertiesSpaInventoryConfig config;
     private final SpaTargetedVerificationPlanner planner;
-    private final SpaEvidenceLifecycleGraphWriter lifecycleWriter;
     private final SpaTargetedVerificationArtifactWriter artifactWriter;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
 
     public UiSpaTargetedVerificationAgent(
             PropertiesSpaInventoryConfig config,
             SpaTargetedVerificationPlanner planner,
-            SpaEvidenceLifecycleGraphWriter lifecycleWriter,
             SpaTargetedVerificationArtifactWriter artifactWriter
     ) {
         this.config = config == null ? new PropertiesSpaInventoryConfig() : config;
         this.planner = planner == null ? new SpaTargetedVerificationPlanner() : planner;
-        this.lifecycleWriter = lifecycleWriter;
         this.artifactWriter = artifactWriter == null ? new SpaTargetedVerificationArtifactWriter() : artifactWriter;
     }
 

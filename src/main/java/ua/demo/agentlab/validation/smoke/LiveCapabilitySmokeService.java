@@ -1,25 +1,18 @@
 package ua.demo.agentlab.validation.smoke;
 
-import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.core.config.ConfigReader;
 import ua.demo.agentlab.core.config.PropertiesUiRuntimeConfig;
 import ua.demo.agentlab.core.config.UiRuntimeConfig;
 import ua.demo.agentlab.core.ui.driver.DefaultDriverFactory;
 import ua.demo.agentlab.persistence.GeneratedUiSources;
-import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class LiveCapabilitySmokeService {
 
@@ -27,13 +20,25 @@ public class LiveCapabilitySmokeService {
     private static final String ENABLED_ENV = "UI_LIVE_SMOKE_ENABLED";
 
     private final LiveSmokePlanResolver planResolver;
+    private final GeneratedPomRuntimeLoader pomLoader;
+    private final GeneratedPomRuntimeInvoker pomInvoker;
 
     public LiveCapabilitySmokeService() {
-        this(new LiveSmokePlanResolver());
+        this(new LiveSmokePlanResolver(), new GeneratedPomRuntimeLoader(), new GeneratedPomRuntimeInvoker());
     }
 
     LiveCapabilitySmokeService(LiveSmokePlanResolver planResolver) {
+        this(planResolver, new GeneratedPomRuntimeLoader(), new GeneratedPomRuntimeInvoker());
+    }
+
+    LiveCapabilitySmokeService(
+            LiveSmokePlanResolver planResolver,
+            GeneratedPomRuntimeLoader pomLoader,
+            GeneratedPomRuntimeInvoker pomInvoker
+    ) {
         this.planResolver = planResolver == null ? new LiveSmokePlanResolver() : planResolver;
+        this.pomLoader = pomLoader == null ? new GeneratedPomRuntimeLoader() : pomLoader;
+        this.pomInvoker = pomInvoker == null ? new GeneratedPomRuntimeInvoker() : pomInvoker;
     }
 
     public LiveUiSmokeResult smoke(GeneratedUiSources sources) {
@@ -64,12 +69,14 @@ public class LiveCapabilitySmokeService {
             UiRuntimeConfig runtimeConfig = new PropertiesUiRuntimeConfig();
             driver = new DefaultDriverFactory(runtimeConfig).createDriver();
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(Math.max(5L, ConfigReader.getTimeout())));
+            Object sourcePage = pomLoader.load(plan.sourcePage(), driver, runtimeConfig);
+            Object targetPage = pomLoader.load(plan.targetPage(), driver, runtimeConfig);
 
-            openSourcePage(driver, plan, baseUrl, steps);
-            satisfyPreconditions(driver, wait, plan.sourcePage(), username, password, steps);
-            validateTargetPage(wait, plan, steps);
-            executeOptionalAction(driver, wait, plan.targetPage(), steps);
-            validatePostcondition(wait, plan, steps);
+            openSourcePage(sourcePage, plan, steps);
+            satisfyPreconditions(sourcePage, username, password, steps);
+            validateTargetPage(wait, targetPage, plan, steps);
+            executeOptionalAction(driver, wait, targetPage, plan, steps);
+            validatePostcondition(wait, sourcePage, targetPage, plan, steps);
 
             return result(GeneratedUiSmokeStatus.PASSED,
                     "Live browser smoke passed: capability flow "
@@ -89,37 +96,29 @@ public class LiveCapabilitySmokeService {
         }
     }
 
-    private void openSourcePage(WebDriver driver, LiveSmokePlan plan, String baseUrl, List<LiveUiSmokeStep> steps) {
+    private void openSourcePage(Object sourcePage, LiveSmokePlan plan, List<LiveUiSmokeStep> steps) {
         String route = plan.sourceRoute().isBlank() ? "/" : plan.sourceRoute();
-        driver.get(join(baseUrl, route));
-        steps.add(step("open-source-page", "PASSED", route));
+        pomInvoker.open(sourcePage);
+        steps.add(step("open-source-page", "PASSED", route + " via generated POM API"));
     }
 
     private void satisfyPreconditions(
-            WebDriver driver,
-            WebDriverWait wait,
-            GeneratedSourceFile sourcePage,
+            Object sourcePage,
             String username,
             String password,
             List<LiveUiSmokeStep> steps
     ) {
-        By usernameInput = requiredByFromSource(sourcePage, "usernameInput");
-        By passwordInput = requiredByFromSource(sourcePage, "passwordInput");
-        By loginButton = requiredByFromSource(sourcePage, "loginButton");
-        wait.until(ExpectedConditions.visibilityOfElementLocated(usernameInput)).clear();
-        driver.findElement(usernameInput).sendKeys(username);
-        steps.add(step("satisfy-precondition-enter-username", "PASSED", "username input accepted"));
-        wait.until(ExpectedConditions.visibilityOfElementLocated(passwordInput)).clear();
-        driver.findElement(passwordInput).sendKeys(password);
-        steps.add(step("satisfy-precondition-enter-password", "PASSED", "password input accepted"));
-        wait.until(ExpectedConditions.elementToBeClickable(loginButton)).click();
-        steps.add(step("satisfy-precondition-submit-authentication", "PASSED", "authentication submitted"));
+        pomInvoker.authenticate(sourcePage, username, password);
+        steps.add(step("satisfy-authentication-precondition", "PASSED",
+                "credentials entered and submitted through generated POM API"));
     }
 
-    private void validateTargetPage(WebDriverWait wait, LiveSmokePlan plan, List<LiveUiSmokeStep> steps) {
+    private void validateTargetPage(WebDriverWait wait, Object targetPage, LiveSmokePlan plan,
+                                    List<LiveUiSmokeStep> steps) {
         if (plan.hasTargetRoute()) {
-            wait.until(ExpectedConditions.urlContains(plan.targetRoute()));
-            steps.add(step("validate-target-page-route", "PASSED", plan.targetRoute()));
+            wait.until(ignored -> pomInvoker.routeMatches(targetPage, plan.targetRoute()));
+            steps.add(step("validate-target-page-route", "PASSED",
+                    plan.targetRoute() + " via generated POM assertion"));
         } else {
             steps.add(step("validate-target-page-route", "SKIPPED", "target route is not configured"));
         }
@@ -128,58 +127,44 @@ public class LiveCapabilitySmokeService {
     private void executeOptionalAction(
             WebDriver driver,
             WebDriverWait wait,
-            GeneratedSourceFile targetPage,
+            Object targetPage,
+            LiveSmokePlan plan,
             List<LiveUiSmokeStep> steps
     ) {
-        Optional<By> userMenuTrigger = optionalByFromSource(targetPage, "userMenuTrigger");
-        if (userMenuTrigger.isEmpty()) {
+        if (!pomInvoker.hasOpenUserMenu(targetPage)) {
             steps.add(step("execute-optional-action-open-user-menu", "SKIPPED", "no user menu trigger locator in generated target page"));
             return;
         }
-        wait.until(ExpectedConditions.elementToBeClickable(userMenuTrigger.get())).click();
-        steps.add(step("execute-optional-action-open-user-menu", "PASSED", "user menu opened"));
+        pomInvoker.openUserMenu(targetPage);
+        wait.until(ignored -> pomInvoker.logoutVisible(targetPage));
+        steps.add(step("execute-optional-action-open-user-menu", "PASSED",
+                "user menu opened through generated POM API"));
+        steps.add(step("validate-postcondition-logout-visible", "PASSED",
+                "logout visibility checked through generated POM assertion"));
+        // A composite logout() may own the menu-opening step. Reset to its precondition while
+        // preserving the authenticated session, then execute that public POM method unchanged.
+        driver.navigate().refresh();
+        if (plan.hasTargetRoute()) {
+            wait.until(ExpectedConditions.urlContains(plan.targetRoute()));
+        }
+        steps.add(step("reset-target-state-for-logout", "PASSED", "authenticated page refreshed with menu closed"));
         waitForDomSettled(driver);
     }
 
-    private void validatePostcondition(WebDriverWait wait, LiveSmokePlan plan, List<LiveUiSmokeStep> steps) {
-        By logoutLink = requiredByFromSource(plan.targetPage(), "logoutLink");
-        WebElement logout = wait.until(ExpectedConditions.visibilityOfElementLocated(logoutLink));
-        steps.add(step("validate-postcondition-logout-visible", logout.isDisplayed() ? "PASSED" : "FAILED", "logout action visibility checked"));
-        logout.click();
+    private void validatePostcondition(WebDriverWait wait, Object sourcePage, Object targetPage,
+                                       LiveSmokePlan plan, List<LiveUiSmokeStep> steps) {
+        if (!pomInvoker.hasOpenUserMenu(targetPage)) {
+            wait.until(ignored -> pomInvoker.logoutVisible(targetPage));
+            steps.add(step("validate-postcondition-logout-visible", "PASSED",
+                    "logout visibility checked through generated POM assertion"));
+        }
+        pomInvoker.logout(targetPage);
+        steps.add(step("execute-logout", "PASSED", "logout executed through generated POM API"));
         if (!plan.postActionRoute().isBlank()) {
-            wait.until(ExpectedConditions.urlContains(plan.postActionRoute()));
-            steps.add(step("validate-postcondition-route", "PASSED", plan.postActionRoute()));
+            wait.until(ignored -> pomInvoker.routeMatches(sourcePage, plan.postActionRoute()));
+            steps.add(step("validate-postcondition-route", "PASSED",
+                    plan.postActionRoute() + " via generated POM assertion"));
         }
-    }
-
-    private Optional<By> optionalByFromSource(GeneratedSourceFile source, String fieldName) {
-        if (source == null || source.content() == null || source.content().isBlank()) {
-            return Optional.empty();
-        }
-        Pattern pattern = Pattern.compile("private\\s+final\\s+By\\s+"
-                + Pattern.quote(fieldName)
-                + "\\s*=\\s*By\\.(id|name|cssSelector|xpath|partialLinkText)\\(\"((?:\\\\.|[^\"])*)\"\\);");
-        Matcher matcher = pattern.matcher(source.content());
-        if (!matcher.find()) {
-            return Optional.empty();
-        }
-        return Optional.of(by(matcher.group(1), unescapeJava(matcher.group(2))));
-    }
-
-    private By requiredByFromSource(GeneratedSourceFile source, String fieldName) {
-        return optionalByFromSource(source, fieldName)
-                .orElseThrow(() -> new IllegalStateException("Generated POM is missing required locator field: " + fieldName));
-    }
-
-    private By by(String strategy, String value) {
-        return switch (strategy) {
-            case "id" -> By.id(value);
-            case "name" -> By.name(value);
-            case "cssSelector" -> By.cssSelector(value);
-            case "xpath" -> By.xpath(value);
-            case "partialLinkText" -> By.partialLinkText(value);
-            default -> By.cssSelector(value);
-        };
     }
 
     public boolean isEnabled() {
@@ -217,23 +202,6 @@ public class LiveCapabilitySmokeService {
         }
     }
 
-    private String join(String baseUrl, String route) {
-        String base = baseUrl == null ? "" : baseUrl.trim();
-        String path = route == null || route.isBlank() ? "/" : route.trim();
-        if (base.endsWith("/") && path.startsWith("/")) {
-            return base.substring(0, base.length() - 1) + path;
-        }
-        if (!base.endsWith("/") && !path.startsWith("/")) {
-            return base + "/" + path;
-        }
-        return base + path;
-    }
-
-    private String unescapeJava(String value) {
-        return value == null ? "" : value
-                .replace("\\\"", "\"")
-                .replace("\\\\", "\\");
-    }
 
     private String routeLabel(String route) {
         return route == null || route.isBlank() ? "<no-route>" : route;
@@ -262,6 +230,9 @@ public class LiveCapabilitySmokeService {
             List<LiveUiSmokeStep> steps,
             List<GeneratedUiSmokeIssue> issues
     ) {
-        return new LiveUiSmokeResult(status, summary, baseUrl, steps, issues);
+        String executionMode = status == GeneratedUiSmokeStatus.SKIPPED
+                ? "NOT_EXECUTED"
+                : "COMPILED_GENERATED_POM_API";
+        return new LiveUiSmokeResult(status, summary, baseUrl, executionMode, steps, issues);
     }
 }

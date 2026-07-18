@@ -1,0 +1,50 @@
+schemaVersion: demo-manifest.v2
+
+demo:
+  id: the-internet-authentication-direct-logout-v1
+
+inputs:
+  projectProfile: demo/the-internet-authentication-logout/project-profile.yaml
+  requirementFixture: requirements/the-internet-authentication-logout.md
+  requiredEnvironment:
+    - TEST_VALID_USERNAME
+    - TEST_VALID_PASSWORD
+    - OPENAI_API_KEY
+    - KNOWLEDGE_DB_STATUS
+
+expected:
+  pageCapabilities:
+    - AUTHENTICATION
+    - AUTHENTICATED_AREA
+    - DIRECT_LOGOUT_CONTROL
+    - LOGOUT
+  scenarioIds:
+    - REQ-001
+    - REQ-002
+    - REQ-003
+    - REQ-004
+  pomNames:
+    - LoginPage
+    - SecureAreaPage
+  logoutAccessMode: DIRECT_CONTROL
+  lifecycle:
+    - AUTHENTICATION
+    - AUTHENTICATED_AREA
+    - DIRECT_LOGOUT_CONTROL
+    - LOGOUT
+  finalRoute: /login
+  finalState: UNAUTHENTICATED_LOGIN_READY
+
+runtime:
+  databaseMode: without-db-baseline
+  aiMode: pom-contract-only
+
+schemas:
+  requirements: normalized-requirement-bundle.v1
+  structuredBehaviorContracts: structured-behavior-contracts.v1
+  requirementGovernance: requirement-governance-bundle.v1
+  canonicalTestCase: canonical-test-case-bundle.v1
+  goldenRequirementSnapshot: golden-requirement-snapshot.v1
+  pomContract: pom-contract-v1
+  pageEnrichment: page-model-enrichment-record.v1
+  qualityReport: ai-run-quality-summary.v1

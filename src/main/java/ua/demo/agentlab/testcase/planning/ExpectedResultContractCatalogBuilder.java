@@ -26,16 +26,19 @@ class ExpectedResultContractCatalogBuilder {
     private Stream<ExpectedResultContract> toContracts(RequirementUnit unit) {
         NormalizedRequirement requirement = unit.requirement();
         if (requirement.structuredAssertions() != null && !requirement.structuredAssertions().isEmpty()) {
-            return requirement.structuredAssertions().stream().map(assertion -> new ExpectedResultContract(
-                    requirement.id(),
-                    structuredAssertionType(assertion.type()),
-                    assertion.target(),
-                    assertion.expectedValue(),
-                    unit.ownerPage(),
-                    unit.route(),
-                    sourceReference(assertion.sourceReference()),
-                    0.96d
-            ));
+            return requirement.structuredAssertions().stream().map(assertion -> {
+                AssertionType assertionType = structuredAssertionType(assertion.type());
+                return new ExpectedResultContract(
+                        requirement.id(),
+                        assertionType,
+                        assertion.target(),
+                        structuredExpectedValue(assertion.expectedValue(), assertionType, unit),
+                        unit.ownerPage(),
+                        unit.route(),
+                        sourceReference(assertion.sourceReference()),
+                        0.96d
+                );
+            });
         }
         String expectedValue = expectedValue(requirement, unit);
         return Stream.of(new ExpectedResultContract(
@@ -59,6 +62,16 @@ class ExpectedResultContractCatalogBuilder {
         } catch (IllegalArgumentException exception) {
             return AssertionType.DATA_STATE_MATCHES;
         }
+    }
+
+    private String structuredExpectedValue(String expectedValue, AssertionType type, RequirementUnit unit) {
+        String value = expectedValue == null ? "" : expectedValue.trim();
+        if ((type == AssertionType.URL_CONTAINS || type == AssertionType.ROUTE_EQUALS
+                || type == AssertionType.ROUTE_REACHED || type == AssertionType.ROUTE_CHANGED)
+                && (!value.startsWith("/") || value.startsWith("//"))) {
+            return unit.route();
+        }
+        return value;
     }
 
     private String expectedValue(NormalizedRequirement requirement, RequirementUnit unit) {

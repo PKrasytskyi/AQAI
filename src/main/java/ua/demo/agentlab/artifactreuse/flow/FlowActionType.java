@@ -58,6 +58,7 @@ public enum FlowActionType {
             case CREATE_RECORD -> CREATE_RECORD;
             case EDIT_RECORD -> EDIT_RECORD;
             case DELETE_RECORD -> DELETE_RECORD;
+            case OPEN_MENU -> OPEN_MENU;
             case OPEN_MODAL -> OPEN_MODAL;
             case CONFIRM_ACTION -> CONFIRM_ACTION;
             case SORT_COLLECTION, SORT -> SORT;

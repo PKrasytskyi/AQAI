@@ -22,8 +22,6 @@ import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4
 import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
 import ua.demo.agentlab.ui.discovery.spa.SpaInventoryArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.SpaInventoryBuilder;
-import ua.demo.agentlab.ui.discovery.spa.SpaInventoryGraphWriter;
-import ua.demo.agentlab.ui.discovery.spa.SpaEvidenceLifecycleGraphWriter;
 import ua.demo.agentlab.ui.discovery.spa.ComponentInteractionGraphArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.ComponentInteractionGraphBuilder;
 import ua.demo.agentlab.ui.discovery.spa.ComponentInteractionGraphWriter;
@@ -79,8 +77,7 @@ public class DiscoveryModuleFactory {
                 new UiSpaInventoryAgent(
                         new PropertiesSpaInventoryConfig(),
                         new SpaInventoryBuilder(),
-                        new SpaInventoryArtifactWriter(),
-                        new SpaInventoryGraphWriter(new PropertiesNeo4jRuntimeConfig())
+                        new SpaInventoryArtifactWriter()
                 ),
                 new UiSpaComponentInteractionGraphAgent(
                         new ComponentInteractionGraphBuilder(),
@@ -90,13 +87,11 @@ public class DiscoveryModuleFactory {
                 new UiSpaTargetedVerificationAgent(
                         new PropertiesSpaInventoryConfig(),
                         new SpaTargetedVerificationPlanner(),
-                        new SpaEvidenceLifecycleGraphWriter(new PropertiesNeo4jRuntimeConfig()),
                         new SpaTargetedVerificationArtifactWriter()
                 ),
                 new UiLiveSpaTargetedVerificationAgent(
                         new PropertiesSpaInventoryConfig(),
                         new LiveTargetedVerificationRunner(),
-                        new SpaEvidenceLifecycleGraphWriter(new PropertiesNeo4jRuntimeConfig()),
                         new LiveTargetedVerificationArtifactWriter()
                 ),
                 new UiSpaEvidenceRetentionAgent(

@@ -2,9 +2,10 @@ package ua.demo.agentlab.ai.ui.generation;
 
 import ua.demo.agentlab.ai.schema.LlmOutputSchemaVersion;
 import ua.demo.agentlab.ai.ui.prompt.AiPageObjectPromptBuilder;
-import ua.demo.agentlab.ai.ui.prompt.scope.PomScopeSanitizer;
 import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
+import ua.demo.agentlab.ai.ui.prompt.scope.ConfirmedUiCatalogPomScopeProjector;
 import ua.demo.agentlab.ui.UiTestScenario;
+import ua.demo.agentlab.ui.discovery.identity.PageReferenceMatcher;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,44 +14,35 @@ import java.util.Map;
 public class AiPageObjectPromptBuildStage {
 
     private final AiPageObjectPromptBuilder promptBuilder;
-    private final PomScopeSanitizer scopeSanitizer;
+    private final ConfirmedUiCatalogPomScopeProjector catalogProjector = new ConfirmedUiCatalogPomScopeProjector();
 
     public AiPageObjectPromptBuildStage() {
-        this(new AiPageObjectPromptBuilder(), new PomScopeSanitizer());
+        this(new AiPageObjectPromptBuilder());
     }
 
     AiPageObjectPromptBuildStage(AiPageObjectPromptBuilder promptBuilder) {
-        this(promptBuilder, new PomScopeSanitizer());
-    }
-
-    AiPageObjectPromptBuildStage(AiPageObjectPromptBuilder promptBuilder, PomScopeSanitizer scopeSanitizer) {
         if (promptBuilder == null) {
             throw new IllegalArgumentException("promptBuilder cannot be null");
         }
         this.promptBuilder = promptBuilder;
-        this.scopeSanitizer = scopeSanitizer == null ? new PomScopeSanitizer() : scopeSanitizer;
     }
 
     public AiPageObjectPromptDraft build(AiPageObjectPromptScope scope) {
         if (scope == null) {
             throw new IllegalArgumentException("scope cannot be null");
         }
+        PromptReadyPomScope promptScope = readyScope(scope);
         String prompt = promptBuilder.buildForPage(
-                scope.scopedContext(),
-                scope.pageName(),
-                scope.pageScenarios(),
-                scope.baselineSpec()
-        );
+                scope.scopedContext(), scope.pageName(), scope.baselineSpec(), promptScope, capability(scope));
         return new AiPageObjectPromptDraft(scope, prompt, buildPromptMetadata(scope));
     }
 
     private Map<String, Object> buildPromptMetadata(AiPageObjectPromptScope scope) {
         Map<String, Object> metadata = new LinkedHashMap<>();
-        PromptReadyPomScope promptScope = scopeSanitizer.sanitize(
-                scope.scopedContext(), scope.pageName(), scope.pageScenarios());
+        PromptReadyPomScope promptScope = readyScope(scope);
         List<UiTestScenario> pageScenarios = scope.pageScenarios();
         metadata.put("schemaVersion", LlmOutputSchemaVersion.POM_CONTRACT);
-        metadata.put("compatibilityOutput", LlmOutputSchemaVersion.AI_PAGE_OBJECT_SPEC);
+        metadata.put("javaRenderingModel", LlmOutputSchemaVersion.AI_PAGE_OBJECT_SPEC);
         metadata.put("promptMode", promptBuilder.promptMode().name().toLowerCase(java.util.Locale.ROOT));
         metadata.put("pageName", scope.pageName());
         metadata.put("scopedScenarioCount", pageScenarios.size());
@@ -71,5 +63,20 @@ public class AiPageObjectPromptBuildStage {
                 ? 0
                 : scope.scopedContext().canonicalTestCaseBundle().testCases().size());
         return metadata;
+    }
+
+    private PromptReadyPomScope readyScope(AiPageObjectPromptScope scope) {
+        return catalogProjector.project(scope.confirmedUiCatalog(), scope.pageName());
+    }
+
+    private String capability(AiPageObjectPromptScope scope) {
+        if (scope.confirmedUiCatalog() == null) return "UNKNOWN";
+        return scope.confirmedUiCatalog().pages().stream()
+                .filter(page -> PageReferenceMatcher.matchesScenarioPage(
+                        page.pageName(), page.route(), scope.pageName()))
+                .map(page -> page.capability())
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse("UNKNOWN");
     }
 }

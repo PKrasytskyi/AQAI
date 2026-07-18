@@ -11,6 +11,8 @@ import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 import ua.demo.agentlab.ui.discovery.evidence.funnel.UiEvidenceFunnelAssembler;
 import ua.demo.agentlab.ui.discovery.evidence.funnel.UiEvidenceFunnelInput;
 import ua.demo.agentlab.ui.discovery.evidence.funnel.UiEvidenceFunnelReport;
+import ua.demo.agentlab.ui.discovery.interaction.observability.EvidenceProjectionTrace;
+import ua.demo.agentlab.ui.discovery.interaction.observability.EvidenceProjectionTraceEntry;
 import ua.demo.agentlab.ui.discovery.spa.SpaDiscoveryMode;
 import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorContract;
 import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorStep;
@@ -140,7 +142,7 @@ public class UiEvidenceFunnelAssemblerTest {
                 "searchInput", "search", "css", "[data-test='search']", "input", "", "", true,
                 0.94, "FilterPanel", "FILTER_PANEL", 1, 1, true,
                 LocatorEvidenceType.CONFIRMED_LOCATOR,
-                List.of("spa-locator-id:search-input", "db-stable-locator:search-input")
+                List.of("spa-page-id:record-list", "spa-locator-id:search-input", "db-stable-locator:search-input")
         );
         AiContextPackage context = new AiContextPackage(
                 "", null, null, null, null, null, null, null, null, null, null, null, null,
@@ -173,6 +175,45 @@ public class UiEvidenceFunnelAssemblerTest {
         Assert.assertEquals(report.metrics().requirementBoundPages(), 1);
         Assert.assertEquals(report.metrics().promptEligiblePages(), 1);
         Assert.assertTrue(report.requirements().get(0).confirmedEvidencePath());
+    }
+
+    @Test
+    public void requirementProjectionUsesCanonicalPromptTraceWithoutReconstructingLocatorOwnership() {
+        StructuredBehaviorContract requirement = new StructuredBehaviorContract(
+                "REQ-TRACE", "AUTHENTICATION", List.of("authenticate"), List.of(), Map.of(),
+                "targetRoute: /login", true, List.of()
+        );
+        BoundSpaBehaviorContract binding = new BoundSpaBehaviorContract(
+                "REQ-TRACE", "AUTHENTICATION", "login", "/login", "flow", List.of("login-form"),
+                List.of(new BoundSpaBehaviorStep("TYPE", "enter username", "runtime-locator", "username", "")),
+                List.of(), Map.of(), true, List.of()
+        );
+        SpaPageInventory page = new SpaPageInventory(
+                "login", "LoginPage", "/login", "AUTHENTICATION", "fp", null, List.of(), List.of()
+        );
+        EvidenceProjectionTrace trace = new EvidenceProjectionTrace(
+                EvidenceProjectionTrace.SCHEMA_VERSION, "run", 1, 1, 1, 1, 1, 0, 1, 1,
+                List.of(new EvidenceProjectionTraceEntry(
+                        "canonical-locator", "login:authenticate", "login", "login-form",
+                        List.of("REQ-TRACE"), true, true, true, true, "CONFIRMED", false,
+                        true, true, "", ""
+                )), List.of()
+        );
+        UiEvidenceFunnelInput input = new UiEvidenceFunnelInput(
+                "run", List.of(requirement),
+                new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+                        List.of(page), List.of()),
+                null, null, List.of(binding),
+                SpaLiveTargetedVerificationResult.skipped(null, "projection-trace-is-authoritative"),
+                emptyTargets(), emptyContext(), trace
+        );
+
+        UiEvidenceFunnelReport report = new UiEvidenceFunnelAssembler().assemble(input);
+
+        Assert.assertTrue(report.pomReadinessPassed());
+        Assert.assertTrue(report.requirements().get(0).confirmedEvidencePath());
+        Assert.assertEquals(report.requirements().get(0).promptAllowedLocators(), 1);
+        Assert.assertEquals(report.metrics().promptEligiblePages(), 1);
     }
 
     @Test

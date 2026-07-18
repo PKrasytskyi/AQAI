@@ -10,6 +10,7 @@ public enum RequirementIntent {
     SELECT_OPTION,
     SEARCH,
     FILTER,
+    OPEN_MENU,
     VERIFY_ELEMENT_VISIBLE,
     VERIFY_ROUTE,
     VERIFY_PAGE_ACCESSIBLE,

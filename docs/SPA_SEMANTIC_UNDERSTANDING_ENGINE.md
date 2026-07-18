@@ -119,8 +119,8 @@ Supporting artifacts:
 
 ### Ready
 
-* Component-aware SPA inventory and Neo4j persistence.
-* Candidate locator/action lifecycle with promotion, degradation, retention, and smoke feedback.
+* Component-aware SPA inventory feeding one canonical interaction projection.
+* Canonical locator/action lifecycle with promotion, degradation, retention, and smoke feedback.
 * Component-scoped POM evidence and deterministic component POM writing.
 * `USER_MENU -> LOGOUT` dependency graph and live verification.
 * Internal `MODULE_NAVIGATION` with route confirmation.
@@ -132,7 +132,7 @@ Supporting artifacts:
 
 * Filter, navigation, table, and modal flows can now bind ScenarioData/ENV values, execute select/type/click sequences through a fresh browser session, and verify before/after state where an observable postcondition is supplied.
 * Safe navigation is enabled by default. Data-changing filter actions require `spa.live-verification.execute-data-actions=true`; session-ending/destructive actions remain opt-in.
-* Successful browser execution updates only matching existing `SpaCandidateLocator`, `SpaCandidateAction`, and `SpaTypedComponentFlow` nodes in Neo4j. `SKIPPED` and `NEEDS_REVIEW` never demote stable DB knowledge.
+* Successful browser execution updates only matching canonical `UiLocatorEvidence` and `UiSemanticAction` records in Neo4j. `SKIPPED` and `NEEDS_REVIEW` never promote evidence or bypass the catalog.
 * A missing result locator, test dataset, state-change assertion, or modal result produces a focused review item rather than a guessed interaction.
 
 For a data-driven live verification, enable it explicitly and provide every value required by the structured requirement. `ScenarioData` is read first from the named dataset; environment variables or JVM properties with the exact placeholder name override it:

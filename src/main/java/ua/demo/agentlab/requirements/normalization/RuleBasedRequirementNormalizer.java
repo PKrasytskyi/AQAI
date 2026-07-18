@@ -15,8 +15,11 @@ public class RuleBasedRequirementNormalizer implements RequirementNormalizer {
         List<String> lines = Arrays.asList(document.content().split("\\R", -1));
         List<NormalizedRequirement> structuredRequirements = structuredRequirements(document.source(), lines);
         if (!structuredRequirements.isEmpty()) {
+            List<NormalizedRequirement> allRequirements = new ArrayList<>(structuredRequirements);
+            allRequirements.addAll(structuredGovernanceRequirements(document.source(), lines));
+            allRequirements.sort(Comparator.comparingInt(requirement -> requirement.sourceReference().startLine()));
             return new NormalizedRequirementBundle(
-                    document.source(), structuredRequirements,
+                    document.source(), List.copyOf(allRequirements),
                     List.of("Structured capability-first requirements were normalized one block per REQ id."),
                     List.of()
             );
@@ -125,12 +128,71 @@ public class RuleBasedRequirementNormalizer implements RequirementNormalizer {
                 section = "";
                 continue;
             }
+            if (raw.startsWith("## ")) {
+                if (current != null) {
+                    blocks.add(current.finish(index));
+                    current = null;
+                }
+                section = "";
+                continue;
+            }
             if (current == null) continue;
             if (raw.startsWith("### ")) { section = cleanHeading(raw); continue; }
             if (!raw.isBlank()) current.add(section, stripMarker(raw));
         }
         if (current != null) blocks.add(current.finish(lines.size()));
         return blocks.stream().map(block -> block.toNormalized(source)).toList();
+    }
+
+    private List<NormalizedRequirement> structuredGovernanceRequirements(String source, List<String> lines) {
+        List<NormalizedRequirement> governance = new ArrayList<>();
+        String section = "";
+        boolean insideExecutableRequirement = false;
+        for (int index = 0; index < lines.size(); index++) {
+            String raw = lines.get(index).trim();
+            if (raw.startsWith("## Requirement:")) {
+                insideExecutableRequirement = true;
+                continue;
+            }
+            if (raw.startsWith("## ")) {
+                insideExecutableRequirement = false;
+                section = cleanHeading(raw);
+                continue;
+            }
+            if (insideExecutableRequirement || !isGovernanceSection(section) || !isRequirementLine(raw)) {
+                continue;
+            }
+            String value = stripMarker(raw);
+            java.util.regex.Matcher matcher = java.util.regex.Pattern
+                    .compile("^(GOV-[A-Za-z0-9_-]+)\\s*:\\s*(.+)$", java.util.regex.Pattern.CASE_INSENSITIVE)
+                    .matcher(value);
+            if (!matcher.matches()) {
+                continue;
+            }
+            String id = matcher.group(1).toUpperCase(Locale.ROOT);
+            String statement = matcher.group(2).trim();
+            governance.add(new NormalizedRequirement(
+                    id,
+                    buildTitle(statement),
+                    statement,
+                    "",
+                    true,
+                    false,
+                    List.of(normalizeTag(section)),
+                    new SourceReference(source, index + 1, index + 1, statement)
+            ));
+        }
+        return List.copyOf(governance);
+    }
+
+    private boolean isGovernanceSection(String section) {
+        String normalized = normalizeTag(section == null ? "" : section);
+        return normalized.equals("ui-expectations")
+                || normalized.equals("runtime-evidence-expectations")
+                || normalized.equals("page-ownership-expectations")
+                || normalized.equals("quality-expectations")
+                || normalized.equals("non-functional-requirements")
+                || normalized.equals("out-of-scope");
     }
 
     private boolean isExcludedSection(String currentSection) {

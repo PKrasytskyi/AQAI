@@ -111,7 +111,7 @@ Detailed API layer documentation: [API Layer Documentation](API_LAYER.md).
 - `ua.demo.agentlab.ai.pageenrichment` - PageModel enrichment over mapper output.
 - `ua.demo.agentlab.ai.expectationenrichment` - expected-result resolution.
 - `ua.demo.agentlab.ai.ui` - deterministic POM/test prompt/spec generation.
-- `ua.demo.agentlab.ai.ui.contract` - `pom-contract-v1`, POM contract quality gate, deterministic Java writer, and compatibility adapter.
+- `ua.demo.agentlab.ai.ui.contract` - `pom-contract-v1`, POM contract quality gate, deterministic Java writer, and internal Java rendering projection.
 - `ua.demo.agentlab.api` - API discovery, canonical cases, specs, quality gate, and writer.
 - `ua.demo.agentlab.core.ui` - Selenium support classes for generated UI code.
 - `ua.demo.agentlab.core.api` - RestAssured support for generated API clients.

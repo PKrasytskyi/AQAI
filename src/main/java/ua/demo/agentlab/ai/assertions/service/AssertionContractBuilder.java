@@ -43,32 +43,22 @@ public class AssertionContractBuilder {
     }
 
     private AssertionOwner resolveOwner(CanonicalTestCase testCase, AssertionType type, String expectedValue) {
-        String normalized = normalize(expectedValue + " " + firstAssertion(testCase) + " " + testCase.title());
-        if (type == AssertionType.URL_CONTAINS && expectedValue != null && !expectedValue.isBlank()) {
-            if (containsAny(normalized, "logout", "sign out")
-                    && containsAny(normalized, "login page", "login route", "redirected to login")) {
-                return sourceOwner(testCase, "LoginPage", "");
-            }
-            if (expectedValue.contains("/login") || normalized.contains("login page")) {
-                return sourceOwner(testCase, "LoginPage", "");
-            }
-            if (expectedValue.contains("/secure")
-                    || expectedValue.contains("/dashboard")
-                    || normalized.contains("authenticated area")) {
-                return targetOwner(testCase, "AuthenticatedAreaPage", "");
-            }
-        }
-        if (containsAny(normalized, "login page", "login form", "username", "password", "login button")) {
-            return sourceOwner(testCase, "LoginPage", "");
-        }
-        if (containsAny(normalized, "authenticated area", "secure area", "dashboard heading",
-                "logged with valid credentials", "logout action", "user menu")) {
-            return targetOwner(testCase, "AuthenticatedAreaPage", "");
-        }
+        // CanonicalTestCase already carries resolved source/action ownership and target/assertion
+        // ownership. Re-deriving it from words such as "login" or "dashboard" reintroduces
+        // product-specific cross-page mistakes.
         return targetOwner(testCase, testCase.pageName(), testCase.route());
     }
 
     private AssertionType resolveAssertionType(CanonicalTestCase testCase, AssertionIntent intent) {
+        String intentText = normalize(firstNonBlank(
+                intent == null ? "" : intent.expectedValue(),
+                firstAssertion(testCase),
+                testCase.title()
+        ));
+        if (intent != null && intent.kind() == AssertionIntentKind.AUTHENTICATED_AREA_VISIBLE
+                && describesConcreteElementState(intentText)) {
+            return AssertionType.ELEMENT_VISIBLE;
+        }
         if (intent != null) {
             try {
                 return AssertionType.valueOf(intent.kind().name());
@@ -94,6 +84,11 @@ public class AssertionContractBuilder {
             return AssertionType.AUTHENTICATED_AREA_VISIBLE;
         }
         return toAssertionType(intent == null ? null : intent.kind());
+    }
+
+    private boolean describesConcreteElementState(String text) {
+        return containsAny(text, "logout", "sign out", "user menu", "heading", "button", "field", "control")
+                && containsAny(text, "visible", "enabled", "open", "display");
     }
 
     private AssertionOwner sourceOwner(CanonicalTestCase testCase, String fallbackPage, String fallbackRoute) {
@@ -140,7 +135,7 @@ public class AssertionContractBuilder {
         if (type == AssertionType.URL_CONTAINS || type == AssertionType.ROUTE_EQUALS) {
             if (containsAny(text, "logout", "sign out")
                     && containsAny(text, "login page", "login route", "redirected to login")) {
-                return firstNonBlank(routeLike(intent.expectedValue()), testCase.sourceRoute(), "/auth/login");
+                return firstNonBlank(routeLike(intent.expectedValue()), testCase.route(), testCase.sourceRoute());
             }
             if (containsAny(text, "authenticated area", "dashboard")) {
                 return firstNonBlank(routeLike(intent.expectedValue()), testCase.route(), testCase.sourceRoute());

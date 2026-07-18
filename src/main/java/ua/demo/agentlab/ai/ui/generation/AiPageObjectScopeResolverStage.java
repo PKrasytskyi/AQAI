@@ -39,14 +39,15 @@ public class AiPageObjectScopeResolverStage {
             return List.of();
         }
         return request.uiTestPlan().pageNames().stream()
-                .map(pageName -> resolvePage(request.contextPackage(), pageName, request.baselineSpecs()))
+                .map(pageName -> resolvePage(request.contextPackage(), pageName, request.baselineSpecs(), request.confirmedUiCatalog()))
                 .toList();
     }
 
     private AiPageObjectPromptScope resolvePage(
             AiContextPackage contextPackage,
             String pageName,
-            List<AiPageObjectSpec> baselineSpecs
+            List<AiPageObjectSpec> baselineSpecs,
+            ua.demo.agentlab.ui.discovery.catalog.ConfirmedUiCatalog confirmedUiCatalog
     ) {
         AiContextScope pageScope = scopeResolver.resolveForPage(contextPackage, pageName);
         AiContextPackage scopedContext = contextSlicer.slice(contextPackage, pageScope);
@@ -65,7 +66,8 @@ public class AiPageObjectScopeResolverStage {
                 scopedContext,
                 pageScenarios,
                 baselineSpec,
-                buildScopeTrace(pageName, pageScope, contextPackage, scopedContext, pageScenarios)
+                buildScopeTrace(pageName, pageScope, contextPackage, scopedContext, pageScenarios),
+                confirmedUiCatalog
         );
     }
 

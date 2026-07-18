@@ -115,13 +115,20 @@ public final class SourceStateBindingService {
 
         Set<ComponentType> requestedTypes = componentTypes(contract);
         Set<String> targetTokens = meaningfulTokens(targetHint + " " + String.join(" ", contract.actions()));
+        Set<String> requestedActionIntents = requestedActionIntents(contract);
         List<SemanticComponentInventory> components = source.components().stream()
                 .filter(component -> requestedTypes.isEmpty() || requestedTypes.contains(component.type()))
                 .toList();
+        Set<String> actionRequiredLocatorIds = components.stream()
+                .flatMap(component -> component.actions().stream())
+                .filter(action -> requestedActionIntents.contains(action.intent().toUpperCase(Locale.ROOT)))
+                .flatMap(action -> action.requiredLocatorIds().stream())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
         Map<String, CandidateLocatorEvidence> locatorsBySelector = new LinkedHashMap<>();
         components.stream()
                 .flatMap(component -> component.locators().stream())
-                .filter(locator -> candidateRelevant(locator, targetTokens))
+                .filter(locator -> candidateRelevant(locator, targetTokens)
+                        || actionRequiredLocatorIds.contains(locator.locatorId()))
                 .filter(locator -> admitted(locator, config))
                 .sorted(Comparator.comparingDouble(CandidateLocatorEvidence::qualityScore).reversed()
                         .thenComparing(CandidateLocatorEvidence::locatorId))
@@ -129,17 +136,18 @@ public final class SourceStateBindingService {
                         + "|" + locator.value(), locator));
         List<String> locatorIds = locatorsBySelector.values().stream().map(CandidateLocatorEvidence::locatorId).toList();
         Set<String> admittedLocators = Set.copyOf(locatorIds);
-        List<String> actionIds = components.stream()
+        boolean actionRequired = contract.actions().stream()
+                .anyMatch(action -> !normalize(action).startsWith("inspect") && !isRouteOpenAction(action));
+        List<String> actionIds = actionRequired ? components.stream()
                 .flatMap(component -> component.actions().stream())
-                .filter(action -> actionRelevant(action, admittedLocators, targetTokens, contract.capability()))
+                .filter(action -> actionRelevant(action, admittedLocators, targetTokens,
+                        contract.capability(), requestedActionIntents))
                 .filter(action -> action.confidence() >= config.minLiveVerificationScore())
                 .sorted(Comparator.comparingDouble(CandidateActionEvidence::confidence).reversed()
                         .thenComparing(CandidateActionEvidence::actionId))
                 .map(CandidateActionEvidence::actionId)
                 .distinct()
-                .toList();
-
-        boolean actionRequired = contract.actions().stream().anyMatch(action -> !normalize(action).startsWith("inspect"));
+                .toList() : List.of();
         if (locatorIds.isEmpty()) {
             review.add("No requirement-relevant candidate locator passed live-verification admission policy.");
         }
@@ -192,11 +200,15 @@ public final class SourceStateBindingService {
     }
 
     private boolean actionRelevant(CandidateActionEvidence action, Set<String> locatorIds,
-                                   Set<String> targetTokens, String capability) {
+                                   Set<String> targetTokens, String capability,
+                                   Set<String> requestedActionIntents) {
         if (action.requiredLocatorIds().stream().noneMatch(locatorIds::contains)) return false;
         String intent = normalize(action.intent());
         String normalizedCapability = normalize(capability);
         if (normalizedCapability.equals("module_navigation") && !intent.equals("click")) return false;
+        if (!requestedActionIntents.isEmpty() && !requestedActionIntents.contains(intent.toUpperCase(Locale.ROOT))) {
+            return false;
+        }
         if (targetTokens.isEmpty()) return true;
         String evidence = action.actionId() + " " + action.targetElementId() + " " + String.join(" ", action.sourceTrace());
         return evidenceMatchesTokens(evidence, targetTokens, false)
@@ -213,9 +225,42 @@ public final class SourceStateBindingService {
             result.add(ComponentType.TABLE);
         }
         if (value.contains("modal")) result.add(ComponentType.MODAL);
-        if (value.contains("user_menu")) result.add(ComponentType.USER_MENU);
+        if (value.contains("user_menu") || value.contains("logout")) {
+            result.add(ComponentType.USER_MENU);
+            // The opener commonly belongs to a persistent header while the revealed controls
+            // belong to the menu component. Both are part of one typed interaction flow.
+            result.add(ComponentType.HEADER);
+        }
         if (value.contains("form") || value.contains("authentication")) result.add(ComponentType.FORM);
         return result;
+    }
+
+    private Set<String> requestedActionIntents(StructuredBehaviorContract contract) {
+        Set<String> intents = new LinkedHashSet<>();
+        for (String raw : contract.actions()) {
+            String action = normalize(raw);
+            if (isRouteOpenAction(raw)) continue;
+            if (action.startsWith("enter_") || action.startsWith("type_")) intents.add("TYPE");
+            if (action.startsWith("submit_")) intents.add("SUBMIT_FORM");
+            if (action.contains("user_menu") && action.startsWith("open_")) intents.add("OPEN_MENU");
+            if (action.contains("logout") || action.contains("sign_out")) intents.add("LOGOUT");
+            if ((action.startsWith("click_") || action.startsWith("open_"))
+                    && !action.contains("user_menu") && !action.contains("logout")) intents.add("CLICK");
+            if (action.startsWith("select_")) intents.add("SELECT");
+        }
+        String context = normalize(contract.targetContext());
+        if (intents.contains("LOGOUT") && context.contains("user_menu")) {
+            intents.add("OPEN_MENU");
+        }
+        return intents;
+    }
+
+    private boolean isRouteOpenAction(String raw) {
+        String action = normalize(raw);
+        return action.startsWith("open_the_target_page")
+                || action.startsWith("open_target_page")
+                || action.startsWith("open_the_application")
+                || action.startsWith("open_application");
     }
 
     private String targetHint(StructuredBehaviorContract contract) {
@@ -266,11 +311,7 @@ public final class SourceStateBindingService {
     }
 
     private String contextValue(String context, String key) {
-        String boundary = "pageCapability|componentCapability|sourceRoute|targetRoute|sourcePage|targetPage";
-        Matcher matcher = Pattern.compile("(?i)(?:^|\\s|`)" + Pattern.quote(key)
-                        + "\\s*:\\s*`?(.+?)(?=\\s*;?\\s+(?:" + boundary + ")\\s*:|$)")
-                .matcher(context == null ? "" : context);
-        return matcher.find() ? matcher.group(1).replace("`", "").replaceAll("[;\\s]+$", "").trim() : "";
+        return BehaviorTargetContext.parse(context).value(key);
     }
 
     private boolean routeMatches(String left, String right) {

@@ -9,10 +9,10 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
-import ua.demo.agentlab.ui.discovery.spa.SpaSmokeEvidenceFeedbackWriter;
+import ua.demo.agentlab.ui.discovery.interaction.persistence.CanonicalInteractionSmokeFeedbackWriter;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaSmokeEvidenceFeedbackResult;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
-import ua.demo.agentlab.ai.ui.contract.PomSourceMap;
+import ua.demo.agentlab.ui.generated.PomSourceMap;
 import ua.demo.agentlab.validation.smoke.LiveUiSmokeResult;
 import ua.demo.agentlab.validation.feedback.GeneratedUiClosedLoopPolicy;
 
@@ -25,11 +25,11 @@ import java.util.Set;
 public class UiSpaSmokeEvidenceFeedbackAgent implements WorkflowAgent,
         PipelineAgent<SpaSmokeEvidenceFeedbackInput, SpaSmokeEvidenceFeedbackResult> {
     private final PropertiesSpaInventoryConfig config;
-    private final SpaSmokeEvidenceFeedbackWriter writer;
+    private final CanonicalInteractionSmokeFeedbackWriter writer;
     private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
     private final GeneratedUiClosedLoopPolicy closedLoopPolicy = new GeneratedUiClosedLoopPolicy();
 
-    public UiSpaSmokeEvidenceFeedbackAgent(PropertiesSpaInventoryConfig config, SpaSmokeEvidenceFeedbackWriter writer) {
+    public UiSpaSmokeEvidenceFeedbackAgent(PropertiesSpaInventoryConfig config, CanonicalInteractionSmokeFeedbackWriter writer) {
         this.config = config == null ? new PropertiesSpaInventoryConfig() : config;
         this.writer = writer;
     }

@@ -131,6 +131,9 @@ public class ElementClassifier {
         if ("HEADING".equals(technicalType)) {
             return containsAny(text, "dashboard") ? "DASHBOARD_HEADING" : "PAGE_HEADING";
         }
+        if (isDropdownMenuItem(element, technicalType)) {
+            return "MENU_ITEM";
+        }
         if (containsAny(text, "userdropdown", "user dropdown", "profile menu", "user menu")) {
             return "USER_MENU_TRIGGER";
         }
@@ -165,6 +168,13 @@ public class ElementClassifier {
             return "DIALOG";
         }
         return technicalType;
+    }
+
+    private boolean isDropdownMenuItem(RawElement element, String technicalType) {
+        String role = normalize(element.role());
+        String cssClass = normalize(element.cssClass());
+        return "LINK".equals(technicalType)
+                && ("menuitem".equals(role) || containsAny(cssClass, "userdropdown-link", "dropdown-item"));
     }
 
     private List<String> actions(String technicalType, String semanticType, RawElement element) {

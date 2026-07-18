@@ -82,14 +82,11 @@ public class DbStableLocatorEvidenceService {
             double runtimePassRate = parseDouble(properties.get("runtimePassRate"), 0.0d);
             double flakyRate = parseDouble(properties.get("flakyRate"), 1.0d);
             String validationStatus = properties.getOrDefault("validationStatus", "");
-            boolean promotedSpaCandidate = "PROMPT_ALLOWED".equalsIgnoreCase(properties.getOrDefault("status", ""))
-                    && properties.containsKey("locatorId")
-                    && properties.containsKey("componentId");
             if (score < MIN_CONFIRMED_SCORE
                     || runtimePassRate < 0.90d
                     || flakyRate > 0.10d
                     || !"PASSED".equalsIgnoreCase(validationStatus)
-                    || (!promotedSpaCandidate && !"CONFIRMED_LOCATOR".equals(properties.getOrDefault("evidenceType", "")))
+                    || !"CONFIRMED_LOCATOR".equals(properties.getOrDefault("evidenceType", ""))
                     || !"true".equalsIgnoreCase(properties.getOrDefault("sameOrigin", "false"))) {
                 continue;
             }
@@ -133,32 +130,29 @@ public class DbStableLocatorEvidenceService {
 
     private String queryStatement() {
         return """
-                CALL {
-                  MATCH (l:UiStableLocator)
-                  WHERE l.appId = $appId
-                    AND l.baseUrlHash = $baseUrlHash
-                    AND l.schemaVersion = $schemaVersion
-                    AND l.pageId = $pageId
-                    AND l.pageFingerprintHash = $pageFingerprintHash
-                    AND coalesce(l.status, 'ACTIVE') = 'ACTIVE'
-                    AND l.evidenceType = 'CONFIRMED_LOCATOR'
-                    AND coalesce(l.validationStatus, '') = 'PASSED'
-                    AND coalesce(toFloat(l.runtimePassRate), 0.0) >= 0.90
-                    AND coalesce(toFloat(l.flakyRate), 1.0) <= 0.10
-                  RETURN properties(l) AS locator
-                  UNION
-                  MATCH (l:SpaCandidateLocator)
-                  WHERE l.appId = $appId
-                    AND l.baseUrlHash = $baseUrlHash
-                    AND l.schemaVersion = $schemaVersion
-                    AND l.pageId = $pageId
-                    AND l.route = $route
-                    AND l.status = 'PROMPT_ALLOWED'
-                    AND coalesce(l.validationStatus, '') = 'PASSED'
-                    AND coalesce(toFloat(l.runtimePassRate), 0.0) >= 0.90
-                    AND coalesce(toFloat(l.flakyRate), 1.0) <= 0.10
-                  RETURN properties(l) AS locator
-                }
+                MATCH (s:UiState)-[:HAS_COMPONENT]->(c:UiComponent)-[:HAS_ELEMENT]->
+                      (:UiSemanticElement)-[:SUPPORTS_ACTION]->(:UiSemanticAction)-[r:USES_LOCATOR]->(l:UiLocatorEvidence)
+                WHERE s.appId = $appId
+                  AND s.baseUrlHash = $baseUrlHash
+                  AND s.schemaVersion = $schemaVersion
+                  AND s.pageId = $pageId
+                  AND s.route = $route
+                  AND s.pageFingerprintHash = $pageFingerprintHash
+                  AND l.status = 'CONFIRMED'
+                  AND l.schemaVersion = $schemaVersion
+                  AND l.evidenceType = 'CONFIRMED_LOCATOR'
+                  AND coalesce(l.sameOrigin, false) = true
+                  AND coalesce(l.validationStatus, '') = 'PASSED'
+                  AND coalesce(toFloat(l.runtimePassRate), 0.0) >= 0.90
+                  AND coalesce(toFloat(l.flakyRate), 1.0) <= 0.10
+                  AND coalesce(r.primary, false) = true
+                WITH properties(l) + {
+                  pageId:s.pageId,
+                  route:s.route,
+                  componentId:c.componentId,
+                  locatorId:l.locatorEvidenceId,
+                  scopedMatchCount:l.componentMatchCount
+                } AS locator
                 RETURN locator
                 ORDER BY coalesce(toFloat(locator.qualityScore), 0.0) DESC,
                          coalesce(toFloat(locator.runtimePassRate), 0.0) DESC,

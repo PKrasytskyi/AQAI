@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Retires degraded or unseen SPA candidates. Hard deletion is opt-in: retained nodes preserve
+ * Retires degraded or unseen canonical interaction evidence. Hard deletion is opt-in: retained nodes preserve
  * auditability and cannot be selected for POM evidence after their status becomes RETIRED.
  */
 public class SpaEvidenceRetentionGraphWriter {
@@ -49,15 +49,15 @@ public class SpaEvidenceRetentionGraphWriter {
 
     private String statement(boolean hardDelete) {
         if (hardDelete) {
-            return "MATCH (n) WHERE (n:SpaCandidateLocator OR n:SpaCandidateAction) AND n.appId=$appId AND n.baseUrlHash=$baseUrlHash AND n.schemaVersion=$schemaVersion "
+            return "MATCH (n) WHERE (n:UiLocatorEvidence OR n:UiSemanticAction) AND n.appId=$appId AND n.baseUrlHash=$baseUrlHash AND n.schemaVersion=$schemaVersion "
                     + "WITH collect(n) AS candidates, $degradedBefore AS degradedBefore, $orphanBefore AS orphanBefore "
                     + "FOREACH (n IN [x IN candidates WHERE (x.status='DEGRADED' AND coalesce(x.verifiedAt,x.lastSeen,x.createdAt,'') < degradedBefore) OR coalesce(x.lastSeen,x.createdAt,'') < orphanBefore] | DETACH DELETE n) "
                     + "RETURN 0 AS degradedRetired, 0 AS orphanRetired, size(candidates) AS deleted";
         }
-        return "MATCH (n) WHERE (n:SpaCandidateLocator OR n:SpaCandidateAction) AND n.appId=$appId AND n.baseUrlHash=$baseUrlHash AND n.schemaVersion=$schemaVersion "
+        return "MATCH (n) WHERE (n:UiLocatorEvidence OR n:UiSemanticAction) AND n.appId=$appId AND n.baseUrlHash=$baseUrlHash AND n.schemaVersion=$schemaVersion "
                 + "WITH collect(n) AS candidates, $degradedBefore AS degradedBefore, $orphanBefore AS orphanBefore, $now AS now "
                 + "FOREACH (n IN [x IN candidates WHERE x.status='DEGRADED' AND coalesce(x.verifiedAt,x.lastSeen,x.createdAt,'') < degradedBefore] | SET n.status='RETIRED', n.retentionReason='degraded-evidence-expired', n.retiredAt=now) "
-                + "FOREACH (n IN [x IN candidates WHERE coalesce(x.lastSeen,x.createdAt,'') < orphanBefore AND NOT (coalesce(x.status,'CANDIDATE') IN ['STABLE','PROMPT_ALLOWED'])] | SET n.status='RETIRED', n.retentionReason='orphan-candidate-expired', n.retiredAt=now) "
+                + "FOREACH (n IN [x IN candidates WHERE coalesce(x.lastSeen,x.createdAt,'') < orphanBefore AND coalesce(x.status,'CANDIDATE') <> 'CONFIRMED'] | SET n.status='RETIRED', n.retentionReason='orphan-candidate-expired', n.retiredAt=now) "
                 + "RETURN size([x IN candidates WHERE x.status='RETIRED' AND x.retentionReason='degraded-evidence-expired']) AS degradedRetired, "
                 + "size([x IN candidates WHERE x.status='RETIRED' AND x.retentionReason='orphan-candidate-expired']) AS orphanRetired, 0 AS deleted";
     }

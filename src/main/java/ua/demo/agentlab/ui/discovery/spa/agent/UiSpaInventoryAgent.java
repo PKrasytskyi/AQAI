@@ -11,7 +11,6 @@ import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
 import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
 import ua.demo.agentlab.ui.discovery.spa.SpaInventoryArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.SpaInventoryBuilder;
-import ua.demo.agentlab.ui.discovery.spa.SpaInventoryGraphWriter;
 import ua.demo.agentlab.ui.discovery.spa.TypedComponentFlowArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.TypedComponentFlowBuilder;
 import ua.demo.agentlab.ui.discovery.spa.TypedComponentFlowGraphWriter;
@@ -25,19 +24,16 @@ public class UiSpaInventoryAgent implements WorkflowAgent, PipelineAgent<SpaInve
     private final PropertiesSpaInventoryConfig config;
     private final SpaInventoryBuilder inventoryBuilder;
     private final SpaInventoryArtifactWriter artifactWriter;
-    private final SpaInventoryGraphWriter graphWriter;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
 
     public UiSpaInventoryAgent(
             PropertiesSpaInventoryConfig config,
             SpaInventoryBuilder inventoryBuilder,
-            SpaInventoryArtifactWriter artifactWriter,
-            SpaInventoryGraphWriter graphWriter
+            SpaInventoryArtifactWriter artifactWriter
     ) {
         this.config = config == null ? new PropertiesSpaInventoryConfig() : config;
         this.inventoryBuilder = inventoryBuilder == null ? new SpaInventoryBuilder() : inventoryBuilder;
         this.artifactWriter = artifactWriter == null ? new SpaInventoryArtifactWriter() : artifactWriter;
-        this.graphWriter = graphWriter;
     }
 
     @Override
@@ -96,9 +92,8 @@ public class UiSpaInventoryAgent implements WorkflowAgent, PipelineAgent<SpaInve
         var typedFlows = new TypedComponentFlowBuilder().build(inventory);
         String flowArtifact = new TypedComponentFlowArtifactWriter().write(typedFlows);
         new TypedComponentFlowGraphWriter(new PropertiesNeo4jRuntimeConfig()).persist(typedFlows);
-        var persistence = graphWriter == null
-                ? ua.demo.agentlab.ui.discovery.spa.SpaInventoryPersistenceResult.skipped("SPA inventory graph writer is unavailable")
-                : graphWriter.persist(inventory);
+        var persistence = ua.demo.agentlab.ui.discovery.spa.SpaInventoryPersistenceResult.skipped(
+                "Canonical interaction projection owns locator/action persistence");
         return new SpaInventoryOutput(inventory, persistence, List.of(artifact, flowArtifact));
     }
 

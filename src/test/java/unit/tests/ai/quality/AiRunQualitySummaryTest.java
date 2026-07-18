@@ -180,6 +180,31 @@ public class AiRunQualitySummaryTest {
     }
 
     @Test
+    public void summaryCountsFinalPromptLocatorsAsConfirmedEvidence() {
+        LocatorCandidate rawCandidate = new LocatorCandidate(
+                LocatorStrategy.NAME, "username", 0.88, "current-run", "input", "Username",
+                "", "", "example.test", true, true, true, List.of()
+        );
+        AiRunQualitySummary summary = new AiRunQualitySummaryService().summarize(new AiRunQualitySummaryInput(
+                null,
+                null,
+                null,
+                new MappedUiKnowledge(List.of(new ua.demo.agentlab.ui.discovery.mapping.model.MappedPage(
+                        "login", "LoginPage", "authentication", "/login", "/login", "Login",
+                        List.of(),
+                        List.of(new ua.demo.agentlab.ui.discovery.mapping.model.MappedElement(
+                                "username", "username", "input", "input", "Username", false, true,
+                                List.of(rawCandidate), List.of("type"), 0.88)),
+                        List.of(), List.of(), List.of(), null, "", ""
+                )), List.of(), List.of(), List.of(), List.of()),
+                Map.of("ai.page.object.prompt.LoginPage.allowedLocators", "1")
+        ));
+
+        Assert.assertEquals(summary.confirmedLocators(), 1);
+        Assert.assertEquals(summary.candidateLocators(), 0);
+    }
+
+    @Test
     public void summaryExposesRetrievalHealthMetadata() {
         AiRunQualitySummary summary = new AiRunQualitySummaryService().summarize(new AiRunQualitySummaryInput(
                 null,

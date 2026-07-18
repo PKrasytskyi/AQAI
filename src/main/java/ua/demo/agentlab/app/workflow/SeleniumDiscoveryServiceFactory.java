@@ -9,6 +9,7 @@ import ua.demo.agentlab.ui.discovery.classification.PageClassificationService;
 import ua.demo.agentlab.ui.discovery.classification.RuleBasedPageClassificationService;
 import ua.demo.agentlab.ui.discovery.evidence.LocalPageEvidenceCaptureService;
 import ua.demo.agentlab.ui.discovery.policy.DiscoveryCrawlPolicy;
+import ua.demo.agentlab.ui.discovery.policy.DiscoveryCrawlPolicyResolver;
 import ua.demo.agentlab.ui.discovery.selenium.SeleniumUiDiscoveryService;
 import ua.demo.agentlab.ui.discovery.selenium.auth.DiscoveryAuthenticationConfig;
 import ua.demo.agentlab.ui.discovery.selenium.auth.DiscoveryAuthenticationService;
@@ -40,7 +41,7 @@ public class SeleniumDiscoveryServiceFactory {
                 interactiveElementExtractor,
                 formStructureExtractor
         );
-        DiscoveryCrawlPolicy discoveryCrawlPolicy = DiscoveryCrawlPolicy.defaultPolicy(projectProfile);
+        DiscoveryCrawlPolicy discoveryCrawlPolicy = new DiscoveryCrawlPolicyResolver().resolve(projectProfile);
         BiDiSessionManager biDiSessionManager = new BiDiSessionManager(
                 BiDiDiscoveryConfig.fromRuntime(),
                 biDiEventBuffer

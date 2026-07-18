@@ -11,11 +11,14 @@ import java.util.List;
 
 /** Writes the evidence binding boundary so a needs-review decision is inspectable without raw prompts. */
 public final class StructuredBehaviorBindingArtifactWriter {
+    private final SensitiveSpaArtifactSanitizer sanitizer = new SensitiveSpaArtifactSanitizer();
+
     public String write(List<BoundSpaBehaviorContract> bindings) {
         try {
             Path path = Path.of("target", "discovery", "spa-structured-behavior-bindings.json");
             Files.createDirectories(path.getParent());
-            new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValue(path.toFile(), bindings == null ? List.of() : bindings);
+            new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT)
+                    .writeValue(path.toFile(), sanitizer.sanitize(bindings));
             return path.toAbsolutePath().toString();
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to write SPA structured behavior bindings", exception);

@@ -21,7 +21,7 @@ public class LocatorEvidenceSelector {
 
     private final PromptLocatorSelector locatorSelector;
     private final DbStableLocatorEvidenceSelector dbStableLocatorEvidenceSelector;
-    private final CurrentRunSpaLocatorEvidenceSelector currentRunSpaLocatorEvidenceSelector;
+    private final ConfirmedCatalogLocatorEvidenceSelector confirmedCatalogLocatorEvidenceSelector;
     private final ComponentLocatorEvidenceSelector componentLocatorEvidenceSelector;
     private final PageModelLocatorEvidenceSelector pageModelLocatorEvidenceSelector;
 
@@ -53,7 +53,7 @@ public class LocatorEvidenceSelector {
         LocatorSafetyPolicy locatorSafetyPolicy = new LocatorSafetyPolicy();
         this.locatorSelector = safeLocatorSelector;
         this.dbStableLocatorEvidenceSelector = new DbStableLocatorEvidenceSelector(safeOwnershipSlicer);
-        this.currentRunSpaLocatorEvidenceSelector = new CurrentRunSpaLocatorEvidenceSelector();
+        this.confirmedCatalogLocatorEvidenceSelector = new ConfirmedCatalogLocatorEvidenceSelector();
         this.componentLocatorEvidenceSelector = new ComponentLocatorEvidenceSelector(
                 componentBoundaryDetector == null ? new ComponentBoundaryDetector() : componentBoundaryDetector,
                 semanticActionModelBuilder == null ? new SemanticActionModelBuilder() : semanticActionModelBuilder,
@@ -78,7 +78,7 @@ public class LocatorEvidenceSelector {
         MappedPage targetPage = scope.targetPage();
         List<PromptLocatorEvidence> locators = new ArrayList<>();
         locators.addAll(enrichmentStableLocators(context, targetPage));
-        locators.addAll(currentRunSpaLocatorEvidenceSelector.select(context, scope));
+        locators.addAll(confirmedCatalogLocatorEvidenceSelector.select(context, scope));
         locators.addAll(componentLocatorEvidenceSelector.select(context, targetPage));
         locators.addAll(dbStableLocatorEvidenceSelector.select(context, targetPage));
         locators.addAll(mappedKnowledgeLocators(targetPage));

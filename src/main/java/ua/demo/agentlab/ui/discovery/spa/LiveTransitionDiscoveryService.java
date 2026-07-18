@@ -26,11 +26,15 @@ public final class LiveTransitionDiscoveryService {
         verification.stateGraph().states().forEach(state -> states.put(state.stateId(), state));
         List<RequirementStateTransition> results = new ArrayList<>();
         for (SourceStateBinding source : sources.bindings()) {
-            TargetedActionVerification action = verification.actionVerifications().stream()
+            List<TargetedActionVerification> eligibleActions = verification.actionVerifications().stream()
                     .filter(candidate -> candidate.requirementIds().contains(source.requirementId()))
                     .filter(candidate -> source.candidateActionIds().contains(candidate.actionId()))
                     .filter(TargetedActionVerification::verified)
-                    .findFirst().orElse(null);
+                    .toList();
+            TargetedActionVerification action = eligibleActions.stream()
+                    .filter(candidate -> transitionFor(verification, candidate) != null)
+                    .max(java.util.Comparator.comparingInt(candidate -> transitionPreference(source, candidate)))
+                    .orElseGet(() -> eligibleActions.stream().findFirst().orElse(null));
             UiStateTransition transition = action == null ? null : verification.stateGraph().transitions().stream()
                     .filter(candidate -> candidate.actionId().equals(action.actionId()))
                     .findFirst().orElse(null);
@@ -49,6 +53,32 @@ public final class LiveTransitionDiscoveryService {
         }
         return new LiveTransitionDiscovery(LiveTransitionDiscovery.SCHEMA_VERSION, verification.runMetadata(), verification,
                 results, List.of("live-transition-discovery:browser-observed", "requirements=" + results.size()));
+    }
+
+    private UiStateTransition transitionFor(
+            SpaLiveTargetedVerificationResult verification,
+            TargetedActionVerification action
+    ) {
+        return verification.stateGraph().transitions().stream()
+                .filter(candidate -> candidate.actionId().equals(action.actionId()))
+                .findFirst().orElse(null);
+    }
+
+    private int transitionPreference(SourceStateBinding source, TargetedActionVerification action) {
+        String capability = normalize(source.capability());
+        String target = normalize(source.targetHint());
+        String intent = normalize(action.intent());
+        if (capability.equals("authentication") && intent.equals("submit_form")) return 100;
+        if (capability.equals("logout") && target.contains("authentication") && intent.equals("logout")) return 100;
+        if (capability.equals("logout") && target.contains("login") && intent.equals("logout")) return 100;
+        if (capability.equals("logout") && target.contains("user_menu") && intent.equals("open_menu")) return 90;
+        if (capability.equals("module_navigation") && intent.equals("click")) return 80;
+        return intent.equals("open_menu") ? 40 : 10;
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
     }
 
     private String failureReason(SourceStateBinding source, TargetedActionVerification action,

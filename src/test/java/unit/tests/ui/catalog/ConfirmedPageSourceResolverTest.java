@@ -14,7 +14,7 @@ import ua.demo.agentlab.ui.catalog.StablePageRegistry;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
 import ua.demo.agentlab.requirements.normalization.model.SourceReference;
-import ua.demo.agentlab.ui.discovery.mapping.LocatorPromotionFilter;
+import ua.demo.agentlab.ui.discovery.mapping.MappedKnowledgeCurationFilter;
 import ua.demo.agentlab.ui.discovery.mapping.LocatorStrategy;
 import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 import ua.demo.agentlab.ui.discovery.mapping.MappedUiKnowledgeRouteCollisionPolicy;
@@ -352,7 +352,7 @@ public class ConfirmedPageSourceResolverTest {
                 ""
         );
 
-        MappedUiKnowledge filtered = new LocatorPromotionFilter().filterForPersistence(new MappedUiKnowledge(
+        MappedUiKnowledge filtered = new MappedKnowledgeCurationFilter().filterForCuration(new MappedUiKnowledge(
                 List.of(page),
                 List.of(),
                 List.of(),
@@ -399,7 +399,7 @@ public class ConfirmedPageSourceResolverTest {
                 List.of("login")
         );
 
-        MappedUiKnowledge filtered = new LocatorPromotionFilter().filterForPersistence(new MappedUiKnowledge(
+        MappedUiKnowledge filtered = new MappedKnowledgeCurationFilter().filterForCuration(new MappedUiKnowledge(
                 List.of(page),
                 List.of(),
                 List.of(enrichment),

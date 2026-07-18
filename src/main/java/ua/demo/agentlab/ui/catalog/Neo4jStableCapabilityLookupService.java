@@ -40,9 +40,16 @@ public final class Neo4jStableCapabilityLookupService {
             return List.copyOf(result);
         } catch (RuntimeException ignored) { return List.of(); }
     }
-    private String query() { return "MATCH (p:SpaPageInventory)-[:HAS_COMPONENT]->(c) WHERE p.appId=$appId AND p.baseUrlHash=$baseUrlHash AND p.schemaVersion=$schemaVersion "
-            + "AND EXISTS { MATCH (c)-[:HAS_CANDIDATE_LOCATOR]->(l:SpaCandidateLocator) WHERE l.status='CONFIRMED' AND coalesce(l.lastSmokeStatus,'')='PASSED' } "
-            + "RETURN p.pageName,p.route,p.capability,max(coalesce(c.confidence,0.80)) ORDER BY p.route"; }
+    private String query() {
+        return "MATCH (s:UiState)-[:HAS_COMPONENT]->(:UiComponent)-[:HAS_ELEMENT]->"
+                + "(:UiSemanticElement)-[:SUPPORTS_ACTION]->(:UiSemanticAction)-[r:USES_LOCATOR]->(l:UiLocatorEvidence) "
+                + "WHERE s.appId=$appId AND s.baseUrlHash=$baseUrlHash AND s.schemaVersion=$schemaVersion "
+                + "AND l.schemaVersion=$schemaVersion AND l.status='CONFIRMED' "
+                + "AND l.evidenceType='CONFIRMED_LOCATOR' AND coalesce(l.validationStatus,'')='PASSED' "
+                + "AND coalesce(l.sameOrigin,false)=true AND coalesce(toFloat(l.runtimePassRate),0.0)>=0.90 "
+                + "AND coalesce(toFloat(l.flakyRate),1.0)<=0.10 AND coalesce(r.primary,false)=true "
+                + "RETURN s.pageName,s.route,s.capability,max(coalesce(toFloat(l.qualityScore),0.0)) ORDER BY s.route";
+    }
     private String commitUrl(){ String root=config.httpUrl().endsWith("/")?config.httpUrl().substring(0,config.httpUrl().length()-1):config.httpUrl(); return root+"/db/"+config.database()+"/tx/commit"; }
     private Map<String,String> headers(){return Map.of("Authorization","Basic "+Base64.getEncoder().encodeToString((config.username()+":"+config.password()).getBytes(StandardCharsets.UTF_8)));}
     private boolean blank(String v){return v==null||v.isBlank();}

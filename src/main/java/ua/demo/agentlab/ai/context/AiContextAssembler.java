@@ -114,7 +114,7 @@ public class AiContextAssembler {
                 input.pageModelEnrichments(),
                 buildTemplateCapabilities(),
                 dbStableLocators(input, scopedKnowledge),
-                input.currentRunSpaLocatorEvidence(),
+                input.confirmedCatalogLocatorEvidence(),
                 PromptUiEvidence.empty("prompt-evidence:assembly-bootstrap")
         );
         return withPromptEvidence(contextPackage, promptUiEvidenceBuilder.build(contextPackage));
@@ -139,7 +139,7 @@ public class AiContextAssembler {
                 contextPackage.pageModelEnrichments(),
                 contextPackage.templateCapabilities(),
                 contextPackage.dbStableLocatorEvidence(),
-                contextPackage.currentRunSpaLocatorEvidence(),
+                contextPackage.confirmedCatalogLocatorEvidence(),
                 promptUiEvidence
         );
     }

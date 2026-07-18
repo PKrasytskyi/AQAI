@@ -4,6 +4,7 @@ import ua.demo.agentlab.ai.assertions.model.AssertionType;
 import ua.demo.agentlab.requirements.normalization.StructuredRequirementContext;
 import ua.demo.agentlab.ui.contract.AssertionIntentKind;
 import ua.demo.agentlab.ui.contract.UiOperationKind;
+import ua.demo.agentlab.ui.capability.LogoutAccessMode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -86,7 +87,7 @@ class ScenarioCandidateBuilder {
         return switch (unit.intent()) {
             case OPEN_PAGE, NAVIGATE, MODULE_NAVIGATION, VERIFY_PAGE_ACCESSIBLE, VERIFY_ROUTE, AUTHENTICATE, SUBMIT_FORM,
                  VERIFY_AUTHENTICATED_AREA, VERIFY_LOGOUT_AVAILABLE -> true;
-            case ENTER_DATA, SELECT_OPTION, SEARCH, FILTER, VERIFY_ELEMENT_VISIBLE, INSPECT_CONTENT, LOGOUT -> false;
+            case ENTER_DATA, SELECT_OPTION, SEARCH, FILTER, OPEN_MENU, VERIFY_ELEMENT_VISIBLE, INSPECT_CONTENT, LOGOUT -> false;
         };
     }
 
@@ -153,12 +154,23 @@ class ScenarioCandidateBuilder {
                             null,
                             true));
                 }
-                steps.add(new ScenarioStepCandidate(UiOperationKind.LOGOUT, targetPage, targetRoute, null, false));
+                if (logoutAccessMode(unit) == LogoutAccessMode.USER_MENU) {
+                    steps.add(new ScenarioStepCandidate(
+                            UiOperationKind.OPEN_MENU,
+                            sourcePage,
+                            sourceRoute,
+                            "userMenu",
+                            true
+                    ));
+                }
+                steps.add(new ScenarioStepCandidate(UiOperationKind.LOGOUT, sourcePage, sourceRoute, null, false));
             }
             case SELECT_OPTION, FILTER -> steps.add(new ScenarioStepCandidate(
                     UiOperationKind.FILTER, targetPage, targetRoute, entryDataKey(unit), false));
             case SEARCH -> steps.add(new ScenarioStepCandidate(
                     UiOperationKind.SEARCH, targetPage, targetRoute, null, false));
+            case OPEN_MENU -> steps.add(new ScenarioStepCandidate(
+                    UiOperationKind.OPEN_MENU, targetPage, targetRoute, "userMenu", false));
         }
         return deduplicateSteps(steps);
     }
@@ -221,6 +233,10 @@ class ScenarioCandidateBuilder {
     }
 
     private String sourcePage(RequirementUnit unit) {
+        String explicit = pageResolver.sourcePageFor(unit.requirement(), sourceCapability(unit));
+        if (!explicit.isBlank()) {
+            return explicit;
+        }
         return unit.intent() == RequirementIntent.SUBMIT_FORM
                 || unit.intent() == RequirementIntent.AUTHENTICATE
                 || requiresAuthenticationSetup(unit)
@@ -229,6 +245,10 @@ class ScenarioCandidateBuilder {
     }
 
     private String sourceRoute(RequirementUnit unit) {
+        String explicit = pageResolver.sourceRouteFor(unit.requirement(), sourceCapability(unit));
+        if (!explicit.isBlank()) {
+            return explicit;
+        }
         return unit.intent() == RequirementIntent.SUBMIT_FORM
                 || unit.intent() == RequirementIntent.AUTHENTICATE
                 || requiresAuthenticationSetup(unit)
@@ -248,6 +268,16 @@ class ScenarioCandidateBuilder {
             return pageResolver.routeFor(RequirementCapability.AUTHENTICATION);
         }
         return pageResolver.routeFor(RequirementCapability.AUTHENTICATED_AREA);
+    }
+
+    private RequirementCapability sourceCapability(RequirementUnit unit) {
+        if (unit.intent() == RequirementIntent.SUBMIT_FORM || unit.intent() == RequirementIntent.AUTHENTICATE) {
+            return RequirementCapability.AUTHENTICATION;
+        }
+        if (requiresAuthenticationSetup(unit)) {
+            return RequirementCapability.AUTHENTICATED_AREA;
+        }
+        return unit.capability();
     }
 
     private AssertionType defaultAssertionType(RequirementUnit unit) {
@@ -288,7 +318,7 @@ class ScenarioCandidateBuilder {
 
     private boolean hasExplicitTargetRoute(RequirementUnit unit) {
         return unit != null && unit.requirement() != null
-                && !StructuredRequirementContext.targetRoute(unit.requirement()).isBlank();
+                && !StructuredRequirementContext.value(unit.requirement(), "target context", "targetRoute").isBlank();
     }
 
     private List<ScenarioStepCandidate> deduplicateSteps(List<ScenarioStepCandidate> steps) {
@@ -332,5 +362,17 @@ class ScenarioCandidateBuilder {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private LogoutAccessMode logoutAccessMode(RequirementUnit unit) {
+        LogoutAccessMode declared = LogoutAccessMode.from(
+                StructuredRequirementContext.logoutAccessMode(unit.requirement()));
+        if (declared != LogoutAccessMode.UNKNOWN) {
+            return declared;
+        }
+        String components = StructuredRequirementContext.componentCapability(unit.requirement());
+        return components.toUpperCase(java.util.Locale.ROOT).contains("USER_MENU")
+                ? LogoutAccessMode.USER_MENU
+                : LogoutAccessMode.UNKNOWN;
     }
 }

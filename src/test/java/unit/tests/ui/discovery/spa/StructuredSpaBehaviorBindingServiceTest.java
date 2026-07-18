@@ -160,6 +160,86 @@ public class StructuredSpaBehaviorBindingServiceTest {
         Assert.assertTrue(result.flowId().isBlank(), "Selection does not require a navigation flow");
     }
 
+    @Test
+    public void bindsSubmitFromConfirmedActionBeforeMatchingGenericFormText() {
+        CandidateLocatorEvidence password = locator("password-locator", "form", "passwordInput");
+        CandidateLocatorEvidence submit = locator("submit-locator", "form", "loginButton");
+        CandidateActionEvidence typePassword = new CandidateActionEvidence(
+                "type-password", "form", "TYPE", "passwordInput", 0.96d, List.of("password-locator"),
+                List.of(), List.of(), List.of(), SpaEvidenceStatus.CANDIDATE);
+        CandidateActionEvidence submitForm = new CandidateActionEvidence(
+                "submit-login", "form", "SUBMIT_FORM", "loginButton", 0.94d, List.of("submit-locator"),
+                List.of(), List.of(), List.of("semantic-evidence:authentication"), SpaEvidenceStatus.CANDIDATE);
+        SemanticComponentInventory form = new SemanticComponentInventory(
+                "form", "AuthenticationForm", ComponentType.FORM, "", "", "", List.of(), 0.95d,
+                List.of(password, submit), List.of(typePassword, submitForm), List.of(), List.of());
+        SpaPageInventory page = new SpaPageInventory(
+                "login", "LoginPage", "/auth/login", "AUTHENTICATION", "fp", null, List.of(form), List.of());
+        StructuredBehaviorContract contract = new StructuredBehaviorContract(
+                "REQ-AUTH", "AUTHENTICATION", List.of("Submit the authentication form."), List.of(), Map.of(),
+                "targetRoute: /auth/login pageCapability: AUTHENTICATION componentCapability: FORM", true, List.of());
+        SpaTargetedVerificationResult verification = new SpaTargetedVerificationResult(
+                "v", null,
+                List.of(verifiedLocator(page, password, "REQ-AUTH"), verifiedLocator(page, submit, "REQ-AUTH")),
+                List.of(verifiedAction(page, typePassword, "REQ-AUTH"), verifiedAction(page, submitForm, "REQ-AUTH")),
+                List.of(), List.of());
+
+        var result = new StructuredSpaBehaviorBindingService().bind(List.of(contract),
+                new SpaInventoryBundle("v", SpaDiscoveryMode.TARGETED, List.of(page), List.of()), verification).get(0);
+
+        Assert.assertTrue(result.executable(), result.reviewReasons().toString());
+        Assert.assertEquals(result.steps().get(0).actionId(), "submit-login");
+        Assert.assertEquals(result.steps().get(0).locatorId(), "submit-locator");
+    }
+
+    @Test
+    public void bindsOpenMenuToHeaderTriggerInsteadOfMenuItem() {
+        CandidateLocatorEvidence trigger = locator("user-menu-trigger", "header", "userMenuTrigger");
+        CandidateLocatorEvidence about = locator("about-link", "header", "aboutLink");
+        CandidateActionEvidence openTrigger = new CandidateActionEvidence(
+                "open-user-menu", "header", "OPEN_MENU", "userMenuTrigger", 0.91d, List.of("user-menu-trigger"),
+                List.of(), List.of(), List.of("semantic-evidence:user-menu-trigger"), SpaEvidenceStatus.CANDIDATE);
+        CandidateActionEvidence openAbout = new CandidateActionEvidence(
+                "open-about", "header", "OPEN_MENU", "aboutLink", 0.99d, List.of("about-link"),
+                List.of(), List.of(), List.of("semantic-evidence:about"), SpaEvidenceStatus.CANDIDATE);
+        SemanticComponentInventory header = new SemanticComponentInventory(
+                "header", "Header", ComponentType.HEADER, "", "", "", List.of(), 0.95d,
+                List.of(trigger, about), List.of(openTrigger, openAbout), List.of(), List.of());
+        SpaPageInventory page = new SpaPageInventory(
+                "dashboard", "DashboardPage", "/dashboard/index", "AUTHENTICATED_AREA|LOGOUT", "fp", null,
+                List.of(header), List.of());
+        StructuredBehaviorContract contract = new StructuredBehaviorContract(
+                "REQ-MENU", "LOGOUT", List.of("Open the user menu."), List.of(), Map.of(),
+                "targetRoute: /dashboard/index pageCapability: AUTHENTICATED_AREA componentCapability: HEADER, USER_MENU",
+                true, List.of());
+        SpaTargetedVerificationResult verification = new SpaTargetedVerificationResult(
+                "v", null,
+                List.of(verifiedLocator(page, trigger, "REQ-MENU"), verifiedLocator(page, about, "REQ-MENU")),
+                List.of(verifiedAction(page, openTrigger, "REQ-MENU"), verifiedAction(page, openAbout, "REQ-MENU")),
+                List.of(), List.of());
+
+        var result = new StructuredSpaBehaviorBindingService().bind(List.of(contract),
+                new SpaInventoryBundle("v", SpaDiscoveryMode.TARGETED, List.of(page), List.of()), verification).get(0);
+
+        Assert.assertTrue(result.executable(), result.reviewReasons().toString());
+        Assert.assertEquals(result.steps().get(0).actionId(), "open-user-menu");
+        Assert.assertEquals(result.steps().get(0).locatorId(), "user-menu-trigger");
+    }
+
+    private TargetedLocatorVerification verifiedLocator(SpaPageInventory page, CandidateLocatorEvidence locator,
+                                                         String requirementId) {
+        return new TargetedLocatorVerification(page.pageId(), page.route(), page.pageFingerprintHash(),
+                locator.componentId(), locator.locatorId(), locator.elementId(), locator.strategy(), locator.value(),
+                locator.qualityScore(), true, "live confirmed", List.of(requirementId));
+    }
+
+    private TargetedActionVerification verifiedAction(SpaPageInventory page, CandidateActionEvidence action,
+                                                       String requirementId) {
+        return new TargetedActionVerification(page.pageId(), page.route(), page.pageFingerprintHash(),
+                action.componentId(), action.actionId(), action.intent(), action.targetElementId(), action.confidence(),
+                true, "live confirmed", List.of(requirementId));
+    }
+
     private CandidateLocatorEvidence locator(String locatorId, String componentId, String elementId) {
         return new CandidateLocatorEvidence(locatorId, componentId, elementId, "css", "a[href*='recruitment']", 0.95d,
                 true, 1, 1, true, true, true, LocatorEvidenceType.CANDIDATE_LOCATOR, SpaEvidenceStatus.CANDIDATE, List.of());

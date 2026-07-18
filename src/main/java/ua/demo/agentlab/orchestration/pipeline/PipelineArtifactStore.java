@@ -96,6 +96,14 @@ public class PipelineArtifactStore {
             putIfPresent(WorkflowArtifact.SPA_COMPONENT_INTERACTION_GRAPH, output.graph());
             return;
         }
+        if (value instanceof ua.demo.agentlab.ui.discovery.interaction.agent.UiInteractionEvidenceOutput output) {
+            putIfPresent(WorkflowArtifact.CANONICAL_INTERACTION_EVIDENCE, output.canonical());
+            putIfPresent(WorkflowArtifact.LOCATOR_CANDIDATE_COVERAGE_REPORT, output.coverage());
+            putIfPresent(WorkflowArtifact.CONFIRMED_UI_CATALOG, output.catalog());
+            putIfPresent(WorkflowArtifact.INTERACTION_GRAPH_PROJECTION, output.graphProjection());
+            putIfPresent(WorkflowArtifact.EVIDENCE_PROJECTION_TRACE, output.projectionTrace());
+            return;
+        }
         if (value instanceof ua.demo.agentlab.ai.pageenrichment.agent.PageKnowledgeCacheLookupOutput output) {
             putIfPresent(WorkflowArtifact.PAGE_KNOWLEDGE_CACHE_LOOKUP, output.result());
             return;

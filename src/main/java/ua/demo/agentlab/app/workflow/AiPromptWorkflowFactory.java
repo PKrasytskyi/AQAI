@@ -4,6 +4,7 @@ import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaSourceStateBindingAgent;
 import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaTargetStateBindingAgent;
+import ua.demo.agentlab.ui.discovery.interaction.agent.UiInteractionEvidenceAgent;
 
 import java.util.List;
 
@@ -59,6 +60,7 @@ public class AiPromptWorkflowFactory {
                 ai.pageModelEnrichmentAgent(),
                 ai.flowScopedKnowledgeRefreshAgent(),
                 ai.aiContextAssemblyAgent(),
+                new UiInteractionEvidenceAgent(),
                 ai.uiEvidenceFunnelAgent(),
                 ai.aiPageObjectSpecAgent(),
                 ai.pomContractPageObjectWriterAgent(),

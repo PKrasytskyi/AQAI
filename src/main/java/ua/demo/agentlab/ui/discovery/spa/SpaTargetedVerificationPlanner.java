@@ -95,7 +95,7 @@ public class SpaTargetedVerificationPlanner {
                     }
                 }
                 for (CandidateActionEvidence action : component.actions()) {
-                    if (!actionRelevant(action, operations)) {
+                    if (!actionRelevant(action, component, operations)) {
                         continue;
                     }
                     TargetedActionVerification verification = verifyAction(page, component, action,
@@ -312,6 +312,10 @@ public class SpaTargetedVerificationPlanner {
                     types.add(ComponentType.USER_MENU);
                     types.add(ComponentType.HEADER);
                 }
+                case OPEN_MENU -> {
+                    types.add(ComponentType.HEADER);
+                    types.add(ComponentType.USER_MENU);
+                }
                 case SEARCH -> types.add(ComponentType.SEARCH);
                 case FILTER -> types.add(ComponentType.FILTER_PANEL);
                 case OPEN_RECORD, INSPECT_COLLECTION, SORT_COLLECTION, PAGINATE, SORT -> {
@@ -398,14 +402,51 @@ public class SpaTargetedVerificationPlanner {
         );
     }
 
-    private boolean actionRelevant(CandidateActionEvidence action, Set<UiOperationKind> operations) {
+    private boolean actionRelevant(
+            CandidateActionEvidence action,
+            SemanticComponentInventory component,
+            Set<UiOperationKind> operations
+    ) {
         String intent = action == null || action.intent() == null ? "" : action.intent().trim().toUpperCase(Locale.ROOT);
         for (UiOperationKind operation : operations) {
-            if (matchesIntent(operation, intent)) {
+            if (matchesIntent(operation, intent) && semanticallyCompatible(action, component, operation, intent)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean semanticallyCompatible(
+            CandidateActionEvidence action,
+            SemanticComponentInventory component,
+            UiOperationKind operation,
+            String intent
+    ) {
+        if (action == null || component == null) return false;
+        String actionEvidence = normalize(String.join(" ",
+                action.targetElementId(), action.actionId(), String.join(" ", action.sourceTrace())));
+        List<CandidateLocatorEvidence> actionLocators = component.locators().stream()
+                .filter(locator -> action.requiredLocatorIds().contains(locator.locatorId()))
+                .toList();
+        String locatorEvidence = normalize(actionLocators.stream()
+                .map(locator -> locator.value() + " " + locator.elementId())
+                .collect(java.util.stream.Collectors.joining(" ")));
+        if ("OPEN_MENU".equals(intent)) {
+            boolean openerEvidence = containsAny(actionEvidence + " " + locatorEvidence,
+                    "userdropdown-tab", "aria-haspopup", "menu-trigger", "user-menu-trigger");
+            boolean menuItemOnly = !actionLocators.isEmpty() && actionLocators.stream()
+                    .allMatch(locator -> menuItemLocator(locator.value()));
+            return openerEvidence && !menuItemOnly;
+        }
+        if (operation == UiOperationKind.LOGOUT && ("LOGOUT".equals(intent) || "CLICK".equals(intent))) {
+            return containsAny(actionEvidence + " " + locatorEvidence, "logout", "log out", "signout", "sign-out");
+        }
+        return true;
+    }
+
+    private boolean menuItemLocator(String value) {
+        String normalized = normalize(value);
+        return containsAny(normalized, "a[href", "//a[", "userdropdown-link");
     }
 
     private boolean matchesIntent(UiOperationKind operation, String intent) {
@@ -413,6 +454,7 @@ public class SpaTargetedVerificationPlanner {
             case AUTHENTICATE -> Set.of("TYPE", "CLEAR", "CLICK", "SUBMIT_FORM").contains(intent);
             case ENTER_TEXT -> Set.of("TYPE", "CLEAR").contains(intent);
             case SUBMIT_FORM -> Set.of("SUBMIT_FORM", "CLICK").contains(intent);
+            case OPEN_MENU -> "OPEN_MENU".equals(intent);
             case LOGOUT -> Set.of("OPEN_MENU", "LOGOUT", "CLICK").contains(intent);
             case SEARCH -> Set.of("SEARCH", "TYPE", "CLICK").contains(intent);
             case FILTER -> Set.of("FILTER", "SELECT", "CLICK").contains(intent);
@@ -433,15 +475,45 @@ public class SpaTargetedVerificationPlanner {
     private List<TargetedLocatorVerification> distinctLocators(List<TargetedLocatorVerification> values) {
         Map<String, TargetedLocatorVerification> deduped = new LinkedHashMap<>();
         values.stream().sorted(Comparator.comparing(TargetedLocatorVerification::locatorId))
-                .forEach(value -> deduped.putIfAbsent(value.locatorId(), value));
+                .forEach(value -> deduped.merge(value.locatorId(), value, this::mergeRequirements));
         return List.copyOf(deduped.values());
     }
 
     private List<TargetedActionVerification> distinctActions(List<TargetedActionVerification> values) {
         Map<String, TargetedActionVerification> deduped = new LinkedHashMap<>();
         values.stream().sorted(Comparator.comparing(TargetedActionVerification::actionId))
-                .forEach(value -> deduped.putIfAbsent(value.actionId(), value));
+                .forEach(value -> deduped.merge(value.actionId(), value, this::mergeRequirements));
         return List.copyOf(deduped.values());
+    }
+
+    private TargetedLocatorVerification mergeRequirements(
+            TargetedLocatorVerification left,
+            TargetedLocatorVerification right
+    ) {
+        Set<String> requirementIds = new LinkedHashSet<>(left.requirementIds());
+        requirementIds.addAll(right.requirementIds());
+        boolean verified = left.verified() || right.verified();
+        return new TargetedLocatorVerification(
+                left.pageId(), left.route(), left.pageFingerprintHash(), left.componentId(), left.locatorId(),
+                left.elementId(), left.strategy(), left.value(), Math.max(left.qualityScore(), right.qualityScore()),
+                verified, verified ? "requirement-shared candidate admitted to live browser verification"
+                : left.reason(), List.copyOf(requirementIds)
+        );
+    }
+
+    private TargetedActionVerification mergeRequirements(
+            TargetedActionVerification left,
+            TargetedActionVerification right
+    ) {
+        Set<String> requirementIds = new LinkedHashSet<>(left.requirementIds());
+        requirementIds.addAll(right.requirementIds());
+        boolean verified = left.verified() || right.verified();
+        return new TargetedActionVerification(
+                left.pageId(), left.route(), left.pageFingerprintHash(), left.componentId(), left.actionId(),
+                left.intent(), left.targetElementId(), Math.max(left.confidence(), right.confidence()), verified,
+                verified ? "requirement-shared action admitted to live browser verification" : left.reason(),
+                List.copyOf(requirementIds)
+        );
     }
 
     private boolean blockingRisk(String risk) {
@@ -493,13 +565,18 @@ public class SpaTargetedVerificationPlanner {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
+    private boolean containsAny(String value, String... fragments) {
+        String normalized = normalize(value);
+        for (String fragment : fragments) {
+            if (normalized.contains(normalize(fragment))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private String contextValue(String context, String key) {
-        String boundary = "pageCapability|componentCapability|sourceRoute|targetRoute|sourcePage|targetPage";
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(?i)(?:^|\\s|`)"
-                        + java.util.regex.Pattern.quote(key)
-                        + "\\s*:\\s*`?(.+?)(?=\\s*;?\\s+(?:" + boundary + ")\\s*:|$)")
-                .matcher(context == null ? "" : context);
-        return matcher.find() ? matcher.group(1).replace("`", "").replaceAll("[;\\s]+$", "").trim() : "";
+        return BehaviorTargetContext.parse(context).value(key);
     }
 
     private String semanticTarget(String value) {

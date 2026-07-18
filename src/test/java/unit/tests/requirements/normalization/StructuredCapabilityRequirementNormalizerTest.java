@@ -39,4 +39,32 @@ public class StructuredCapabilityRequirementNormalizerTest {
         Assert.assertEquals(requirement.structuredSections().get("target context"),
                 List.of("`componentCapability: FILTER_PANEL, RESULTS_COLLECTION`"));
     }
+
+    @Test
+    public void reportsTopLevelGovernanceRulesSeparatelyFromStructuredRequirements() {
+        String document = """
+                ## Quality Expectations
+                * GOV-001: Candidate locators must not be executable evidence.
+
+                ## Requirement: REQ-001 Open Login
+                ### Capability
+                `AUTHENTICATION`
+                ### Action
+                * Open the login page.
+                ### Expected Result
+                * Login form is visible.
+                ### Assertion Requirements
+                * `type: ELEMENT_VISIBLE`
+                  * `target: loginForm`
+                  * `expectedValue: Login form is visible`
+                """;
+
+        var result = new RuleBasedRequirementNormalizer().normalize(new RequirementDocument("fixture.md", document));
+
+        Assert.assertEquals(result.requirements().size(), 2);
+        Assert.assertEquals(result.requirements().get(0).id(), "GOV-001");
+        Assert.assertEquals(result.requirements().get(0).tags(), List.of("quality-expectations"));
+        Assert.assertEquals(result.requirements().get(1).id(), "REQ-001");
+        Assert.assertTrue(result.requirements().get(1).tags().contains("structured-requirement"));
+    }
 }

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "golden-interaction-shape.v1",
+  "interactions": [
+    {"pageId":"dashboard","semanticRole":"logout","action":"LOGOUT","status":"CONFIRMED"},
+    {"pageId":"dashboard","semanticRole":"user-menu-trigger","action":"OPEN_MENU","status":"CONFIRMED"},
+    {"pageId":"login","semanticRole":"login-button","action":"SUBMIT_FORM","status":"CONFIRMED"},
+    {"pageId":"login","semanticRole":"password","action":"TYPE","status":"CONFIRMED"},
+    {"pageId":"login","semanticRole":"username","action":"TYPE","status":"CONFIRMED"}
+  ]
+}

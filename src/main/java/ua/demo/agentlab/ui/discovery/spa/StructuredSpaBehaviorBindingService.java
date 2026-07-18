@@ -1,6 +1,5 @@
 package ua.demo.agentlab.ui.discovery.spa;
 
-import ua.demo.agentlab.core.data.PropertiesTestDataProvider;
 import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContract;
 import ua.demo.agentlab.requirements.normalization.model.StructuredAssertionRequirement;
 import ua.demo.agentlab.ui.discovery.component.model.ComponentType;
@@ -19,6 +18,13 @@ import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedLocatorVerification;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedActionVerification;
 import ua.demo.agentlab.ui.discovery.spa.model.TypedComponentFlow;
+import ua.demo.agentlab.ui.discovery.spa.binding.BehaviorBindingResultAssembler;
+import ua.demo.agentlab.ui.discovery.spa.binding.BehaviorExecutabilityGate;
+import ua.demo.agentlab.ui.discovery.spa.binding.BehaviorSourceStateResolver;
+import ua.demo.agentlab.ui.discovery.spa.binding.BehaviorTargetStateResolver;
+import ua.demo.agentlab.ui.discovery.spa.binding.ActionSequenceBinder;
+import ua.demo.agentlab.ui.discovery.spa.binding.PostconditionBindingService;
+import ua.demo.agentlab.ui.discovery.spa.binding.ScenarioDataBindingService;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,6 +46,13 @@ import java.util.regex.Pattern;
 public final class StructuredSpaBehaviorBindingService {
 
     private static final Pattern VARIABLE = Pattern.compile("\\$\\{([^}]+)}");
+    private final ScenarioDataBindingService dataBinding = new ScenarioDataBindingService();
+    private final BehaviorSourceStateResolver sourceStateResolver = new BehaviorSourceStateResolver();
+    private final BehaviorTargetStateResolver targetStateResolver = new BehaviorTargetStateResolver(sourceStateResolver);
+    private final ActionSequenceBinder actionSequenceBinder = new ActionSequenceBinder();
+    private final PostconditionBindingService postconditionBinding = new PostconditionBindingService();
+    private final BehaviorExecutabilityGate executabilityGate = new BehaviorExecutabilityGate();
+    private final BehaviorBindingResultAssembler resultAssembler = new BehaviorBindingResultAssembler();
 
     public List<BoundSpaBehaviorContract> bind(
             List<StructuredBehaviorContract> contracts,
@@ -78,11 +91,13 @@ public final class StructuredSpaBehaviorBindingService {
             SourceStateBinding sourceBinding
     ) {
         List<String> review = new ArrayList<>(contract.reviewReasons());
-        Map<String, String> values = resolveData(contract.dataRequirements(), review);
-        SpaPageInventory page = resolvePage(contract, evidence.pages(), sourceBinding);
+        var data = dataBinding.resolve(contract.dataRequirements());
+        Map<String, String> values = data.values();
+        review.addAll(data.reviewReasons());
+        SpaPageInventory page = targetStateResolver.resolve(contract, evidence.pages(), sourceBinding).orElse(null);
         if (page == null) {
             review.add("No current-run page matches target capability/context '" + contract.targetContext() + "'.");
-            return empty(contract, values, review);
+            return resultAssembler.empty(contract, values, review);
         }
 
         List<SemanticComponentInventory> components = componentsFor(contract, page, evidence, sourceBinding);
@@ -95,89 +110,8 @@ public final class StructuredSpaBehaviorBindingService {
         if (flowId.isBlank() && requiredFlowType(contract).isPresent()) {
             review.add("No typed component flow matches capability " + contract.capability() + " on page " + page.pageName() + ".");
         }
-        if (steps.isEmpty() && requiresExecutableAction(contract)) {
-            review.add("No confirmed executable action binding was produced.");
-        }
-        if (assertions.stream().anyMatch(assertion -> !assertion.verifiable())) {
-            review.add("One or more assertion targets have no confirmed locator or route binding.");
-        }
-
-        boolean executable = review.isEmpty() && (!requiresExecutableAction(contract) || !steps.isEmpty());
-        return new BoundSpaBehaviorContract(contract.requirementId(), contract.capability(), page.pageId(), page.route(), flowId,
-                components.stream().map(SemanticComponentInventory::componentId).toList(), steps, assertions, values,
-                executable, List.copyOf(new LinkedHashSet<>(review)));
-    }
-
-    private BoundSpaBehaviorContract empty(StructuredBehaviorContract contract, Map<String, String> values, List<String> review) {
-        return new BoundSpaBehaviorContract(contract.requirementId(), contract.capability(), "", "", "", List.of(),
-                List.of(), List.of(), values, false, List.copyOf(new LinkedHashSet<>(review)));
-    }
-
-    private SpaPageInventory resolvePage(StructuredBehaviorContract contract, List<SpaPageInventory> pages,
-                                         SourceStateBinding sourceBinding) {
-        if (pages == null || pages.isEmpty()) {
-            return null;
-        }
-        if (sourceBinding != null && !sourceBinding.sourcePageId().isBlank()) {
-            SpaPageInventory confirmedSource = pages.stream()
-                    .filter(page -> page.pageId().equalsIgnoreCase(sourceBinding.sourcePageId())
-                            || routeMatches(page.route(), sourceBinding.sourceRoute()))
-                    .findFirst()
-                    .orElse(null);
-            if (confirmedSource != null) {
-                return confirmedSource;
-            }
-        }
-        boolean moduleNavigation = normalize(contract.capability()).equals("modulenavigation");
-        String targetRoute = explicitRoute(contextValue(contract.targetContext(),
-                moduleNavigation ? "sourceRoute" : "targetRoute"));
-        String targetPage = semanticTarget(contextValue(contract.targetContext(),
-                moduleNavigation ? "sourcePage" : "targetPage"));
-        // pageCapability describes the state reached by navigation; it must not be used to
-        // reject the source page that owns the navigation action.
-        final String expectedCapability = moduleNavigation ? ""
-                : normalize(contextValue(contract.targetContext(), "pageCapability"));
-
-        // A structured requirement must bind to a concrete current-run page. Choosing the
-        // first page with a matching component silently turns an unconfirmed target into a
-        // different page contract (for example, a RECORD_LIST into LoginPage).
-        if (!targetRoute.isBlank()) {
-            return pages.stream()
-                    .filter(page -> routeMatches(page.route(), targetRoute))
-                    .filter(page -> expectedCapability.isBlank()
-                            || supportsCapability(page, expectedCapability))
-                    .sorted(Comparator.comparing(SpaPageInventory::route))
-                    .findFirst()
-                    .orElse(null);
-        }
-        if (!targetPage.isBlank()) {
-            return pages.stream()
-                    .filter(page -> pageMatches(page, targetPage))
-                    .filter(page -> expectedCapability.isBlank()
-                            || supportsCapability(page, expectedCapability))
-                    .sorted(Comparator.comparing(SpaPageInventory::route))
-                    .findFirst()
-                    .orElse(null);
-        }
-
-        // Capability alone is safe only where it identifies one current-run page. Ambiguous
-        // capabilities must be reviewed rather than rebound to a page by sort order.
-        List<SpaPageInventory> capabilityMatches = pages.stream()
-                .filter(page -> !expectedCapability.isBlank()
-                        && supportsCapability(page, expectedCapability))
-                .sorted(Comparator.comparing(SpaPageInventory::route))
-                .toList();
-        return capabilityMatches.size() == 1 ? capabilityMatches.get(0) : null;
-    }
-
-    private boolean supportsCapability(SpaPageInventory page, String expectedCapability) {
-        String expected = normalize(expectedCapability);
-        if (expected.isBlank() || page == null) {
-            return expected.isBlank();
-        }
-        return java.util.Arrays.stream(page.capability().split("\\|"))
-                .map(this::normalize)
-                .anyMatch(expected::equals);
+        var decision = executabilityGate.evaluate(contract, steps, assertions, review);
+        return resultAssembler.assemble(contract, page, flowId, components, steps, assertions, values, decision);
     }
 
     private List<SemanticComponentInventory> componentsFor(StructuredBehaviorContract contract, SpaPageInventory page,
@@ -199,32 +133,45 @@ public final class StructuredSpaBehaviorBindingService {
             EvidenceIndex evidence,
             List<String> review
     ) {
-        List<BoundSpaBehaviorStep> result = new ArrayList<>();
-        for (String rawAction : contract.actions()) {
-            ActionRequest request = ActionRequest.parse(rawAction, values);
-            if (request.kind().isBlank()) {
-                if (!normalize(rawAction).startsWith("inspect")) {
-                    review.add("No typed action intent could be derived for action '" + rawAction + "'.");
-                }
-                continue;
-            }
-            if (request.kind().equals("OPEN_ROUTE")) {
-                result.add(new BoundSpaBehaviorStep("OPEN_ROUTE", "", "", "", page.route()));
-                continue;
-            }
-            CandidateLocatorEvidence locator = findLocator(components, request.target(), evidence);
-            if (locator == null) {
-                review.add("No confirmed locator binding for action '" + rawAction + "'.");
-                continue;
-            }
-            CandidateActionEvidence action = findAction(components, locator.locatorId(), request.kind(), evidence);
-            if (action == null) {
-                review.add("No confirmed action binding for locator '" + locator.locatorId() + "' and action '" + request.kind() + "'.");
-                continue;
-            }
-            result.add(new BoundSpaBehaviorStep(request.kind(), action.actionId(), locator.locatorId(), request.dataKey(), request.value()));
+        return actionSequenceBinder.bind(contract.actions(), rawAction ->
+                bindStep(rawAction, page, components, values, evidence), review);
+    }
+
+    private ActionSequenceBinder.StepResolution bindStep(
+            String rawAction,
+            SpaPageInventory page,
+            List<SemanticComponentInventory> components,
+            Map<String, String> values,
+            EvidenceIndex evidence
+    ) {
+        ActionRequest request = ActionRequest.parse(rawAction, values);
+        if (request.kind().isBlank()) {
+            return normalize(rawAction).startsWith("inspect")
+                    ? ActionSequenceBinder.StepResolution.unbound("")
+                    : ActionSequenceBinder.StepResolution.unbound(
+                    "No typed action intent could be derived for action '" + rawAction + "'.");
         }
-        return List.copyOf(result);
+        if (request.kind().equals("OPEN_ROUTE")) {
+            return ActionSequenceBinder.StepResolution.bound(
+                    new BoundSpaBehaviorStep("OPEN_ROUTE", "", "", "", page.route()));
+        }
+        ActionBinding actionFirst = actionFirstKind(request.kind())
+                ? findActionFirst(components, request, evidence) : null;
+        CandidateLocatorEvidence locator = actionFirst == null
+                ? findLocator(components, request.target(), evidence) : actionFirst.locator();
+        if (locator == null) {
+            return ActionSequenceBinder.StepResolution.unbound(
+                    "No confirmed locator binding for action '" + rawAction + "'.");
+        }
+        CandidateActionEvidence action = actionFirst == null
+                ? findAction(components, locator.locatorId(), request.kind(), evidence) : actionFirst.action();
+        if (action == null) {
+            return ActionSequenceBinder.StepResolution.unbound(
+                    "No confirmed action binding for locator '" + locator.locatorId()
+                            + "' and action '" + request.kind() + "'.");
+        }
+        return ActionSequenceBinder.StepResolution.bound(new BoundSpaBehaviorStep(
+                request.kind(), action.actionId(), locator.locatorId(), request.dataKey(), request.value()));
     }
 
     private List<BoundSpaBehaviorAssertion> bindAssertions(
@@ -234,22 +181,17 @@ public final class StructuredSpaBehaviorBindingService {
             EvidenceIndex evidence,
             List<String> review
     ) {
-        List<BoundSpaBehaviorAssertion> result = new ArrayList<>();
-        for (StructuredAssertionRequirement assertion : contract.assertions()) {
+        return postconditionBinding.bind(contract.assertions(), assertion -> {
             if (routeAssertion(assertion.type())) {
                 boolean routeKnown = !page.route().isBlank();
-                result.add(new BoundSpaBehaviorAssertion(assertion, "", routeKnown,
-                        routeKnown ? "" : "Target route is not confirmed."));
-                if (!routeKnown) review.add("Target route is not confirmed for assertion '" + assertion.target() + "'.");
-                continue;
+                return new BoundSpaBehaviorAssertion(assertion, "", routeKnown,
+                        routeKnown ? "" : "Target route is not confirmed for assertion '" + assertion.target() + "'.");
             }
             CandidateLocatorEvidence locator = findLocator(components, assertion.target(), evidence);
             boolean verifiable = locator != null;
-            String reason = verifiable ? "" : "No confirmed locator binding for assertion target '" + assertion.target() + "'.";
-            result.add(new BoundSpaBehaviorAssertion(assertion, verifiable ? locator.locatorId() : "", verifiable, reason));
-            if (!verifiable) review.add(reason);
-        }
-        return List.copyOf(result);
+            return new BoundSpaBehaviorAssertion(assertion, verifiable ? locator.locatorId() : "", verifiable,
+                    verifiable ? "" : "No confirmed locator binding for assertion target '" + assertion.target() + "'.");
+        }, review);
     }
 
     private CandidateLocatorEvidence findLocator(Collection<SemanticComponentInventory> components, String target,
@@ -291,6 +233,70 @@ public final class StructuredSpaBehaviorBindingService {
                 .orElse(null);
     }
 
+    private ActionBinding findActionFirst(Collection<SemanticComponentInventory> components,
+                                          ActionRequest request, EvidenceIndex evidence) {
+        return components.stream()
+                .flatMap(component -> component.actions().stream()
+                        .filter(action -> evidence.confirmedActionIds().contains(action.actionId()))
+                        .filter(action -> actionCompatible(action.intent(), request.kind()))
+                        .map(action -> new ScoredAction(component, action,
+                                actionMatchScore(component, action, request))))
+                .filter(candidate -> candidate.score() > 0)
+                .sorted(Comparator.comparingInt(ScoredAction::score).reversed()
+                        .thenComparing(Comparator.comparingDouble(
+                                (ScoredAction candidate) -> candidate.action().confidence()).reversed())
+                        .thenComparing(candidate -> candidate.action().actionId()))
+                .map(candidate -> actionBinding(candidate.component(), candidate.action(), evidence))
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private ActionBinding actionBinding(SemanticComponentInventory component, CandidateActionEvidence action,
+                                        EvidenceIndex evidence) {
+        CandidateLocatorEvidence locator = component.locators().stream()
+                .filter(candidate -> action.requiredLocatorIds().contains(candidate.locatorId()))
+                .filter(candidate -> evidence.confirmedLocatorIds().contains(candidate.locatorId()))
+                .max(Comparator.comparingDouble(CandidateLocatorEvidence::qualityScore)
+                        .thenComparing(CandidateLocatorEvidence::locatorId, Comparator.reverseOrder()))
+                .orElse(null);
+        return locator == null ? null : new ActionBinding(action, locator);
+    }
+
+    private int actionMatchScore(SemanticComponentInventory component, CandidateActionEvidence action,
+                                 ActionRequest request) {
+        String evidence = normalize(component.name() + " " + component.type() + " " + action.actionId()
+                + " " + action.targetElementId() + " " + String.join(" ", action.sourceTrace()));
+        String target = normalize(request.target());
+        int score = target.isBlank() ? 10 : (evidence.contains(target) ? 80
+                : (int) expectedTokens(request.target()).stream().filter(evidence::contains).count() * 10);
+        String kind = normalize(request.kind());
+        if (kind.equals("openmenu")) {
+            if (component.type() == ComponentType.HEADER) score += 120;
+            if (evidence.contains("trigger") || evidence.contains("dropdown") || evidence.contains("usermenu")) score += 80;
+            if (containsAny(evidence, "logout", "about", "support", "password")) score -= 200;
+        } else if (kind.equals("logout")) {
+            if (component.type() == ComponentType.USER_MENU) score += 120;
+            if (evidence.contains("logout") || evidence.contains("signout")) score += 100;
+        } else if (kind.equals("submitform")) {
+            if (component.type() == ComponentType.FORM) score += 120;
+            if (containsAny(evidence, "submit", "login", "authenticate")) score += 100;
+            if (containsAny(evidence, "username", "password")) score -= 80;
+        }
+        return score;
+    }
+
+    private boolean containsAny(String value, String... tokens) {
+        for (String token : tokens) {
+            if (value.contains(token)) return true;
+        }
+        return false;
+    }
+
+    private boolean actionFirstKind(String kind) {
+        return Set.of("submitform", "openmenu", "logout").contains(normalize(kind));
+    }
+
     private boolean actionCompatible(String intent, String kind) {
         String normalizedIntent = normalize(intent);
         return switch (normalize(kind)) {
@@ -302,6 +308,8 @@ public final class StructuredSpaBehaviorBindingService {
             case "hover" -> normalizedIntent.equals("hover");
             case "setslider" -> normalizedIntent.equals("setslider");
             case "submitform" -> normalizedIntent.equals("submitform") || normalizedIntent.equals("click");
+            case "openmenu" -> normalizedIntent.equals("openmenu");
+            case "logout" -> normalizedIntent.equals("logout");
             case "click" -> normalizedIntent.equals("click") || normalizedIntent.equals("filter") || normalizedIntent.equals("search")
                     || normalizedIntent.equals("openrecord") || normalizedIntent.equals("openmenu")
                     || normalizedIntent.equals("opennewwindow");
@@ -329,50 +337,6 @@ public final class StructuredSpaBehaviorBindingService {
         return Optional.ofNullable(type);
     }
 
-    private Map<String, String> resolveData(Map<String, String> rawValues, List<String> review) {
-        Map<String, String> result = new LinkedHashMap<>();
-        String dataset = rawValues.getOrDefault("dataset", "");
-        Map<String, String> datasetValues = Map.of();
-        String datasetUnavailable = "";
-        if (!dataset.isBlank()) {
-            try {
-                datasetValues = new PropertiesTestDataProvider().scenarioData(dataset).values();
-            } catch (RuntimeException exception) {
-                datasetUnavailable = concise(exception);
-            }
-        }
-        for (Map.Entry<String, String> entry : rawValues.entrySet()) {
-            String resolved = resolveVariables(entry.getValue(), datasetValues, review);
-            if (!resolved.isBlank()) result.put(entry.getKey(), resolved);
-        }
-        boolean hasDataPlaceholder = rawValues.entrySet().stream()
-                .filter(entry -> !"dataset".equalsIgnoreCase(entry.getKey()))
-                .anyMatch(entry -> VARIABLE.matcher(entry.getValue()).find());
-        if (!datasetUnavailable.isBlank() && hasDataPlaceholder
-                && rawValues.entrySet().stream().filter(entry -> !"dataset".equalsIgnoreCase(entry.getKey()))
-                .anyMatch(entry -> !result.containsKey(entry.getKey()))) {
-            review.add("Scenario dataset '" + dataset + "' is unavailable and required values were not supplied through ENV/system properties: " + datasetUnavailable);
-        }
-        return Map.copyOf(result);
-    }
-
-    private String resolveVariables(String value, Map<String, String> datasetValues, List<String> review) {
-        Matcher matcher = VARIABLE.matcher(value == null ? "" : value);
-        StringBuffer resolved = new StringBuffer();
-        while (matcher.find()) {
-            String key = matcher.group(1).trim();
-            String replacement = Optional.ofNullable(System.getenv(key))
-                    .orElse(Optional.ofNullable(System.getProperty(key)).orElse(datasetValues.get(key)));
-            if (replacement == null || replacement.isBlank()) {
-                review.add("Missing data value for '" + key + "'.");
-                return "";
-            }
-            matcher.appendReplacement(resolved, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(resolved);
-        return resolved.toString().trim();
-    }
-
     private int matchScore(CandidateLocatorEvidence locator, String target) {
         String candidate = normalize(locator.elementId() + " " + locator.locatorId() + " " + locator.value());
         String expected = normalize(target);
@@ -392,11 +356,6 @@ public final class StructuredSpaBehaviorBindingService {
         return tokens;
     }
 
-    private boolean capabilityComponentMatch(String capability, List<SemanticComponentInventory> components) {
-        Set<ComponentType> types = requestedComponentTypes("", capability);
-        return components.stream().anyMatch(component -> types.contains(component.type()));
-    }
-
     private Set<ComponentType> requestedComponentTypes(String context, String capability) {
         Set<ComponentType> result = new LinkedHashSet<>();
         String combined = normalize(context + " " + capability);
@@ -409,71 +368,23 @@ public final class StructuredSpaBehaviorBindingService {
         if (combined.contains("modal")) result.add(ComponentType.MODAL);
         if (combined.contains("search")) result.add(ComponentType.SEARCH);
         if (combined.contains("form")) result.add(ComponentType.FORM);
+        if (combined.contains("usermenu") || combined.contains("logout")) {
+            result.add(ComponentType.USER_MENU);
+            result.add(ComponentType.HEADER);
+        }
         return result;
     }
 
     private boolean routeAssertion(String type) {
         String normalized = normalize(type);
         return normalized.equals("routechanged") || normalized.equals("urlcontains") || normalized.equals("routeequals")
-                || normalized.equals("authenticatedareavisible");
-    }
-
-    private boolean requiresExecutableAction(StructuredBehaviorContract contract) {
-        return contract.actions().stream().anyMatch(action -> !normalize(action).startsWith("inspect"));
-    }
-
-    private String contextValue(String context, String key) {
-        String value = context == null ? "" : context;
-        Pattern linePattern = Pattern.compile("(?im)^\\s*\\*?\\s*`?" + Pattern.quote(key) + "`?\\s*:\\s*`?([^\\n`]+)");
-        Matcher lineMatcher = linePattern.matcher(value);
-        if (lineMatcher.find()) {
-            return lineMatcher.group(1).trim();
-        }
-        Pattern inlinePattern = Pattern.compile("(?i)(?:^|\\s|`)" + Pattern.quote(key)
-                + "\\s*:\\s*`?([^`;\\n]+)");
-        Matcher inlineMatcher = inlinePattern.matcher(value);
-        return inlineMatcher.find() ? inlineMatcher.group(1).trim() : "";
-    }
-
-    private String explicitRoute(String value) {
-        String route = value == null ? "" : value.trim();
-        return route.startsWith("/") ? route : "";
-    }
-
-    private String semanticTarget(String value) {
-        String normalized = value == null ? "" : value
-                .replaceAll("(?i)\\b(discovery|confirmed|page|route|target)\\b", " ")
-                .replaceAll("[^A-Za-z0-9]+", " ")
-                .trim();
-        return normalized;
-    }
-
-    private boolean pageMatches(SpaPageInventory page, String targetPage) {
-        String target = normalize(targetPage);
-        if (target.isBlank()) {
-            return false;
-        }
-        String evidence = normalize(page.pageName() + " " + page.pageId() + " " + page.route());
-        return evidence.contains(target) || target.contains(normalize(page.pageName()))
-                || expectedTokens(targetPage).stream().allMatch(evidence::contains);
-    }
-
-    private boolean routeMatches(String left, String right) {
-        String normalizedLeft = normalize(left);
-        String normalizedRight = normalize(right);
-        return !normalizedLeft.isBlank() && !normalizedRight.isBlank()
-                && (normalizedLeft.equals(normalizedRight)
-                || normalizedLeft.endsWith(normalizedRight)
-                || normalizedRight.endsWith(normalizedLeft));
+                || normalized.equals("authenticatedareavisible")
+                || normalized.equals("authenticationsucceeded")
+                || normalized.equals("authenticatedareaabsent");
     }
 
     private String normalize(String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
-    }
-
-    private String concise(RuntimeException exception) {
-        String message = exception.getMessage();
-        return message == null || message.isBlank() ? exception.getClass().getSimpleName() : message.replaceAll("\\s+", " ").trim();
     }
 
     private record ActionRequest(String kind, String target, String dataKey, String value) {
@@ -494,6 +405,8 @@ public final class StructuredSpaBehaviorBindingService {
                     : normalized.startsWith("hover ") ? "HOVER"
                     : normalized.startsWith("move ") && normalized.contains("slider") ? "SET_SLIDER"
                     : normalized.startsWith("submit ") ? "SUBMIT_FORM"
+                    : normalized.contains("logout") || normalized.contains("sign out") ? "LOGOUT"
+                    : normalized.startsWith("open ") && normalized.contains("menu") ? "OPEN_MENU"
                     : routeOpen ? "OPEN_ROUTE"
                     : normalized.startsWith("click ") || normalized.startsWith("open ") ? "CLICK" : "";
             Matcher variable = VARIABLE.matcher(action);
@@ -514,6 +427,12 @@ public final class StructuredSpaBehaviorBindingService {
             String value = key.isBlank() ? "" : values.getOrDefault(key, "");
             return new ActionRequest(kind, target, key, value);
         }
+    }
+
+    private record ActionBinding(CandidateActionEvidence action, CandidateLocatorEvidence locator) {
+    }
+
+    private record ScoredAction(SemanticComponentInventory component, CandidateActionEvidence action, int score) {
     }
 
     private record EvidenceIndex(List<SpaPageInventory> pages, Set<String> confirmedLocatorIds, Set<String> confirmedActionIds) {

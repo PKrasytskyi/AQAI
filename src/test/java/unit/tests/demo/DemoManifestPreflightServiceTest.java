@@ -14,6 +14,8 @@ public class DemoManifestPreflightServiceTest {
     private static final Path WORKSPACE = Path.of("").toAbsolutePath().normalize();
     private static final Path MANIFEST = WORKSPACE.resolve(
             "demo/orangehrm-login-logout/demo-manifest.yaml");
+    private static final Path THE_INTERNET_MANIFEST = WORKSPACE.resolve(
+            "demo/the-internet-authentication-logout/demo-manifest.yaml");
 
     @Test
     public void orangeHrmDemoBundlePassesWithRequiredEnvironment() {
@@ -30,6 +32,31 @@ public class DemoManifestPreflightServiceTest {
 
         Assert.assertTrue(report.ready(), report.issues().toString());
         Assert.assertTrue(report.issues().isEmpty());
+        Assert.assertEquals(report.resolution().profileId(), "orangeHRM");
+        Assert.assertEquals(report.resolution().loginRoute(), "/auth/login");
+        Assert.assertEquals(report.resolution().authenticatedRoute(), "/dashboard/index");
+        Assert.assertEquals(report.resolution().logoutAccessMode().name(), "USER_MENU");
+        Assert.assertEquals(report.resolution().lifecycle(),
+                java.util.List.of("AUTHENTICATION", "AUTHENTICATED_AREA", "USER_MENU", "LOGOUT"));
+    }
+
+    @Test
+    public void theInternetDemoBundlePassesWithDirectLogoutTopology() {
+        DemoManifest manifest = new DemoManifestLoader().load(THE_INTERNET_MANIFEST);
+        Map<String, String> environment = configuredEnvironment("false");
+
+        var report = new DemoManifestPreflightService().validate(
+                manifest, WORKSPACE, environment::get);
+
+        Assert.assertTrue(report.ready(), report.issues().toString());
+        Assert.assertTrue(report.issues().isEmpty());
+        Assert.assertEquals(report.resolution().profileId(), "the-internet");
+        Assert.assertEquals(report.resolution().homeRoute(), "/");
+        Assert.assertEquals(report.resolution().loginRoute(), "/login");
+        Assert.assertEquals(report.resolution().authenticatedRoute(), "/secure");
+        Assert.assertEquals(report.resolution().logoutAccessMode().name(), "DIRECT_CONTROL");
+        Assert.assertEquals(report.resolution().lifecycle(), java.util.List.of(
+                "AUTHENTICATION", "AUTHENTICATED_AREA", "DIRECT_LOGOUT_CONTROL", "LOGOUT"));
     }
 
     @Test
@@ -63,5 +90,14 @@ public class DemoManifestPreflightServiceTest {
         Assert.assertFalse(report.ready());
         Assert.assertEquals(report.issues().size(), 1);
         Assert.assertEquals(report.issues().get(0).code(), "DATABASE_MODE_MISMATCH");
+    }
+
+    private Map<String, String> configuredEnvironment(String dbStatus) {
+        return Map.of(
+                "TEST_VALID_USERNAME", "configured-user",
+                "TEST_VALID_PASSWORD", "configured-password",
+                "OPENAI_API_KEY", "configured-openai-key",
+                "KNOWLEDGE_DB_STATUS", dbStatus
+        );
     }
 }

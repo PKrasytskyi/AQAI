@@ -10,6 +10,7 @@ import ua.demo.agentlab.ai.context.PromptUiEvidence;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
 import ua.demo.agentlab.ai.ui.prompt.AiPageObjectPromptBuilder;
 import ua.demo.agentlab.ai.ui.prompt.PageObjectPromptMode;
+import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
 import ua.demo.agentlab.config.OutputProfile;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
@@ -28,7 +29,10 @@ public class PomPromptRegressionGuardTest {
         AiPageObjectSpec baseline = new AiPageObjectSpec("AuthenticationPage", "/login", "openAuthentication", List.of(), List.of());
 
         String prompt = new AiPageObjectPromptBuilder(PageObjectPromptMode.COMPACT)
-                .buildForPage(context, "AuthenticationPage", List.of(), baseline);
+                .buildForPage(context, "AuthenticationPage", baseline,
+                        new PromptReadyPomScope("AuthenticationPage", "/login", false, List.of(), List.of("REQ-001"),
+                                List.of("TYPE(usernameInput)", "TYPE(passwordInput)", "CLICK(loginButton)"),
+                                List.of(), List.of(), List.of(), List.of(), 0.95d), "AUTHENTICATION");
         String normalized = prompt.toLowerCase(Locale.ROOT);
 
         for (String forbidden : List.of(

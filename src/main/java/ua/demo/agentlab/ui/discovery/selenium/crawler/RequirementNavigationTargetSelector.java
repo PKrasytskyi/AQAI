@@ -54,7 +54,7 @@ final class RequirementNavigationTargetSelector {
         Set<String> terms = new LinkedHashSet<>();
         Set<String> moduleTerms = new LinkedHashSet<>();
         for (NormalizedRequirement requirement : requirements.requirements()) {
-            if (requirement == null) {
+            if (requirement == null || !navigationRelevant(requirement)) {
                 continue;
             }
             String text = requirement.title() + " " + requirement.statement();
@@ -65,6 +65,30 @@ final class RequirementNavigationTargetSelector {
             extractModuleTerms(text).forEach(moduleTerms::add);
         }
         return new NavigationVocabulary(Set.copyOf(terms), Set.copyOf(moduleTerms));
+    }
+
+    private boolean navigationRelevant(NormalizedRequirement requirement) {
+        String text = safe(requirement.title()) + " " + safe(requirement.statement());
+        String normalized = text.toLowerCase(Locale.ROOT);
+        if (MODULE_TERM_PATTERN.matcher(normalized).find()) {
+            return true;
+        }
+        String structured = requirement.structuredSections().values().stream()
+                .flatMap(List::stream)
+                .reduce("", (left, right) -> left + " " + right)
+                .toLowerCase(Locale.ROOT);
+        if (structured.contains("module_navigation")) {
+            return true;
+        }
+        return containsAny(normalized, "navigate to ", "open the ", "open ", "go to ", "visit ")
+                && containsAny(normalized, " module", " section", " screen", " route");
+    }
+
+    private boolean containsAny(String value, String... fragments) {
+        for (String fragment : fragments) {
+            if (value.contains(fragment)) return true;
+        }
+        return false;
     }
 
     private Set<String> extractModuleTerms(String text) {

@@ -34,7 +34,7 @@ import ua.demo.agentlab.ai.ui.generation.AiUiTestSpecGenerator;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesKnowledgeVectorRuntimeConfig;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4jRuntimeConfig;
-import ua.demo.agentlab.ui.discovery.evidence.funnel.UiEvidenceFunnelAgent;
+import ua.demo.agentlab.ui.discovery.agent.UiEvidenceFunnelAgent;
 
 public class AiPromptModuleFactory {
 

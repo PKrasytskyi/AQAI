@@ -44,6 +44,7 @@ public final class UiCapabilityRegistry {
                 component("FILTER", "SEARCH"),
                 component("USER_MENU"),
                 component("MODAL"),
+                flow("LOGOUT", "SESSION_TERMINATION", "DIRECT_LOGOUT_CONTROL"),
                 dynamic("DYNAMIC_ELEMENT_MANAGEMENT", "DYNAMIC_COMPONENT"),
                 dynamic("DYNAMIC_CONTROL"),
                 dynamic("DYNAMIC_LOADING", "ASYNC_CONTENT"),
@@ -66,6 +67,10 @@ public final class UiCapabilityRegistry {
 
     private static UiCapabilityContract dynamic(String id, String... aliases) {
         return contract(id, UiCapabilityKind.DYNAMIC_STATE, false, aliases);
+    }
+
+    private static UiCapabilityContract flow(String id, String... aliases) {
+        return contract(id, UiCapabilityKind.FLOW, false, aliases);
     }
 
     private static UiCapabilityContract browser(String id, String... aliases) {

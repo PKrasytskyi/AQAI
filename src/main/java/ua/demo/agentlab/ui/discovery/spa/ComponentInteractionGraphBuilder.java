@@ -30,7 +30,8 @@ public class ComponentInteractionGraphBuilder {
             for (ActionRef logout : actions.stream().filter(action -> "LOGOUT".equals(action.intent())).toList()) {
                 actions.stream()
                         .filter(action -> "OPEN_MENU".equals(action.intent()))
-                        .max(Comparator.comparingDouble(ActionRef::confidence))
+                        .max(Comparator.comparingInt(ActionRef::openerPriority)
+                                .thenComparingDouble(ActionRef::confidence))
                         .ifPresent(menu -> dependencies.add(new ComponentActionDependency(
                                 page.pageId(),
                                 logout.component().componentId(),
@@ -58,6 +59,19 @@ public class ComponentInteractionGraphBuilder {
 
         private double confidence() {
             return action.confidence();
+        }
+
+        private int openerPriority() {
+            String target = action.targetElementId() == null
+                    ? "" : action.targetElementId().toLowerCase(Locale.ROOT);
+            int priority = target.contains("trigger") || target.contains("toggle") ? 4 : 0;
+            if (component.type() == ua.demo.agentlab.ui.discovery.component.model.ComponentType.HEADER) {
+                priority += 2;
+            }
+            if (target.contains("logout") || target.contains("password") || target.contains("support")) {
+                priority -= 4;
+            }
+            return priority;
         }
     }
 }

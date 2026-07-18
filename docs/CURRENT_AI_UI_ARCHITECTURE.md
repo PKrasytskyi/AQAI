@@ -1,5 +1,10 @@
 # Current AI UI Architecture
 
+> Refactor note (2026-07-18): mapper, live verification, context slicing, component detection,
+> behavior binding, evidence funnel, and POM generation now expose typed stages. The large public
+> classes remain compatibility-stable facades, but business decisions live in the stage services
+> documented in `MAPPER_STABILIZATION_REFACTORING_PLAN.md`.
+
 ## 1. Purpose and Boundary
 
 This document describes the active requirement-driven UI automation architecture in this repository. The platform turns a requirement document into scoped Selenium Page Object **contracts** and uses deterministic writers for Java source generation.
@@ -291,21 +296,20 @@ The P0-P3 contracts and artifacts are:
 | `ui.discovery.spa.model.SemanticComponentInventory` | Candidate component boundary with root locator, element ownership, candidate locators, and candidate actions. |
 | `ui.discovery.spa.model.CandidateLocatorEvidence` | Candidate locator quality, browser global/component counts, stability, observed evidence type, and risks. |
 | `ui.discovery.spa.model.CandidateActionEvidence` | Candidate action intent, owning component, required locator IDs, preconditions, postconditions, and trace. |
-| `ui.discovery.spa.agent.UiSpaInventoryAgent` | Runs after mapper output, writes `target/discovery/spa-inventory.json`, and best-effort persists candidate facts in Neo4j. |
-| `ui.discovery.spa.SpaInventoryGraphWriter` | Stores `SpaPageInventory`, `SpaComponentInventory`, `SpaCandidateLocator`, and `SpaCandidateAction` separately from `UiStableLocator`. |
+| `ui.discovery.spa.agent.UiSpaInventoryAgent` | Runs after mapper output and writes `target/discovery/spa-inventory.json`; inventory remains candidate/debug input and does not persist promotable locator facts. |
 | `ui.discovery.spa.agent.UiSpaTargetedVerificationAgent` | Runs after canonical test-case planning; selects only requirement-owned inventory facts, validates them against browser-derived counts, and writes targeted verification artifacts. |
 | `ui.discovery.spa.ComponentInteractionGraphBuilder` | Builds deterministic prerequisite edges between component actions. Example: `OPEN_MENU -> LOGOUT`; a logout control is not treated as independently actionable. |
 | `ui.discovery.spa.TypedComponentFlowBuilder` | Produces candidate-only `MODULE_NAVIGATION`, `FILTER_RESULTS`, `TABLE_SORT`, `TABLE_PAGINATION`, and modal flow contracts from component-owned action evidence. |
 | `ui.discovery.spa.LiveTargetedVerificationRunner` | Uses a fresh authenticated browser session to replay confirmed component actions. For sidebar/module navigation it clicks only an internal `href` evidence locator, waits for the SPA route, and maps the route to an already inventoried target page when available. |
-| `ui.catalog.Neo4jStableCapabilityLookupService` | Reuses only pages whose Neo4j component evidence has a `CONFIRMED` locator and a passing smoke result in the same application/base-url/schema namespace. |
+| `ui.catalog.Neo4jStableCapabilityLookupService` | Reuses only canonical `UiState -> UiLocatorEvidence` pages with a confirmed primary locator and passing runtime quality in the same application/base-url/schema namespace. |
 | `ui.discovery.spa.LiveTargetedVerificationRunner` | Uses a fresh browser session to authenticate when required, open the exact confirmed route, wait for readiness, and verify only selected locators/actions. Destructive/session-ending actions are opt-in. |
-| `ui.discovery.spa.SpaSmokeEvidenceFeedbackWriter` | Links generated POM source selectors and live-smoke outcome back to `locatorId`/`actionId`, adding a runtime execution signal to promotion. |
-| `ui.discovery.spa.SpaEvidenceLifecycleGraphWriter` | Atomically increments live-verification counters in Neo4j; promotion additionally requires a successful generated-POM live-smoke signal. |
+| `ui.discovery.interaction.persistence.CanonicalInteractionSmokeFeedbackWriter` | Links generated POM source selectors and live-smoke outcome back to canonical `UiLocatorEvidence` / `UiSemanticAction` records. |
+| `ui.discovery.interaction.agent.UiInteractionEvidenceAgent` | Owns canonical scoring, requirement scope, verification projection, promotion, catalog, Top-3 graph projection, and projection trace. |
 | `ui.discovery.spa.SpaEvidenceRetentionGraphWriter` | Soft-retires expired `DEGRADED` and orphan candidates by default. Hard deletion is explicitly opt-in. |
 
 This is intentionally artifact-first. The component model does not yet force generated Java component classes. It gives the mapper and prompt layers better evidence so later stages can decide whether a component should stay internal to a page or become a reusable `SidebarComponent`, `LoginFormComponent`, `SearchComponent`, or `TableComponent`.
 
-The inventory database records include the normal knowledge namespace (`runId`, `appId`, `baseUrlHash`, `requirementSetHash`, `discoverySessionId`, `schemaVersion`, `createdAt`, `sourceAgent`, and `confidence`) plus `pageFingerprintHash`. Page snapshots use the fingerprint as identity, while component/locator/action lifecycle uses stable `pageId + componentId + locatorId/actionId` identity and records the latest fingerprint as metadata. This avoids resetting evidence history on harmless SPA DOM drift. Inventory records are distinct from stable locator records, so an inventory scan cannot silently alter `Allowed locators` or the generated POM contract.
+The canonical graph projection carries the knowledge namespace (`runId`, `appId`, `baseUrlHash`, `requirementSetHash`, `discoverySessionId`, and `schemaVersion`) plus `pageFingerprintHash`. `UiState`, `UiComponent`, `UiSemanticElement`, `UiSemanticAction`, and `UiLocatorEvidence` preserve semantic identity. Raw inventory is not a stable DB authority, so an inventory scan cannot silently alter `Allowed locators` or the generated POM contract.
 
 `target/discovery/typed-component-flows.json` is the candidate flow inventory. It is deliberately not direct POM evidence: a flow must first have confirmed locators/actions, live verification, and smoke feedback. `target/ai-run/validation/pom-source-map.json` records generated POM field/method provenance to contract locator/action references. Smoke feedback consumes that structured map rather than searching generated Java source for selector strings.
 
@@ -320,9 +324,10 @@ CanonicalTestCaseBundle
   -> browser-count + stability + risk check
   -> fresh browser: authenticate -> exact route -> SPA readiness -> targeted locator/action verification
   -> component prerequisites (for example open user menu before logout)
-  -> generated-POM live-smoke feedback linked to locatorId/actionId
-  -> SpaCandidateLocator / SpaCandidateAction lifecycle update
-  -> CONFIRMED only after configured live successes and at least one successful generated-POM smoke
+  -> canonical interaction scoring, safety and requirement scope
+  -> generated-POM live-smoke feedback linked to canonical locator/action evidence
+  -> UiLocatorEvidence lifecycle update
+  -> CONFIRMED only after browser verification, promotion policy and passing generated-POM smoke
   -> DbStableLocatorEvidenceService reads promoted same-origin evidence
   -> PromptUiEvidenceAssembler admits CONFIRMED_LOCATOR only
 ```
@@ -494,12 +499,18 @@ PromptReadyPomScope
  -> CALL_LLM: generate pom-contract JSON, parse, rehydrate, save file, register as SCHEMA_VALIDATED
  -> DeterministicPomJavaWriter
  -> File persistence
- -> Compile + review + generated smoke + optional live smoke
+ -> Compile + review + generated smoke + optional live smoke through compiled generated POM methods
  -> ArtifactLifecyclePromotionAgent
  -> STABLE only when all required gates pass
 ```
 
 Prompt artifacts and prompt quality gates still run before reuse, so artifact reuse does not bypass prompt-safety validation. Neo4j lookup and `ArtifactReusePolicy` accept only `STABLE`; therefore a failed or unfinished artifact can remain available for audit without becoming a reuse candidate. A `SKIPPED` live smoke is accepted only when live smoke is disabled; if it is enabled but skipped because credentials or capability evidence are missing, the contract remains `NEEDS_REVIEW`. Reused artifacts retain their stable registry status and still pass the current run's deterministic writer, compile, review, and smoke stages.
+
+`LiveCapabilitySmokeService` loads the current run's compiled Page Object classes from `target/test-classes`,
+constructs them with the active `WebDriver` and `UiRuntimeConfig`, and invokes their public open, authentication,
+route assertion, user-menu, logout visibility, and logout methods. It no longer parses locator fields from Java
+source and drives equivalent raw Selenium actions. The artifact records
+`executionMode=COMPILED_GENERATED_POM_API`, making this runtime proof distinguishable from static source smoke.
 
 For a reused POM, lifecycle promotion consumes the validated stable-file path from the reuse decision rather than expecting a new stable-file write. This keeps lifecycle metrics aligned with the actual `REUSE_STABLE` decision: a reused artifact that passes writer, compile, review, generated smoke, and enabled live smoke remains `STABLE` and is recorded as a `REUSED` relation in Neo4j.
 
@@ -680,7 +691,7 @@ SemanticActionModel
   -> pom-contract-v1 JSON
   -> PomContractQualityGate
   -> DeterministicPomJavaWriter
-  -> compatibility AiPageObjectSpec / generated Java source
+  -> internal Java rendering spec / generated Java source
 ```
 
 The new contract model is:
@@ -695,7 +706,7 @@ The new contract model is:
 | `PomCheckSpec` | Structured check such as `VISIBLE`, `TEXT_CONTAINS`, `URL_CONTAINS`, `ATTRIBUTE_EQUALS`, or `LIST_TEXTS`. |
 | `PomContractQualityGate` | Validates schema intent: locator ids exist, method contracts are complete, route checks have routes, and unsupported evidence becomes a gap. |
 | `DeterministicPomJavaWriter` | Owns Java body generation from the typed contract, including reusable component classes when `components` are present. |
-| `PomContractCompatibilityAdapter` | Keeps the old `AiPageObjectSpec` path available while the platform migrates. |
+| `AiPageObjectSpec` | Internal deterministic rendering model consumed by the Java template writer; it is not an LLM output contract or prompt authority. |
 
 This removes the most fragile generation surface: raw Java statements from LLM output. The LLM can choose semantic steps and checks, but it cannot call `elements.type(...)`, inline `By.cssSelector(...)`, expose `WebElement`, or invent unsupported helper APIs.
 

@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 public final class StructuredRequirementContext {
 
     private static final String FIELD_BOUNDARY =
-            "pageCapability|componentCapability|sourceRoute|targetRoute|sourcePage|targetPage";
+            "pageCapability|componentCapability|sourceRoute|targetRoute|sourcePage|targetPage|logoutAccessMode";
 
     private StructuredRequirementContext() {
     }
@@ -28,8 +28,20 @@ public final class StructuredRequirementContext {
         return value(requirement, "target context", "targetPage");
     }
 
+    public static String sourcePage(NormalizedRequirement requirement) {
+        return value(requirement, "target context", "sourcePage");
+    }
+
     public static String pageCapability(NormalizedRequirement requirement) {
         return value(requirement, "target context", "pageCapability");
+    }
+
+    public static String componentCapability(NormalizedRequirement requirement) {
+        return value(requirement, "target context", "componentCapability");
+    }
+
+    public static String logoutAccessMode(NormalizedRequirement requirement) {
+        return value(requirement, "target context", "logoutAccessMode");
     }
 
     public static String value(NormalizedRequirement requirement, String section, String key) {

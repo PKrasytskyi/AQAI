@@ -33,7 +33,7 @@ public record AiContextPackage(
         List<PageModelEnrichmentRecord> pageModelEnrichments,
         List<String> templateCapabilities,
         List<PromptLocatorEvidence> dbStableLocatorEvidence,
-        List<PromptLocatorEvidence> currentRunSpaLocatorEvidence,
+        List<PromptLocatorEvidence> confirmedCatalogLocatorEvidence,
         PromptUiEvidence promptUiEvidence
 ) {
     public AiContextPackage {
@@ -49,7 +49,9 @@ public record AiContextPackage(
         pageModelEnrichments = pageModelEnrichments == null ? List.of() : List.copyOf(pageModelEnrichments);
         templateCapabilities = templateCapabilities == null ? List.of() : List.copyOf(templateCapabilities);
         dbStableLocatorEvidence = dbStableLocatorEvidence == null ? List.of() : List.copyOf(dbStableLocatorEvidence);
-        currentRunSpaLocatorEvidence = currentRunSpaLocatorEvidence == null ? List.of() : List.copyOf(currentRunSpaLocatorEvidence);
+        confirmedCatalogLocatorEvidence = confirmedCatalogLocatorEvidence == null
+                ? List.of()
+                : List.copyOf(confirmedCatalogLocatorEvidence);
         promptUiEvidence = promptUiEvidence == null ? PromptUiEvidence.empty("prompt-evidence:not-built") : promptUiEvidence;
     }
 

@@ -31,6 +31,7 @@ public class CanonicalOperationClassifier {
         score(scores, UiOperationKind.CREATE_RECORD, text, 0.46d, "create", "add", "new record", "new item");
         score(scores, UiOperationKind.EDIT_RECORD, text, 0.46d, "edit", "update", "modify");
         score(scores, UiOperationKind.DELETE_RECORD, text, 0.46d, "delete", "remove");
+        score(scores, UiOperationKind.OPEN_MENU, text, 0.48d, "open menu", "user menu", "dropdown menu");
         score(scores, UiOperationKind.OPEN_MODAL, text, 0.44d, "modal", "dialog", "popup");
         score(scores, UiOperationKind.CONFIRM_ACTION, text, 0.44d, "confirm", "approve", "ok", "yes");
         score(scores, UiOperationKind.SEARCH, text, 0.45d, "search", "find", "lookup", "query");
@@ -158,6 +159,7 @@ public class CanonicalOperationClassifier {
             case CREATE_RECORD -> "createRecord";
             case EDIT_RECORD -> "editRecord";
             case DELETE_RECORD -> "deleteRecord";
+            case OPEN_MENU -> "openMenu";
             case OPEN_MODAL -> "openModal";
             case CONFIRM_ACTION -> "confirmAction";
             case OPEN_TARGET_CONTAINER, OPEN_DESTINATION_CONTAINER -> "openTargetContainer";

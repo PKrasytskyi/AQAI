@@ -18,7 +18,7 @@ import ua.demo.agentlab.validation.agent.GeneratedUiSmokeAgent;
 import ua.demo.agentlab.validation.agent.RuntimeFeedbackDbUpdateAgent;
 import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaSmokeEvidenceFeedbackAgent;
 import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
-import ua.demo.agentlab.ui.discovery.spa.SpaSmokeEvidenceFeedbackWriter;
+import ua.demo.agentlab.ui.discovery.interaction.persistence.CanonicalInteractionSmokeFeedbackWriter;
 import ua.demo.agentlab.validation.feedback.GeneratedUiRuntimeFeedbackWriter;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeService;
 
@@ -36,7 +36,7 @@ public class ValidationModuleFactory {
                 new GeneratedCodeReviewAgent(new RuleBasedGeneratedCodeReviewer()),
                 new GeneratedUiSmokeAgent(new GeneratedUiSmokeService()),
                 new UiSpaSmokeEvidenceFeedbackAgent(new PropertiesSpaInventoryConfig(),
-                        new SpaSmokeEvidenceFeedbackWriter(new PropertiesNeo4jRuntimeConfig())),
+                        new CanonicalInteractionSmokeFeedbackWriter(new PropertiesNeo4jRuntimeConfig())),
                 new ArtifactLifecyclePromotionAgent(new ArtifactLifecyclePromotionService(
                         new PropertiesArtifactReuseRuntimeConfig(),
                         new Neo4jArtifactRegistry(new PropertiesNeo4jRuntimeConfig())

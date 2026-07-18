@@ -30,7 +30,7 @@ public class CanonicalSubjectClassifier {
             case AUTHENTICATE, HTTP_AUTHENTICATE, LOGOUT -> "session";
             case ENTER_TEXT -> "field";
             case SUBMIT_FORM -> "form";
-            case OPEN_MODAL, CONFIRM_ACTION, ACCEPT_ALERT, DISMISS_ALERT, ENTER_ALERT_TEXT,
+            case OPEN_MENU, OPEN_MODAL, CONFIRM_ACTION, ACCEPT_ALERT, DISMISS_ALERT, ENTER_ALERT_TEXT,
                     OPEN_NEW_WINDOW, SWITCH_WINDOW, HOVER, SET_SLIDER -> "interaction";
             case UPLOAD_FILE, DOWNLOAD_FILE -> "file";
         };
@@ -53,6 +53,7 @@ public class CanonicalSubjectClassifier {
             case AUTHENTICATE -> "authenticated-session";
             case ENTER_TEXT -> "field-value";
             case SUBMIT_FORM -> "form-submission";
+            case OPEN_MENU -> "menu";
             case OPEN_MODAL -> "modal";
             case CONFIRM_ACTION -> "confirmed-action";
             case UPLOAD_FILE -> "uploaded-file";

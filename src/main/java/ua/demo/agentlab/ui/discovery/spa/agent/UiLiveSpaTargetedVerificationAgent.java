@@ -11,7 +11,6 @@ import ua.demo.agentlab.ui.discovery.spa.LiveTargetedVerificationRunner;
 import ua.demo.agentlab.ui.discovery.spa.LiveTransitionDiscoveryArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.LiveTransitionDiscoveryService;
 import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
-import ua.demo.agentlab.ui.discovery.spa.SpaEvidenceLifecycleGraphWriter;
 import ua.demo.agentlab.ui.discovery.spa.SpaStateGraphArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.SpaStateGraphWriter;
 import ua.demo.agentlab.ui.discovery.spa.StructuredBehaviorExecutionArtifactWriter;
@@ -24,7 +23,6 @@ public class UiLiveSpaTargetedVerificationAgent implements WorkflowAgent,
         PipelineAgent<SpaLiveTargetedVerificationInput, SpaLiveTargetedVerificationOutput> {
     private final PropertiesSpaInventoryConfig config;
     private final LiveTargetedVerificationRunner runner;
-    private final SpaEvidenceLifecycleGraphWriter lifecycleWriter;
     private final LiveTargetedVerificationArtifactWriter artifactWriter;
     private final StructuredBehaviorExecutionArtifactWriter structuredBehaviorArtifactWriter;
     private final LiveTransitionDiscoveryService transitionDiscoveryService;
@@ -34,11 +32,9 @@ public class UiLiveSpaTargetedVerificationAgent implements WorkflowAgent,
 
     public UiLiveSpaTargetedVerificationAgent(PropertiesSpaInventoryConfig config,
                                                LiveTargetedVerificationRunner runner,
-                                               SpaEvidenceLifecycleGraphWriter lifecycleWriter,
                                                LiveTargetedVerificationArtifactWriter artifactWriter) {
         this.config = config == null ? new PropertiesSpaInventoryConfig() : config;
         this.runner = runner == null ? new LiveTargetedVerificationRunner() : runner;
-        this.lifecycleWriter = lifecycleWriter;
         this.artifactWriter = artifactWriter == null ? new LiveTargetedVerificationArtifactWriter() : artifactWriter;
         this.structuredBehaviorArtifactWriter = new StructuredBehaviorExecutionArtifactWriter();
         this.transitionDiscoveryService = new LiveTransitionDiscoveryService();
@@ -70,11 +66,8 @@ public class UiLiveSpaTargetedVerificationAgent implements WorkflowAgent,
     @Override public SpaLiveTargetedVerificationOutput execute(SpaLiveTargetedVerificationInput input, WorkflowRunEnvelope run) {
         var result = runner.verify(input.profile(), input.inventory(), input.planned(), input.interactionGraph(), config.load());
         var transitionDiscovery = transitionDiscoveryService.discover(input.sourceBindings(), result);
-        var lifecycle = lifecycleWriter == null
-                ? ua.demo.agentlab.ui.discovery.spa.model.SpaEvidenceLifecycleResult.skipped("SPA lifecycle writer is unavailable")
-                : lifecycleWriter.update(new ua.demo.agentlab.ui.discovery.spa.model.SpaTargetedVerificationResult(
-                        input.planned().schemaVersion(), result.runMetadata(), result.locatorVerifications(), result.actionVerifications(),
-                        input.planned().excludedEvidence(), result.sourceTrace()), config.load());
+        var lifecycle = ua.demo.agentlab.ui.discovery.spa.model.SpaEvidenceLifecycleResult.skipped(
+                "Canonical interaction projection owns evidence promotion and persistence");
         var behavior = new ua.demo.agentlab.ui.discovery.spa.model.SpaBehaviorExecutionBundle(
                 ua.demo.agentlab.ui.discovery.spa.model.SpaBehaviorExecutionBundle.SCHEMA_VERSION,
                 result.runMetadata(), List.of(), List.of("awaiting-target-state-binding"));

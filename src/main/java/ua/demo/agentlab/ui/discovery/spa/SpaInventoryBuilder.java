@@ -233,8 +233,7 @@ public class SpaInventoryBuilder {
                 .map(component -> inventoryComponent(page, component, actionsByElement))
                 .toList();
         String capability = derivedCapabilities(page, semanticPage, components);
-        String pageName = semanticPage == null || semanticPage.pageName().isBlank()
-                ? inferredPageName(page) : semanticPage.pageName();
+        String pageName = resolvedPageName(page, semanticPage);
         String fingerprint = fingerprint(page, components);
         return new SpaPageInventory(
                 page.pageId(), pageName, page.route(), capability, fingerprint, metadata, components,
@@ -407,6 +406,36 @@ public class SpaInventoryBuilder {
             name.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
         }
         return name.append("Page").toString();
+    }
+
+    private String resolvedPageName(PageModel page, SemanticPageModel semanticPage) {
+        String semanticName = semanticPage == null ? "" : semanticPage.pageName();
+        if (!genericAuthenticatedName(semanticName)) {
+            return semanticName == null || semanticName.isBlank() ? inferredPageName(page) : semanticName;
+        }
+        String routeName = meaningfulRoutePageName(page.route());
+        return routeName.isBlank() ? semanticName : routeName;
+    }
+
+    private boolean genericAuthenticatedName(String value) {
+        String normalized = sanitize(value).replace("-", "");
+        return normalized.equals("secureareapage") || normalized.equals("authenticatedpage")
+                || normalized.equals("authenticatedareapage");
+    }
+
+    private String meaningfulRoutePageName(String route) {
+        List<String> segments = java.util.Arrays.stream((route == null ? "" : route).split("/+"))
+                .map(this::sanitize)
+                .filter(value -> !value.isBlank())
+                .filter(value -> !Set.of("web", "index", "php", "view", "secure", "auth", "authenticated").contains(value))
+                .toList();
+        if (segments.isEmpty()) return "";
+        String token = segments.get(segments.size() - 1);
+        StringBuilder name = new StringBuilder();
+        for (String part : token.split("-+")) {
+            if (!part.isBlank()) name.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return name.isEmpty() ? "" : name.append("Page").toString();
     }
 
     private String sha256(String value) {

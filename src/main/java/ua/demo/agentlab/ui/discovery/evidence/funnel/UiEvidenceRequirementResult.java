@@ -6,6 +6,7 @@ import java.util.List;
 public record UiEvidenceRequirementResult(
         String requirementId,
         String capability,
+        UiEvidenceRequirementTrace trace,
         String pageId,
         String route,
         int rawLocatorCandidates,
@@ -23,6 +24,7 @@ public record UiEvidenceRequirementResult(
     public UiEvidenceRequirementResult {
         requirementId = safe(requirementId);
         capability = safe(capability);
+        trace = trace == null ? UiEvidenceRequirementTrace.empty() : trace;
         pageId = safe(pageId);
         route = safe(route);
         rawLocatorCandidates = Math.max(0, rawLocatorCandidates);
@@ -33,6 +35,29 @@ public record UiEvidenceRequirementResult(
         stoppedAt = safe(stoppedAt);
         reason = safe(reason);
         remediation = safe(remediation);
+    }
+
+    public UiEvidenceRequirementResult(
+            String requirementId,
+            String capability,
+            String pageId,
+            String route,
+            int rawLocatorCandidates,
+            int liveVerifiedLocators,
+            int dbStableLocators,
+            int promptAllowedLocators,
+            boolean requirementBound,
+            boolean promptEligible,
+            boolean confirmedEvidencePath,
+            List<String> evidencePath,
+            String stoppedAt,
+            String reason,
+            String remediation
+    ) {
+        this(requirementId, capability, UiEvidenceRequirementTrace.empty(), pageId, route,
+                rawLocatorCandidates, liveVerifiedLocators, dbStableLocators, promptAllowedLocators,
+                requirementBound, promptEligible, confirmedEvidencePath, evidencePath,
+                stoppedAt, reason, remediation);
     }
 
     public boolean hasExplicitStop() {

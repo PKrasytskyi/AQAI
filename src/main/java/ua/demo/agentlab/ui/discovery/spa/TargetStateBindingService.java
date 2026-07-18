@@ -66,7 +66,7 @@ public final class TargetStateBindingService {
                     .filter(candidate -> candidate.requirementId().equalsIgnoreCase(binding.requirementId()))
                     .findFirst().orElse(null);
             List<String> review = new ArrayList<>(binding.reviewReasons());
-            boolean transitionRequired = normalize(binding.capability()).equals("module_navigation");
+            boolean transitionRequired = requiresTargetTransition(contract);
             if (transitionRequired && (transition == null || !transition.confirmed())) {
                 review.add(transition == null ? "No live target-state transition was discovered."
                         : transition.reason());
@@ -93,8 +93,13 @@ public final class TargetStateBindingService {
     }
 
     private StructuredBehaviorContract sourceContract(StructuredBehaviorContract contract) {
-        if (!normalize(contract.capability()).equals("module_navigation")) {
+        if (!requiresTargetTransition(contract)) {
             return contract;
+        }
+        if (!normalize(contract.capability()).equals("module_navigation")) {
+            return new StructuredBehaviorContract(contract.requirementId(), contract.capability(), contract.actions(),
+                    List.of(), contract.dataRequirements(), contract.targetContext(), contract.executable(),
+                    contract.reviewReasons());
         }
         String sourceRoute = contextValue(contract.targetContext(), "sourceRoute");
         String context = "sourceRoute: " + sourceRoute + "\ncomponentCapability: NAVIGATION";
@@ -108,9 +113,7 @@ public final class TargetStateBindingService {
             SpaInventoryBundle inventory,
             SpaTargetedVerificationResult evidence
     ) {
-        String componentCapabilities = contextValue(contract.targetContext(), "componentCapability")
-                .replaceAll("(?i)(^|,)\\s*NAVIGATION\\s*(,|$)", "$1")
-                .replaceAll("(^[\\s,]+|[\\s,]+$)", "");
+        String componentCapabilities = targetComponentCapabilities(contract);
         StringBuilder context = new StringBuilder("targetRoute: ").append(transition.targetRoute());
         appendContext(context, "pageCapability", contextValue(contract.targetContext(), "pageCapability"));
         appendContext(context, "targetPage", contextValue(contract.targetContext(), "targetPage"));
@@ -125,6 +128,34 @@ public final class TargetStateBindingService {
         if (value != null && !value.isBlank()) {
             target.append('\n').append(key).append(": ").append(value.trim());
         }
+    }
+
+    private boolean requiresTargetTransition(StructuredBehaviorContract contract) {
+        if (contract == null) return false;
+        String capability = normalize(contract.capability());
+        if (capability.equals("module_navigation")) return true;
+        String actions = normalize(String.join(" ", contract.actions()));
+        if (actions.contains("open") && actions.contains("menu")) return true;
+        if (actions.contains("submit") || actions.contains("logout") || actions.contains("sign out")) return true;
+        String source = contextValue(contract.targetContext(), "sourceRoute");
+        String target = contextValue(contract.targetContext(), "targetRoute");
+        return !source.isBlank() && !target.isBlank() && !normalize(source).equals(normalize(target));
+    }
+
+    private String targetComponentCapabilities(StructuredBehaviorContract contract) {
+        String capability = normalize(contract.capability());
+        String actions = normalize(String.join(" ", contract.actions()));
+        List<String> sourceOwned = capability.equals("module_navigation") ? List.of("NAVIGATION")
+                : capability.equals("authentication") ? List.of("FORM")
+                : capability.equals("logout") && (actions.contains("logout") || actions.contains("sign out"))
+                ? List.of("USER_MENU", "HEADER")
+                : capability.equals("logout") ? List.of("HEADER")
+                : List.of();
+        return java.util.Arrays.stream(contextValue(contract.targetContext(), "componentCapability").split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .filter(value -> sourceOwned.stream().noneMatch(owner -> owner.equalsIgnoreCase(value)))
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     private BoundSpaBehaviorContract combine(
@@ -195,10 +226,7 @@ public final class TargetStateBindingService {
     }
 
     private String contextValue(String context, String key) {
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(
-                        "(?im)^\\s*\\*?\\s*`?" + java.util.regex.Pattern.quote(key) + "`?\\s*:\\s*`?([^\\n`]+)")
-                .matcher(context == null ? "" : context);
-        return matcher.find() ? matcher.group(1).trim() : "";
+        return BehaviorTargetContext.parse(context).value(key);
     }
 
     private boolean routeMatches(String left, String right) {

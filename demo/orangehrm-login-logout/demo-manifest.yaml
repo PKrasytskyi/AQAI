@@ -1,4 +1,4 @@
-schemaVersion: demo-manifest.v1
+schemaVersion: demo-manifest.v2
 
 demo:
   id: orangehrm-login-user-menu-logout-v1
@@ -26,6 +26,12 @@ expected:
   pomNames:
     - LoginPage
     - DashboardPage
+  logoutAccessMode: USER_MENU
+  lifecycle:
+    - AUTHENTICATION
+    - AUTHENTICATED_AREA
+    - USER_MENU
+    - LOGOUT
   finalRoute: /auth/login
   finalState: UNAUTHENTICATED_LOGIN_READY
 
@@ -35,7 +41,10 @@ runtime:
 
 schemas:
   requirements: normalized-requirement-bundle.v1
+  structuredBehaviorContracts: structured-behavior-contracts.v1
+  requirementGovernance: requirement-governance-bundle.v1
   canonicalTestCase: canonical-test-case-bundle.v1
+  goldenRequirementSnapshot: golden-requirement-snapshot.v1
   pomContract: pom-contract-v1
   pageEnrichment: page-model-enrichment-record.v1
   qualityReport: ai-run-quality-summary.v1

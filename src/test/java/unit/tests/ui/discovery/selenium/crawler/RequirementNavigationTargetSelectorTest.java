@@ -76,6 +76,46 @@ public class RequirementNavigationTargetSelectorTest {
         Assert.assertEquals(selected.get(0).visibleText(), "Recruitment");
     }
 
+    @Test
+    public void fieldRequirementDoesNotSelectUnrelatedChangePasswordNavigation() {
+        NormalizedRequirementBundle requirements = new NormalizedRequirementBundle(
+                "requirements/login.md",
+                List.of(new NormalizedRequirement(
+                        "REQ-002", "User can enter a password", "Enter a valid password into the password field.", "",
+                        true, false, List.of("functional-requirements"),
+                        new SourceReference("requirements/login.md", 2, 2, "")
+                )), List.of(), List.of()
+        );
+
+        List<DiscoveredInteractiveElement> selected = new RequirementNavigationTargetSelector().select(
+                List.of(link("Change Password", "/pim/updatePassword")), requirements);
+
+        Assert.assertTrue(selected.isEmpty());
+    }
+
+    @Test
+    public void genericOpenAuthenticationPageDoesNotSelectPasswordRelatedNavigation() {
+        NormalizedRequirementBundle requirements = new NormalizedRequirementBundle(
+                "requirements/login.md",
+                List.of(new NormalizedRequirement(
+                        "REQ-001", "Authentication form is ready",
+                        "Open the target page and verify username, password, and submit controls.", "",
+                        true, false, List.of("functional-requirements"),
+                        new SourceReference("requirements/login.md", 1, 1, ""), List.of(),
+                        java.util.Map.of("target context", List.of(
+                                "pageCapability: AUTHENTICATION",
+                                "sourceRoute: project-profile.loginRoute",
+                                "targetRoute: project-profile.loginRoute"))
+                )), List.of(), List.of()
+        );
+
+        List<DiscoveredInteractiveElement> selected = new RequirementNavigationTargetSelector().select(
+                List.of(link("Change Password", "/pim/updatePassword")), requirements);
+
+        Assert.assertTrue(selected.isEmpty(),
+                "Generic authentication page readiness must not create targeted module navigation");
+    }
+
     private DiscoveredInteractiveElement link(String text, String href) {
         return new DiscoveredInteractiveElement(
                 "link", text, "", "", "", href, true, true,

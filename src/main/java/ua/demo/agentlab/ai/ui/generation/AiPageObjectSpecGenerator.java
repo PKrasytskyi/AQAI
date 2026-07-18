@@ -16,8 +16,8 @@ import ua.demo.agentlab.ai.ui.contract.PomContractSpec;
 import ua.demo.agentlab.ai.ui.contract.PomContractScopeValidator;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
 import ua.demo.agentlab.ai.ui.parser.PomContractSpecParser;
-import ua.demo.agentlab.ai.ui.prompt.scope.PomScopeSanitizer;
 import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
+import ua.demo.agentlab.ai.ui.prompt.scope.ConfirmedUiCatalogPomScopeProjector;
 import ua.demo.agentlab.ai.ui.prompt.quality.PromptQualityGateException;
 import ua.demo.agentlab.ai.ui.prompt.quality.PromptQualityReport;
 import ua.demo.agentlab.artifactreuse.config.ArtifactReuseRuntimeConfig;
@@ -28,20 +28,11 @@ import ua.demo.agentlab.artifactreuse.fingerprint.PomContractFingerprintInput;
 import ua.demo.agentlab.artifactreuse.model.ArtifactRecord;
 import ua.demo.agentlab.artifactreuse.model.ArtifactRunRelation;
 import ua.demo.agentlab.artifactreuse.model.ArtifactReuseDecisionTrace;
-import ua.demo.agentlab.artifactreuse.model.ArtifactStatus;
-import ua.demo.agentlab.artifactreuse.model.ArtifactTarget;
-import ua.demo.agentlab.artifactreuse.model.ArtifactTargetType;
-import ua.demo.agentlab.artifactreuse.model.ArtifactType;
 import ua.demo.agentlab.artifactreuse.model.PomContractArtifactProvenance;
-import ua.demo.agentlab.artifactreuse.model.QualityGateRecord;
-import ua.demo.agentlab.artifactreuse.model.RunRecord;
 import ua.demo.agentlab.artifactreuse.policy.ArtifactReuseDecision;
 import ua.demo.agentlab.artifactreuse.policy.ArtifactReusePolicy;
-import ua.demo.agentlab.artifactreuse.policy.ArtifactReusePolicyInput;
-import ua.demo.agentlab.artifactreuse.registry.ArtifactLookupRequest;
 import ua.demo.agentlab.artifactreuse.registry.ArtifactLookupResult;
 import ua.demo.agentlab.artifactreuse.registry.ArtifactRegistry;
-import ua.demo.agentlab.artifactreuse.registry.ArtifactRegistryWriteRequest;
 import ua.demo.agentlab.artifactreuse.registry.ArtifactRegistryWriteResult;
 import ua.demo.agentlab.artifactreuse.registry.neo4j.Neo4jArtifactRegistry;
 import ua.demo.agentlab.artifactreuse.store.FileBackedStableArtifactStore;
@@ -51,7 +42,6 @@ import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4jRuntimeConfig;
 
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,18 +56,16 @@ public class AiPageObjectSpecGenerator {
     private final AiPageObjectPromptArtifactWriter promptArtifactWriter;
     private final AiRunQualitySummaryWriter qualitySummaryWriter;
     private final PromptPageEligibilityEvaluator promptPageEligibilityEvaluator;
-    private final OpenAiResponseGenerationClient generationClient;
-    private final PomContractSpecParser contractParser;
-    private final PomContractEvidenceRehydrator contractEvidenceRehydrator;
-    private final PomScopeSanitizer pomScopeSanitizer;
-    private final PomContractScopeGapReconciler scopeGapReconciler = new PomContractScopeGapReconciler();
-    private final PomContractScopeValidator contractScopeValidator = new PomContractScopeValidator();
-    private final DeterministicPomJavaWriter compatibilityContractWriter;
+    private final ConfirmedUiCatalogPomScopeProjector catalogProjector = new ConfirmedUiCatalogPomScopeProjector();
+    private final DeterministicPomJavaWriter deterministicPomWriter;
     private final ArtifactReuseRuntimeConfig artifactReuseConfig;
     private final PomContractFingerprintBuilder fingerprintBuilder;
-    private final FileBackedStableArtifactStore stableArtifactStore;
-    private final ArtifactReusePolicy artifactReusePolicy;
-    private final ArtifactRegistry artifactRegistry;
+    private final PomLlmExecutionService llmExecutionService;
+    private final PomContractParsingStage contractParsingStage;
+    private final PomContractValidationStage contractValidationStage;
+    private final PomArtifactReuseCoordinator reuseCoordinator;
+    private final PomContractPersistenceService contractPersistence;
+    private final PomArtifactRegistrationService registrationService;
 
     public AiPageObjectSpecGenerator(OpenAiRuntimeConfig runtimeConfig) {
         this(runtimeConfig, "pages");
@@ -95,7 +83,6 @@ public class AiPageObjectSpecGenerator {
                 new OpenAiResponseGenerationClient(new OpenAiRuntimeConfigRagAdapter(runtimeConfig)),
                 new PomContractSpecParser(),
                 new PomContractEvidenceRehydrator(),
-                new PomScopeSanitizer(),
                 new DeterministicPomJavaWriter(generatedPagesPackage),
                 new PropertiesArtifactReuseRuntimeConfig(),
                 new PomContractFingerprintBuilder(),
@@ -116,8 +103,7 @@ public class AiPageObjectSpecGenerator {
             OpenAiResponseGenerationClient generationClient,
             PomContractSpecParser contractParser,
             PomContractEvidenceRehydrator contractEvidenceRehydrator,
-            PomScopeSanitizer pomScopeSanitizer,
-            DeterministicPomJavaWriter compatibilityContractWriter,
+            DeterministicPomJavaWriter deterministicPomWriter,
             ArtifactReuseRuntimeConfig artifactReuseConfig,
             PomContractFingerprintBuilder fingerprintBuilder,
             FileBackedStableArtifactStore stableArtifactStore,
@@ -130,7 +116,7 @@ public class AiPageObjectSpecGenerator {
         if (scopeResolverStage == null || promptBuildStage == null || promptLintStage == null
                 || promptArtifactWriter == null || qualitySummaryWriter == null || promptPageEligibilityEvaluator == null
                 || generationClient == null || contractParser == null || contractEvidenceRehydrator == null
-                || pomScopeSanitizer == null || compatibilityContractWriter == null
+                || deterministicPomWriter == null
                 || artifactReuseConfig == null || fingerprintBuilder == null || stableArtifactStore == null
                 || artifactReusePolicy == null || artifactRegistry == null) {
             throw new IllegalArgumentException("page object generation stages cannot be null");
@@ -142,16 +128,17 @@ public class AiPageObjectSpecGenerator {
         this.promptArtifactWriter = promptArtifactWriter;
         this.qualitySummaryWriter = qualitySummaryWriter;
         this.promptPageEligibilityEvaluator = promptPageEligibilityEvaluator;
-        this.generationClient = generationClient;
-        this.contractParser = contractParser;
-        this.contractEvidenceRehydrator = contractEvidenceRehydrator;
-        this.pomScopeSanitizer = pomScopeSanitizer;
-        this.compatibilityContractWriter = compatibilityContractWriter;
+        this.deterministicPomWriter = deterministicPomWriter;
         this.artifactReuseConfig = artifactReuseConfig;
         this.fingerprintBuilder = fingerprintBuilder;
-        this.stableArtifactStore = stableArtifactStore;
-        this.artifactReusePolicy = artifactReusePolicy;
-        this.artifactRegistry = artifactRegistry;
+        this.llmExecutionService = new PomLlmExecutionService(generationClient);
+        this.contractParsingStage = new PomContractParsingStage(contractParser, contractEvidenceRehydrator,
+                new PomContractScopeGapReconciler());
+        this.contractValidationStage = new PomContractValidationStage(new PomContractScopeValidator());
+        this.reuseCoordinator = new PomArtifactReuseCoordinator(artifactReuseConfig, artifactRegistry,
+                stableArtifactStore, artifactReusePolicy);
+        this.contractPersistence = new PomContractPersistenceService(promptArtifactWriter, stableArtifactStore);
+        this.registrationService = new PomArtifactRegistrationService(runtimeConfig, artifactReuseConfig, artifactRegistry);
     }
 
     public AiPageObjectGenerationResult generate(AiPageObjectGenerationRequest request) {
@@ -166,13 +153,7 @@ public class AiPageObjectSpecGenerator {
         List<String> findings = new ArrayList<>();
         boolean llmRequested = runtimeConfig.pageObjectLlmEnabled();
         boolean llmEnabled = llmRequested && runtimeConfig.enabled() && hasApiKey();
-        int pomLlmAttempts = 0;
-        int pomLlmSuccesses = 0;
-        int pomLlmPromptChars = 0;
-        int pomLlmResponseChars = 0;
-        int pomLlmInputTokens = 0;
-        int pomLlmOutputTokens = 0;
-        int pomLlmTotalTokens = 0;
+        PomGenerationMetricsCollector llmMetrics = new PomGenerationMetricsCollector();
         int artifactReuseHits = 0;
         int artifactReuseMisses = 0;
         int artifactReuseSkippedLlmCalls = 0;
@@ -222,24 +203,11 @@ public class AiPageObjectSpecGenerator {
                 }
                 ArtifactFingerprint fingerprint = fingerprint(scope, draft, request);
                 artifacts.put("artifact.reuse." + scope.fileStem() + ".fingerprint", fingerprint.value());
-                ArtifactLookupResult registryLookup = artifactRegistry.findStableArtifact(new ArtifactLookupRequest(
-                        ArtifactType.POM_CONTRACT,
-                        targetId(scope),
-                        fingerprint.value(),
-                        String.valueOf(draft.metadata().getOrDefault("schemaVersion", ""))
-                ));
-                StableArtifactLookup stableLookup = stableLookup(registryLookup, scope, fingerprint);
-                ArtifactReuseDecision reuseDecision = artifactReusePolicy.decide(new ArtifactReusePolicyInput(
-                        artifactReuseConfig.enabled() && artifactReuseConfig.pomContractEnabled(),
-                        artifactReuseConfig.forceRefresh(),
-                        registryLookup.hit() || stableLookup.hit(),
-                        stableLookup.hit(),
-                        registryLookup.artifact() == null
-                                ? (stableLookup.hit() ? "STABLE" : "")
-                                : registryLookup.artifact().status().name(),
-                        String.valueOf(draft.metadata().getOrDefault("schemaVersion", "")),
-                        registryLookup.artifact() == null ? "" : registryLookup.artifact().schemaVersion()
-                ));
+                var reuse = reuseCoordinator.evaluate(scope, targetId(scope), fingerprint,
+                        String.valueOf(draft.metadata().getOrDefault("schemaVersion", "")));
+                ArtifactLookupResult registryLookup = reuse.registryLookup();
+                StableArtifactLookup stableLookup = reuse.stableLookup();
+                ArtifactReuseDecision reuseDecision = reuse.decision();
                 putArtifactReuseDecisionArtifacts(artifacts, scope, registryLookup, stableLookup, reuseDecision);
                 artifactFiles.add(promptArtifactWriter.writeJson(scope.fileStem() + "-artifact-reuse-decision.json",
                         new ArtifactReuseDecisionTrace(
@@ -249,15 +217,14 @@ public class AiPageObjectSpecGenerator {
                                 reuseDecision.type().name(), reuseDecision.reason()
                         )));
                 if (reuseDecision.reuseStable()) {
-                    PromptReadyPomScope readyScope = pomScopeSanitizer.sanitize(
-                            scope.scopedContext(), scope.pageName(), scope.pageScenarios());
-                    PomContractSpec contract = reconcileScopeCoverageGaps(contractEvidenceRehydrator.rehydrate(
-                            stableLookup.pomContract(), readyScope, scope.scopedContext()), readyScope);
+                    PromptReadyPomScope readyScope = readyScope(scope);
+                    PomContractSpec contract = contractParsingStage.rehydrate(
+                            stableLookup.pomContract(), readyScope, scope.scopedContext());
                     validateContractScope(contract, readyScope, scope, artifactFiles);
                     contracts.add(contract);
-                    specs.add(compatibilityContractWriter.toAiPageObjectSpec(contract));
+                    specs.add(deterministicPomWriter.toRenderingSpec(contract));
                     artifactFiles.add(stableLookup.path().toString());
-                    artifactFiles.add(promptArtifactWriter.writeJson(scope.fileStem() + "-pom-contract.json", contract));
+                    artifactFiles.add(contractPersistence.persistReused(scope, contract));
                     artifactFiles.add(promptArtifactWriter.writeJson(
                             scope.fileStem() + "-pom-contract-provenance.json",
                             provenance(scope, fingerprint, "REUSED_STABLE", stableLookup.path(), registryLookup.artifact(), request)
@@ -265,47 +232,29 @@ public class AiPageObjectSpecGenerator {
                     artifactReuseHits++;
                     artifactReuseSkippedLlmCalls++;
                     artifactReuseTokensSavedEstimate += estimateTokens(draft.prompt());
-                    registerReusedArtifact(scope, fingerprint, contract, stableLookup.path(), request,
-                            registryLookup.artifact(), artifacts);
+                    register(scope, fingerprint, contract, stableLookup.path(), request,
+                            ArtifactRunRelation.REUSED, registryLookup.artifact(), artifacts);
                     putContractArtifacts(artifacts, scope, contract);
                     findings.add("Reused stable POM contract artifact for " + scope.pageName());
                     continue;
                 }
                 artifactReuseMisses++;
                 if (llmEnabled) {
-                    pomLlmAttempts++;
-                    pomLlmPromptChars += draft.prompt().length();
-                    String response = generationClient.generate(draft.prompt());
-                    pomLlmResponseChars += response == null ? 0 : response.length();
-                    var usage = generationClient.lastUsage();
-                    pomLlmInputTokens += usage.inputTokens();
-                    pomLlmOutputTokens += usage.outputTokens();
-                    pomLlmTotalTokens += usage.totalTokens();
+                    PomLlmExecutionService.PomLlmExecutionResult execution = llmExecutionService.execute(draft.prompt());
+                    llmMetrics.attempted(execution);
+                    String response = execution.response();
                     promptArtifactWriter.writeDebugText(scope.fileStem() + "-pom-contract-response.txt", response)
                             .ifPresent(artifactFiles::add);
-                    PromptReadyPomScope readyScope = pomScopeSanitizer.sanitize(
-                            scope.scopedContext(),
-                            scope.pageName(),
-                            scope.pageScenarios()
-                    );
-                    PomContractSpec contract = reconcileScopeCoverageGaps(contractEvidenceRehydrator.rehydrate(
-                            contractParser.parse(response),
-                            readyScope,
-                            scope.scopedContext()
-                    ), readyScope);
+                    PromptReadyPomScope readyScope = readyScope(scope);
+                    PomContractSpec contract = contractParsingStage.parse(response, readyScope, scope.scopedContext());
                     validateContractScope(contract, readyScope, scope, artifactFiles);
                     contracts.add(contract);
-                    pomLlmSuccesses++;
-                    specs.add(compatibilityContractWriter.toAiPageObjectSpec(contract));
-                    artifactFiles.add(promptArtifactWriter.writeJson(scope.fileStem() + "-pom-contract.json", contract));
-                    StableArtifactWriteResult writeResult = stableArtifactStore.writePomContract(
-                            scope.pageName(),
-                            fingerprint.value(),
-                            contract
-                    );
-                    if (writeResult.success() && writeResult.path() != null) {
-                        artifactFiles.add(writeResult.path().toString());
-                    }
+                    llmMetrics.succeeded();
+                    specs.add(deterministicPomWriter.toRenderingSpec(contract));
+                    PomContractPersistenceService.PomContractPersistenceResult persistence =
+                            contractPersistence.persistGenerated(scope, fingerprint, contract);
+                    artifactFiles.addAll(persistence.artifactFiles());
+                    StableArtifactWriteResult writeResult = persistence.stableWrite();
                     artifactFiles.add(promptArtifactWriter.writeJson(
                             scope.fileStem() + "-pom-contract-provenance.json",
                             provenance(scope, fingerprint, "GENERATED_CURRENT_RUN", writeResult.path(), null, request)
@@ -314,16 +263,15 @@ public class AiPageObjectSpecGenerator {
                             String.valueOf(writeResult.success()));
                     artifacts.put("artifact.reuse." + scope.fileStem() + ".stableWrite.path",
                             writeResult.path() == null ? "" : writeResult.path().toString());
-                    registerArtifact(scope, fingerprint, contract, writeResult.path(), request, ArtifactRunRelation.PRODUCED,
-                            0, artifacts);
+                    register(scope, fingerprint, contract, writeResult.path(), request,
+                            ArtifactRunRelation.PRODUCED, null, artifacts);
                     putContractArtifacts(artifacts, scope, contract);
                 }
             }
             artifacts.put("openai.page.object.status", llmEnabled
                     ? "pom-contract-llm-generated"
                     : llmRequested ? "pom-contract-llm-skipped-prompt-only" : "llm-disabled-enrichment-only");
-            putPomLlmArtifacts(artifacts, pomLlmAttempts, pomLlmSuccesses, pomLlmPromptChars, pomLlmResponseChars,
-                    pomLlmInputTokens, pomLlmOutputTokens, pomLlmTotalTokens);
+            llmMetrics.publish(artifacts);
             putArtifactReuseArtifacts(artifacts, artifactReuseHits, artifactReuseMisses, artifactReuseSkippedLlmCalls,
                     artifactReuseTokensSavedEstimate);
             artifacts.put("ai.page-object.llm.requested", String.valueOf(llmRequested));
@@ -334,16 +282,17 @@ public class AiPageObjectSpecGenerator {
                     ? "pom-contract-deterministic-java"
                     : "deterministic-page-object-prompts");
             artifacts.put("ai.workflow.terminal.status", "SUCCESS");
+            PomGenerationMetricsCollector.Snapshot llmSnapshot = llmMetrics.snapshot();
             artifactFiles.add(promptArtifactWriter.writeJson("pom-llm-token-usage.json", Map.of(
                     "schemaVersion", "llm-token-usage.v1",
                     "stage", "pom-contract",
-                    "attempts", pomLlmAttempts,
-                    "successes", pomLlmSuccesses,
-                    "promptChars", pomLlmPromptChars,
-                    "responseChars", pomLlmResponseChars,
-                    "inputTokens", pomLlmInputTokens,
-                    "outputTokens", pomLlmOutputTokens,
-                    "totalTokens", pomLlmTotalTokens
+                    "attempts", llmSnapshot.attempts(),
+                    "successes", llmSnapshot.successes(),
+                    "promptChars", llmSnapshot.promptChars(),
+                    "responseChars", llmSnapshot.responseChars(),
+                    "inputTokens", llmSnapshot.inputTokens(),
+                    "outputTokens", llmSnapshot.outputTokens(),
+                    "totalTokens", llmSnapshot.totalTokens()
             )));
             findings.add(llmEnabled
                     ? "OpenAI generated POM contract JSON; Java will be written by deterministic writer"
@@ -357,8 +306,7 @@ public class AiPageObjectSpecGenerator {
             ));
             artifacts.put("openai.page.object.status", "prompt-quality-gate-failed");
             markTerminalFailure(artifacts, "prompt-quality-gate", exception);
-            putPomLlmArtifacts(artifacts, pomLlmAttempts, pomLlmSuccesses, pomLlmPromptChars, pomLlmResponseChars,
-                    pomLlmInputTokens, pomLlmOutputTokens, pomLlmTotalTokens);
+            llmMetrics.publish(artifacts);
             putArtifactReuseArtifacts(artifacts, artifactReuseHits, artifactReuseMisses, artifactReuseSkippedLlmCalls,
                     artifactReuseTokensSavedEstimate);
             findings.add(exception.getMessage());
@@ -377,8 +325,7 @@ public class AiPageObjectSpecGenerator {
                     runtimeConfig.strict() ? "active-generation-failed-strict" : "active-generation-failed-no-output"
             );
             markTerminalFailure(artifacts, "pom-contract-generation", exception);
-            putPomLlmArtifacts(artifacts, pomLlmAttempts, pomLlmSuccesses, pomLlmPromptChars, pomLlmResponseChars,
-                    pomLlmInputTokens, pomLlmOutputTokens, pomLlmTotalTokens);
+            llmMetrics.publish(artifacts);
             putArtifactReuseArtifacts(artifacts, artifactReuseHits, artifactReuseMisses, artifactReuseSkippedLlmCalls,
                     artifactReuseTokensSavedEstimate);
             findings.add("OpenAI page object generation failed: " + exception.getMessage());
@@ -404,43 +351,18 @@ public class AiPageObjectSpecGenerator {
         artifacts.put("ai.workflow.terminal.failure.message", message);
     }
 
-    private void putPomLlmArtifacts(
-            Map<String, String> artifacts,
-            int attempts,
-            int successes,
-            int promptChars,
-            int responseChars,
-            int inputTokens,
-            int outputTokens,
-            int totalTokens
-    ) {
-        int failures = Math.max(0, attempts - successes);
-        artifacts.put("pom.contract.llm.attempt.count", String.valueOf(Math.max(0, attempts)));
-        artifacts.put("pom.contract.llm.success.count", String.valueOf(Math.max(0, successes)));
-        artifacts.put("pom.contract.llm.failure.count", String.valueOf(failures));
-        artifacts.put("pom.contract.llm.prompt.chars", String.valueOf(Math.max(0, promptChars)));
-        artifacts.put("pom.contract.llm.response.chars", String.valueOf(Math.max(0, responseChars)));
-        artifacts.put("pom.contract.llm.input.tokens", String.valueOf(Math.max(0, inputTokens)));
-        artifacts.put("pom.contract.llm.output.tokens", String.valueOf(Math.max(0, outputTokens)));
-        artifacts.put("pom.contract.llm.total.tokens", String.valueOf(Math.max(0, totalTokens)));
-    }
-
     private void validateContractScope(
             PomContractSpec contract,
             PromptReadyPomScope readyScope,
             AiPageObjectPromptScope scope,
             List<String> artifactFiles
     ) {
-        PomContractQualityReport report = contractScopeValidator.validate(contract, readyScope);
+        PomContractQualityReport report = contractValidationStage.validate(contract, readyScope);
         artifactFiles.add(promptArtifactWriter.writeJson(scope.fileStem() + "-contract-scope-quality.json", report));
         if (report.hasBlockingIssues()) {
             throw new IllegalStateException("POM contract scope gate failed for " + scope.pageName()
                     + " with " + report.blockingIssueCount() + " blocking issue(s)");
         }
-    }
-
-    private PomContractSpec reconcileScopeCoverageGaps(PomContractSpec contract, PromptReadyPomScope readyScope) {
-        return scopeGapReconciler.reconcile(contract, readyScope);
     }
 
     private void addQualityArtifacts(
@@ -493,6 +415,10 @@ public class AiPageObjectSpecGenerator {
         );
     }
 
+    private PromptReadyPomScope readyScope(AiPageObjectPromptScope scope) {
+        return catalogProjector.project(scope.confirmedUiCatalog(), scope.pageName());
+    }
+
     private boolean hasApiKey() {
         String apiKey = runtimeConfig.apiKey();
         return apiKey != null && !apiKey.isBlank();
@@ -503,8 +429,7 @@ public class AiPageObjectSpecGenerator {
             AiPageObjectPromptDraft draft,
             AiPageObjectGenerationRequest request
     ) {
-        PromptReadyPomScope promptScope = pomScopeSanitizer.sanitize(
-                scope.scopedContext(), scope.pageName(), scope.pageScenarios());
+        PromptReadyPomScope promptScope = readyScope(scope);
         KnowledgeRunMetadata metadata = request == null || request.qualitySummaryInput() == null
                 ? null
                 : request.qualitySummaryInput().knowledgeRunMetadata();
@@ -528,23 +453,6 @@ public class AiPageObjectSpecGenerator {
                 metadata == null ? "" : metadata.appId(),
                 metadata == null ? "" : metadata.baseUrlHash()
         ));
-    }
-
-    private StableArtifactLookup stableLookup(
-            ArtifactLookupResult registryLookup,
-            AiPageObjectPromptScope scope,
-            ArtifactFingerprint fingerprint
-    ) {
-        if (registryLookup != null && registryLookup.hit()) {
-            String registryPath = registryLookup.artifact() == null ? "" : registryLookup.artifact().filePath();
-            if (registryPath != null && !registryPath.isBlank()) {
-                StableArtifactLookup byRegistryPath = stableArtifactStore.findPomContract(Path.of(registryPath));
-                if (byRegistryPath.hit()) {
-                    return byRegistryPath;
-                }
-            }
-        }
-        return stableArtifactStore.findValidatedPomContract(scope.pageName(), fingerprint.value());
     }
 
     private void putArtifactReuseDecisionArtifacts(
@@ -610,132 +518,25 @@ public class AiPageObjectSpecGenerator {
         );
     }
 
-    private void registerArtifact(
+    private void register(
             AiPageObjectPromptScope scope,
             ArtifactFingerprint fingerprint,
             PomContractSpec contract,
             Path filePath,
             AiPageObjectGenerationRequest request,
             ArtifactRunRelation relation,
-            long reuseCount,
+            ArtifactRecord existing,
             Map<String, String> artifacts
     ) {
-        ArtifactRecord artifact = new ArtifactRecord(
-                artifactId(scope, fingerprint),
-                ArtifactType.POM_CONTRACT,
-                ArtifactTargetType.PAGE,
-                targetId(scope),
-                fingerprint.value(),
-                contract.schemaVersion(),
-                artifactReuseConfig.promptTemplateVersion(),
-                runtimeConfig.model(),
-                0.0d,
-                ArtifactStatus.SCHEMA_VALIDATED,
-                0.0d,
-                false,
-                false,
-                filePath == null ? "" : filePath.toString(),
-                Instant.now().toString(),
-                Instant.now().toString(),
-                reuseCount
-        );
-        ArtifactRegistryWriteResult result = artifactRegistry.register(new ArtifactRegistryWriteRequest(
-                artifact,
-                ArtifactTarget.page(targetId(scope), scope.pageName(), targetRoute(scope), capability(scope)),
-                runRecord(request),
-                relation,
-                List.of(new QualityGateRecord(
-                        artifact.artifactId() + "-schema",
-                        "SCHEMA",
-                        "PASSED",
-                        "pom-contract parsed and rehydrated",
-                        0,
-                        Instant.now().toString()
-                ))
-        ));
+        ArtifactRegistryWriteResult result = registrationService.register(
+                new PomArtifactRegistrationService.Registration(
+                        targetId(scope), scope.pageName(), targetRoute(scope), capability(scope),
+                        fingerprint, contract, filePath, request, relation, existing));
         String prefix = "artifact.registry." + scope.fileStem() + ".";
         artifacts.put(prefix + "attempted", String.valueOf(result.attempted()));
         artifacts.put(prefix + "success", String.valueOf(result.success()));
         artifacts.put(prefix + "relation", relation.name());
         artifacts.put(prefix + "message", result.message());
-    }
-
-    private void registerReusedArtifact(
-            AiPageObjectPromptScope scope,
-            ArtifactFingerprint fingerprint,
-            PomContractSpec contract,
-            Path filePath,
-            AiPageObjectGenerationRequest request,
-            ArtifactRecord existing,
-            Map<String, String> artifacts
-    ) {
-        ArtifactRecord artifact = new ArtifactRecord(
-                existing == null || existing.artifactId().isBlank() ? artifactId(scope, fingerprint) : existing.artifactId(),
-                ArtifactType.POM_CONTRACT,
-                ArtifactTargetType.PAGE,
-                targetId(scope),
-                fingerprint.value(),
-                contract.schemaVersion(),
-                artifactReuseConfig.promptTemplateVersion(),
-                existing == null || existing.model().isBlank() ? runtimeConfig.model() : existing.model(),
-                existing == null ? 0.0d : existing.temperature(),
-                ArtifactStatus.STABLE,
-                existing == null ? 0.0d : existing.qualityScore(),
-                true,
-                true,
-                filePath == null ? "" : filePath.toString(),
-                existing == null ? Instant.now().toString() : existing.createdAt(),
-                Instant.now().toString(),
-                existing == null ? 1L : existing.reuseCount() + 1L
-        );
-        ArtifactRegistryWriteResult result = artifactRegistry.register(new ArtifactRegistryWriteRequest(
-                artifact,
-                ArtifactTarget.page(targetId(scope), scope.pageName(), targetRoute(scope), capability(scope)),
-                runRecord(request),
-                ArtifactRunRelation.REUSED,
-                List.of(new QualityGateRecord(
-                        artifact.artifactId() + "-reuse",
-                        "REUSE",
-                        "PASSED",
-                        "stable POM contract reused and queued for current-run validation",
-                        0,
-                        Instant.now().toString()
-                ))
-        ));
-        String prefix = "artifact.registry." + scope.fileStem() + ".";
-        artifacts.put(prefix + "attempted", String.valueOf(result.attempted()));
-        artifacts.put(prefix + "success", String.valueOf(result.success()));
-        artifacts.put(prefix + "relation", ArtifactRunRelation.REUSED.name());
-        artifacts.put(prefix + "message", result.message());
-    }
-
-    private RunRecord runRecord(AiPageObjectGenerationRequest request) {
-        KnowledgeRunMetadata metadata = request == null || request.qualitySummaryInput() == null
-                ? null
-                : request.qualitySummaryInput().knowledgeRunMetadata();
-        if (metadata != null) {
-            return new RunRecord(
-                    metadata.runId(),
-                    metadata.appId(),
-                    metadata.baseUrlHash(),
-                    metadata.requirementSetHash(),
-                    metadata.discoverySessionId(),
-                    metadata.schemaVersion(),
-                    metadata.createdAt(),
-                    "ai-page-object-spec-generator"
-            );
-        }
-        String runId = request == null || request.runEnvelope() == null || request.runEnvelope().runMetadata() == null
-                ? ""
-                : request.runEnvelope().runMetadata().runId();
-        String createdAt = request == null || request.runEnvelope() == null || request.runEnvelope().runMetadata() == null
-                ? Instant.now().toString()
-                : request.runEnvelope().runMetadata().createdAt().toString();
-        return new RunRecord(runId, "", "", "", "", "", createdAt, "ai-page-object-spec-generator");
-    }
-
-    private String artifactId(AiPageObjectPromptScope scope, ArtifactFingerprint fingerprint) {
-        return "pom-contract:" + targetId(scope) + ":" + fingerprint.value();
     }
 
     private String targetId(AiPageObjectPromptScope scope) {

@@ -3,6 +3,7 @@ package ua.demo.agentlab.demo;
 import ua.demo.agentlab.config.PropertiesProjectProfileLoader;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.config.RuntimeProperties;
+import ua.demo.agentlab.ui.capability.LogoutAccessMode;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +24,8 @@ public final class DemoManifestPreflightService {
     private static final Pattern REQUIREMENT_ID = Pattern.compile("(?im)^## Requirement:\\s*([A-Za-z0-9_-]+)");
     private static final Pattern REQUIREMENT_CAPABILITY = Pattern.compile(
             "(?im)^### Capability\\s*\\R+\\s*`?([A-Za-z0-9_-]+)`?");
+    private static final Pattern LOGOUT_ACCESS_MODE = Pattern.compile(
+            "(?im)logoutAccessMode\\s*:\\s*([A-Za-z0-9_-]+)");
     private static final Set<String> FORBIDDEN_DEMO_CAPABILITIES = Set.of(
             "MODULE_NAVIGATION", "RECORD_LIST", "RECORD_DETAILS", "FILTER", "SEARCH",
             "RESULTS_COLLECTION", "CART", "CATALOG", "CHECKOUT", "PRODUCT"
@@ -41,7 +44,8 @@ public final class DemoManifestPreflightService {
             Function<String, String> environment
     ) {
         if (manifest == null) {
-            return report("", List.of(issue("MANIFEST_MISSING", "Demo manifest is required.")));
+            return report("", DemoInputResolution.empty(),
+                    List.of(issue("MANIFEST_MISSING", "Demo manifest is required.")));
         }
         Path root = workspaceRoot == null ? Path.of("").toAbsolutePath() : workspaceRoot.toAbsolutePath().normalize();
         List<DemoPreflightIssue> issues = new ArrayList<>();
@@ -59,18 +63,18 @@ public final class DemoManifestPreflightService {
             issues.add(issue("REQUIREMENT_FIXTURE_MISSING", "Requirement fixture does not exist: " + requirementPath));
         }
 
-        if (Files.isRegularFile(profilePath)) {
-            validateProfile(manifest, root, profilePath, issues);
-        }
+        ProjectProfile profile = Files.isRegularFile(profilePath)
+                ? validateProfile(manifest, root, profilePath, issues)
+                : null;
         if (Files.isRegularFile(requirementPath)) {
             validateRequirements(manifest, requirementPath, issues);
         }
         validateExpectedContract(manifest, issues);
         validateEnvironment(manifest, environment == null ? ignored -> null : environment, issues);
-        return report(manifest.demoId(), issues);
+        return report(manifest.demoId(), resolution(manifest, profile), issues);
     }
 
-    private void validateProfile(
+    private ProjectProfile validateProfile(
             DemoManifest manifest,
             Path workspaceRoot,
             Path profilePath,
@@ -80,7 +84,13 @@ public final class DemoManifestPreflightService {
         values.setProperty("project.profile.file", profilePath.toString());
         RuntimeProperties runtime = new RuntimeProperties(values);
         PropertiesProjectProfileLoader loader = new PropertiesProjectProfileLoader(runtime);
-        ProjectProfile profile = loader.loadDefaultProfile();
+        ProjectProfile profile;
+        try {
+            profile = loader.loadDefaultProfile();
+        } catch (RuntimeException exception) {
+            issues.add(issue("PROJECT_PROFILE_INVALID", exception.getMessage()));
+            return null;
+        }
         if (profile.homeRoute().isBlank() || profile.loginRoute().isBlank() || profile.authenticatedRoute().isBlank()) {
             issues.add(issue("EXPLICIT_ROUTES_REQUIRED",
                     "Demo profile must define explicit home, login, and authenticated routes."));
@@ -92,13 +102,10 @@ public final class DemoManifestPreflightService {
             issues.add(issue("PROFILE_REQUIREMENT_MISMATCH", "Profile requirement file '" + configuredRequirement
                     + "' does not match manifest fixture '" + expectedRequirement + "'."));
         }
-        if (!routeMatches(profile.loginRoute(), profile.homeRoute())) {
-            issues.add(issue("HOME_ROUTE_MISMATCH",
-                    "The authentication demo expects home and login to resolve to the same explicit route."));
-        }
         if (!routeMatches(profile.loginRoute(), manifest.expectedFinalRoute())) {
             issues.add(issue("FINAL_ROUTE_MISMATCH", "Expected final route must match the explicit login route."));
         }
+        return profile;
     }
 
     private void validateRequirements(
@@ -110,6 +117,7 @@ public final class DemoManifestPreflightService {
             String markdown = Files.readString(requirementPath, StandardCharsets.UTF_8);
             Set<String> requirementIds = matches(markdown, REQUIREMENT_ID);
             Set<String> capabilities = matches(markdown, REQUIREMENT_CAPABILITY);
+            Set<String> logoutModes = matches(markdown, LOGOUT_ACCESS_MODE);
             if (!requirementIds.equals(new LinkedHashSet<>(manifest.expectedScenarioIds()))) {
                 issues.add(issue("SCENARIO_IDS_MISMATCH", "Requirement IDs " + requirementIds
                         + " do not match manifest scenario IDs " + manifest.expectedScenarioIds() + "."));
@@ -125,6 +133,11 @@ public final class DemoManifestPreflightService {
                 issues.add(issue("REQUIRED_CAPABILITY_MISSING",
                         "Authentication demo must declare AUTHENTICATION and LOGOUT requirements."));
             }
+            Set<String> expectedModes = Set.of(manifest.expectedLogoutAccessMode().name());
+            if (!logoutModes.equals(expectedModes)) {
+                issues.add(issue("LOGOUT_ACCESS_MODE_MISMATCH", "Requirement logout access modes " + logoutModes
+                        + " do not match manifest mode " + manifest.expectedLogoutAccessMode() + "."));
+            }
         } catch (IOException exception) {
             issues.add(issue("REQUIREMENT_FIXTURE_UNREADABLE", exception.getMessage()));
         }
@@ -134,14 +147,42 @@ public final class DemoManifestPreflightService {
         Set<String> expectedCapabilities = manifest.expectedPageCapabilities().stream()
                 .map(value -> value.toUpperCase(Locale.ROOT))
                 .collect(java.util.stream.Collectors.toSet());
-        if (!expectedCapabilities.containsAll(Set.of("AUTHENTICATION", "AUTHENTICATED_AREA", "USER_MENU", "LOGOUT"))) {
+        if (!expectedCapabilities.containsAll(Set.of("AUTHENTICATION", "AUTHENTICATED_AREA", "LOGOUT"))) {
             issues.add(issue("EXPECTED_CAPABILITIES_INCOMPLETE",
-                    "OrangeHRM demo must expect AUTHENTICATION, AUTHENTICATED_AREA, USER_MENU, and LOGOUT."));
+                    "Authentication demo must expect AUTHENTICATION, AUTHENTICATED_AREA, and LOGOUT."));
         }
-        if (!new LinkedHashSet<>(manifest.expectedPomNames()).equals(Set.of("LoginPage", "DashboardPage"))) {
-            issues.add(issue("EXPECTED_POMS_INVALID", "OrangeHRM demo must expect LoginPage and DashboardPage only."));
+        LogoutAccessMode accessMode = manifest.expectedLogoutAccessMode();
+        if (accessMode == LogoutAccessMode.UNKNOWN) {
+            issues.add(issue("LOGOUT_ACCESS_MODE_MISSING", "Demo manifest must declare a logout access mode."));
+        } else {
+            String requiredTopology = accessMode == LogoutAccessMode.USER_MENU
+                    ? "USER_MENU"
+                    : "DIRECT_LOGOUT_CONTROL";
+            String forbiddenTopology = accessMode == LogoutAccessMode.USER_MENU
+                    ? "DIRECT_LOGOUT_CONTROL"
+                    : "USER_MENU";
+            if (!expectedCapabilities.contains(requiredTopology) || expectedCapabilities.contains(forbiddenTopology)) {
+                issues.add(issue("LOGOUT_TOPOLOGY_INVALID", "Expected capabilities must contain " + requiredTopology
+                        + " and must not contain " + forbiddenTopology + "."));
+            }
+            if (!manifest.expectedLifecycle().equals(accessMode.lifecycle())) {
+                issues.add(issue("LIFECYCLE_MISMATCH", "Expected lifecycle " + manifest.expectedLifecycle()
+                        + " does not match " + accessMode.lifecycle() + "."));
+            }
         }
-        for (String requiredSchema : List.of("requirements", "canonicalTestCase", "pomContract")) {
+        Set<String> pomNames = new LinkedHashSet<>(manifest.expectedPomNames());
+        if (pomNames.size() != 2 || pomNames.stream().anyMatch(name -> !name.endsWith("Page"))) {
+            issues.add(issue("EXPECTED_POMS_INVALID",
+                    "Authentication demo must declare exactly two distinct Page Object names."));
+        }
+        for (String requiredSchema : List.of(
+                "requirements",
+                "structuredBehaviorContracts",
+                "requirementGovernance",
+                "canonicalTestCase",
+                "goldenRequirementSnapshot",
+                "pomContract"
+        )) {
             if (manifest.schemaVersions().getOrDefault(requiredSchema, "").isBlank()) {
                 issues.add(issue("SCHEMA_VERSION_MISSING", "Missing schema version for " + requiredSchema + "."));
             }
@@ -181,8 +222,35 @@ public final class DemoManifestPreflightService {
         return result;
     }
 
-    private DemoPreflightReport report(String demoId, List<DemoPreflightIssue> issues) {
-        return new DemoPreflightReport(DemoPreflightReport.SCHEMA_VERSION, demoId, issues.isEmpty(), issues);
+    private DemoPreflightReport report(
+            String demoId,
+            DemoInputResolution resolution,
+            List<DemoPreflightIssue> issues
+    ) {
+        return new DemoPreflightReport(
+                DemoPreflightReport.SCHEMA_VERSION,
+                demoId,
+                issues.isEmpty(),
+                resolution,
+                issues
+        );
+    }
+
+    private DemoInputResolution resolution(DemoManifest manifest, ProjectProfile profile) {
+        return new DemoInputResolution(
+                manifest.projectProfilePath(),
+                manifest.requirementFixturePath(),
+                profile == null ? "" : profile.profileId(),
+                profile == null ? "" : profile.projectName(),
+                profile == null ? "" : profile.baseUrl(),
+                profile == null ? "" : profile.homeRoute(),
+                profile == null ? "" : profile.loginRoute(),
+                profile == null ? "" : profile.authenticatedRoute(),
+                manifest.expectedLogoutAccessMode(),
+                manifest.expectedLifecycle(),
+                manifest.expectedPomNames(),
+                manifest.expectedScenarioIds()
+        );
     }
 
     private DemoPreflightIssue issue(String code, String message) {
