@@ -37,10 +37,9 @@ services:
       RAG_QDRANT_URL: http://qdrant:6333
     shm_size: 2gb
     volumes:
-      - aqai_stable_artifacts:/opt/aqai/target/ai-run-history/stable
+      - ./build-week-artifacts/ai-run-history:/opt/aqai/target/ai-run-history
       - ./build-week-artifacts:/artifacts
 
 volumes:
   aqai_neo4j_data:
   aqai_qdrant_storage:
-  aqai_stable_artifacts:
