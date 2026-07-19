@@ -335,7 +335,7 @@ public class ConsoleReportPrinter {
         metric("Passed", passed);
         metric("Failed", artifacts.getOrDefault("build.week.demo.tests.failed", "0"));
         section("QUALITY");
-        metric("Run Quality Score", artifacts.getOrDefault("build.week.demo.quality.score", "0") + " / 100");
+        metric("Evidence Maturity Score", artifacts.getOrDefault("build.week.demo.quality.score", "0") + " / 100");
         metric("Coverage Gaps", artifacts.getOrDefault("build.week.demo.coverage.gaps", "0"));
         metric("Blocking Issues", artifacts.getOrDefault("build.week.demo.blocking.issues", "0"));
 

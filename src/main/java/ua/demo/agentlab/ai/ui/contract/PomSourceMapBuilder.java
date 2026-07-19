@@ -1,6 +1,5 @@
 package ua.demo.agentlab.ai.ui.contract;
 
-import ua.demo.agentlab.ui.generated.PomSourceMap;
 
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 

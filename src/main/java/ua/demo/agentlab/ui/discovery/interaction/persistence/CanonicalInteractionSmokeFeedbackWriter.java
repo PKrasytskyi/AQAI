@@ -2,7 +2,7 @@ package ua.demo.agentlab.ui.discovery.interaction.persistence;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import ua.demo.agentlab.ai.rag.http.JsonHttpClient;
-import ua.demo.agentlab.ui.generated.PomSourceMap;
+import ua.demo.agentlab.ai.ui.contract.PomSourceMap;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.Neo4jRuntimeConfig;
 import ua.demo.agentlab.ui.discovery.spa.SpaInventoryConfig;
 import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;

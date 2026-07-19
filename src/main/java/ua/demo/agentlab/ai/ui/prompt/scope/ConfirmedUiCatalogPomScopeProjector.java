@@ -42,6 +42,8 @@ public final class ConfirmedUiCatalogPomScopeProjector {
         }
         List<String> actions = page.components().stream().flatMap(component -> component.actions().stream())
                 .filter(action -> !action.primaryLocatorId().isBlank())
+                // READ is observation evidence for typed assertions, never a public POM action.
+                .filter(action -> !"READ".equalsIgnoreCase(action.intent()))
                 .map(actionSignatures::resolve)
                 .filter(action -> !action.isBlank())
                 .distinct().sorted().toList();

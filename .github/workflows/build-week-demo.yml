@@ -155,5 +155,6 @@ jobs:
             target/ai-run-history/stable/
             target/build-week-evidence/
             target/surefire-reports/
+            src/main/java/ua/demo/agentlab/ui/generated/
             src/test/java/ua/demo/agentlab/ui/generated/
           if-no-files-found: warn
