@@ -1,0 +1,77 @@
+schemaVersion: project-profile.v1
+
+project:
+  id: orangeHRM
+  name: OrangeHRM Login Logout Demo
+  baseUrl: https://opensource-demo.orangehrmlive.com/web/index.php
+
+requirements:
+  file: demo/orangehrm-login-logout/requirements.md
+
+routes:
+  home: /auth/login
+  login: /auth/login
+  authenticated: /dashboard/index
+
+ui:
+  baseUrl: https://opensource-demo.orangehrmlive.com/web/index.php
+  browser: chrome
+  headless: true
+  timeoutSeconds: 12
+
+auth:
+  enabled: true
+  usernameEnv: TEST_VALID_USERNAME
+  passwordEnv: TEST_VALID_PASSWORD
+  usernameSelector: "input[name='username'], input#username, input[type='email'], input[name*='user'], input[id*='user']"
+  passwordSelector: "input[name='password'], input#password, input[type='password'], input[name*='pass'], input[id*='pass']"
+  submitSelector: "button[type='submit'], input[type='submit']"
+
+ai:
+  openAiEnabled: true
+  pageEnrichmentLlmEnabled: true
+  pageObjectLlmEnabled: true
+  uiTestLlmEnabled: false
+
+knowledge:
+  ragEnabled: true
+  graphEnabled: true
+  vectorEnabled: true
+
+artifactReuse:
+  enabled: true
+  forceRefresh: false
+  stableRoot: target/ai-run-history/stable
+  promptTemplateVersion: pom-json-generation-v3
+  flowContractEnabled: true
+  pomContractEnabled: true
+  testDataEnabled: false
+  policy: strict
+  explainDecisions: true
+  writerVersion: deterministic-pom-java-writer-v1
+
+semantic:
+  reuseEnabled: true
+
+spa:
+  inventory:
+    enabled: true
+    maxComponents: 30
+  discovery:
+    mode: targeted
+  targetedVerification:
+    enabled: true
+  evidence:
+    minConfirmedScore: 0.80
+    promoteAfterSuccesses: 2
+    demoteAfterFailures: 2
+    retention:
+      enabled: true
+      degradedDays: 14
+      orphanDays: 30
+      hardDelete: false
+  liveVerification:
+    enabled: true
+    executeSessionEndingActions: true
+    executeSafeActions: true
+    executeDataActions: false

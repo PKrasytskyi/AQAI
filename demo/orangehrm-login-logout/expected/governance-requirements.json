@@ -1,0 +1,24 @@
+{
+  "schemaVersion" : "requirement-governance-bundle.v1",
+  "totalRequirements" : 7,
+  "executableRequirements" : 4,
+  "requirements" : [ {
+    "requirementId" : "GOV-001",
+    "category" : "TEST_DATA_RULE",
+    "governanceTarget" : "scenario-data-policy",
+    "statement" : "Username and password values must come only from the configured environment-backed test data.",
+    "tags" : [ "ui-expectations" ]
+  }, {
+    "requirementId" : "GOV-002",
+    "category" : "RUNTIME_EVIDENCE_RULE",
+    "governanceTarget" : "runtime-evidence-policy",
+    "statement" : "Authentication and logout route transitions must be confirmed by current-run browser evidence.",
+    "tags" : [ "runtime-evidence-expectations" ]
+  }, {
+    "requirementId" : "GOV-003",
+    "category" : "QUALITY_RULE",
+    "governanceTarget" : "quality-gate-policy",
+    "statement" : "Candidate or fallback locators must not be promoted into executable Page Object evidence.",
+    "tags" : [ "quality-expectations" ]
+  } ]
+}

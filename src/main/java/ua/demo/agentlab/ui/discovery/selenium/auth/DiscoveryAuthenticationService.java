@@ -19,16 +19,23 @@ public class DiscoveryAuthenticationService {
 
     private final DiscoveryAuthenticationConfig config;
     private final BiDiSessionManager biDiSessionManager;
+    private final LoginReadinessPreflight readinessPreflight;
 
     public DiscoveryAuthenticationService(DiscoveryAuthenticationConfig config) {
-        this(config, null);
+        this(config, null, null);
     }
 
     public DiscoveryAuthenticationService(DiscoveryAuthenticationConfig config, BiDiSessionManager biDiSessionManager) {
+        this(config, biDiSessionManager, null);
+    }
+
+    public DiscoveryAuthenticationService(DiscoveryAuthenticationConfig config, BiDiSessionManager biDiSessionManager,
+                                          LoginReadinessPreflight readinessPreflight) {
         this.config = config == null ? new DiscoveryAuthenticationConfig() : config;
         this.biDiSessionManager = biDiSessionManager == null
                 ? new BiDiSessionManager(BiDiDiscoveryConfig.disabled())
                 : biDiSessionManager;
+        this.readinessPreflight = readinessPreflight == null ? new LoginReadinessPreflight() : readinessPreflight;
     }
 
     public boolean authenticateIfNeeded(WebDriver driver, ProjectProfile projectProfile, String targetUrl) {
@@ -53,9 +60,13 @@ public class DiscoveryAuthenticationService {
         String loginUrl = toAbsoluteUrl(projectProfile.baseUrl(), projectProfile.loginRoute());
         try {
             driver.navigate().to(loginUrl);
-            waitForAnyVisible(driver, config.usernameSelector(), config.passwordSelector());
             biDiSessionManager.start(driver, pageIdFromUrl(loginUrl), loginUrl);
             biDiSessionManager.drain(driver);
+            LoginReadinessPreflightResult preflight = readinessPreflight.await(driver, config);
+            if (!preflight.ready()) {
+                return new DiscoveryAuthenticationResult(true, true, true, false, loginUrl, targetUrl,
+                        safeCurrentUrl(driver), preflight.failureReason(), preflight);
+            }
             WebElement username = firstVisible(driver, config.usernameSelector());
             WebElement password = firstVisible(driver, config.passwordSelector());
             if (username == null || password == null) {
@@ -67,7 +78,8 @@ public class DiscoveryAuthenticationService {
                         loginUrl,
                         targetUrl,
                         safeCurrentUrl(driver),
-                        "login form fields were not visible"
+                        "login form fields were not visible after a successful readiness preflight",
+                        preflight
                 );
             }
             username.clear();
@@ -93,7 +105,8 @@ public class DiscoveryAuthenticationService {
                     loginUrl,
                     targetUrl,
                     safeCurrentUrl(driver),
-                    success ? "authenticated" : "login did not reach authenticated state"
+                    success ? "authenticated" : "login did not reach authenticated state",
+                    preflight
             );
         } catch (Exception exception) {
             return new DiscoveryAuthenticationResult(
@@ -104,7 +117,8 @@ public class DiscoveryAuthenticationService {
                     loginUrl,
                     targetUrl,
                     safeCurrentUrl(driver),
-                    exception.getClass().getSimpleName() + ": " + safe(exception.getMessage())
+                    exception.getClass().getSimpleName() + ": " + safe(exception.getMessage()),
+                    LoginReadinessPreflightResult.skipped("authentication failed before readiness preflight completed")
             );
         }
     }
@@ -124,16 +138,6 @@ public class DiscoveryAuthenticationService {
             }));
         } catch (Exception ignored) {
             return false;
-        }
-    }
-
-    private void waitForAnyVisible(WebDriver driver, String... selectorLists) {
-        try {
-            new WebDriverWait(driver, Duration.ofMillis(Math.min(config.timeout().toMillis(), 5_000L)))
-                    .until(currentDriver -> Arrays.stream(selectorLists)
-                            .anyMatch(selectorList -> firstVisible(currentDriver, selectorList) != null));
-        } catch (Exception ignored) {
-            // A later field-specific lookup will produce the final auth result.
         }
     }
 

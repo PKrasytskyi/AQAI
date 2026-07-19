@@ -26,6 +26,14 @@ public enum FlowActionType {
     CONFIRM_ACTION,
     UPLOAD_FILE,
     DOWNLOAD_FILE,
+    HTTP_AUTHENTICATE,
+    ACCEPT_ALERT,
+    DISMISS_ALERT,
+    ENTER_ALERT_TEXT,
+    OPEN_NEW_WINDOW,
+    SWITCH_WINDOW,
+    HOVER,
+    SET_SLIDER,
     INSPECT_COLLECTION,
     MUTATE_CONTAINER,
     ASSERT;
@@ -50,6 +58,7 @@ public enum FlowActionType {
             case CREATE_RECORD -> CREATE_RECORD;
             case EDIT_RECORD -> EDIT_RECORD;
             case DELETE_RECORD -> DELETE_RECORD;
+            case OPEN_MENU -> OPEN_MENU;
             case OPEN_MODAL -> OPEN_MODAL;
             case CONFIRM_ACTION -> CONFIRM_ACTION;
             case SORT_COLLECTION, SORT -> SORT;
@@ -57,6 +66,14 @@ public enum FlowActionType {
             case LOGOUT -> LOGOUT;
             case UPLOAD_FILE -> UPLOAD_FILE;
             case DOWNLOAD_FILE -> DOWNLOAD_FILE;
+            case HTTP_AUTHENTICATE -> HTTP_AUTHENTICATE;
+            case ACCEPT_ALERT -> ACCEPT_ALERT;
+            case DISMISS_ALERT -> DISMISS_ALERT;
+            case ENTER_ALERT_TEXT -> ENTER_ALERT_TEXT;
+            case OPEN_NEW_WINDOW -> OPEN_NEW_WINDOW;
+            case SWITCH_WINDOW -> SWITCH_WINDOW;
+            case HOVER -> HOVER;
+            case SET_SLIDER -> SET_SLIDER;
         };
     }
 }

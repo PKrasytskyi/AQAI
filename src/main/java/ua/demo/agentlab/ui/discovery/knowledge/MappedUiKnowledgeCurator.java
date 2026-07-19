@@ -3,7 +3,7 @@ package ua.demo.agentlab.ui.discovery.knowledge;
 import ua.demo.agentlab.ui.discovery.knowledge.model.ExcludedEvidence;
 import ua.demo.agentlab.ui.discovery.knowledge.model.MappedUiKnowledgeCurated;
 import ua.demo.agentlab.ui.discovery.knowledge.model.MappedUiKnowledgeRaw;
-import ua.demo.agentlab.ui.discovery.mapping.LocatorPromotionFilter;
+import ua.demo.agentlab.ui.discovery.mapping.MappedKnowledgeCurationFilter;
 import ua.demo.agentlab.ui.discovery.mapping.model.LocatorCandidate;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedElement;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedField;
@@ -16,16 +16,16 @@ import java.util.Locale;
 
 public class MappedUiKnowledgeCurator {
 
-    private final LocatorPromotionFilter locatorPromotionFilter;
+    private final MappedKnowledgeCurationFilter curationFilter;
 
     public MappedUiKnowledgeCurator() {
-        this(new LocatorPromotionFilter());
+        this(new MappedKnowledgeCurationFilter());
     }
 
-    MappedUiKnowledgeCurator(LocatorPromotionFilter locatorPromotionFilter) {
-        this.locatorPromotionFilter = locatorPromotionFilter == null
-                ? new LocatorPromotionFilter()
-                : locatorPromotionFilter;
+    MappedUiKnowledgeCurator(MappedKnowledgeCurationFilter curationFilter) {
+        this.curationFilter = curationFilter == null
+                ? new MappedKnowledgeCurationFilter()
+                : curationFilter;
     }
 
     public MappedUiKnowledgeCurated curate(MappedUiKnowledgeRaw rawKnowledge) {
@@ -38,13 +38,13 @@ public class MappedUiKnowledgeCurator {
             );
         }
         MappedUiKnowledge raw = rawKnowledge.knowledge();
-        MappedUiKnowledge curated = locatorPromotionFilter.filterForPersistence(raw);
+        MappedUiKnowledge curated = curationFilter.filterForCuration(raw);
         if (curated == null) {
             curated = MappedUiKnowledge.empty();
         }
         List<ExcludedEvidence> excludedEvidence = excludedLocatorEvidence(raw, curated);
         List<String> trace = new ArrayList<>(rawKnowledge.sourceTrace());
-        trace.add("curator:locator-promotion-filter");
+        trace.add("curator:safe-candidate-filter");
         trace.add("curator:excluded-evidence-count=" + excludedEvidence.size());
         return new MappedUiKnowledgeCurated(
                 curated,

@@ -172,7 +172,7 @@ public class QdrantVectorStore implements VectorStore {
                 "artifactType", "artifactName", "packageName", "tags"
         );
         Map<String, String> attributes = new LinkedHashMap<>();
-        payload.fields().forEachRemaining(entry -> {
+        payload.properties().forEach(entry -> {
             if (!reserved.contains(entry.getKey()) && entry.getValue().isValueNode()) {
                 attributes.put(entry.getKey(), entry.getValue().asText(""));
             }

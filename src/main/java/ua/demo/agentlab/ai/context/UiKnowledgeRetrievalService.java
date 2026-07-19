@@ -465,7 +465,9 @@ public class UiKnowledgeRetrievalService {
 
         @Override
         public String generationModel() {
-            return openAiRuntimeConfig == null ? "gpt-5-mini" : openAiRuntimeConfig.model();
+            return openAiRuntimeConfig == null
+                    ? ua.demo.agentlab.ai.openai.PropertiesOpenAiRuntimeConfig.DEFAULT_MODEL
+                    : openAiRuntimeConfig.model();
         }
 
         @Override

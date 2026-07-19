@@ -25,9 +25,6 @@ import ua.demo.agentlab.ui.discovery.pagemodel.model.PageLocatorModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModel;
 import ua.demo.agentlab.ai.context.CanonicalUiInteraction;
 import ua.demo.agentlab.ai.context.PromptUiEvidence;
-import ua.demo.agentlab.ai.ui.prompt.scope.PomScopeSanitizer;
-import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyLocator;
-import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
 import ua.demo.agentlab.ai.context.UiKnowledgeGraphMatch;
 
 import java.util.List;
@@ -41,8 +38,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class AiPromptContextFormatter {
-
-    private final PomScopeSanitizer pomScopeSanitizer = new PomScopeSanitizer();
 
     private static final Pattern ENTITY_DATA_PATTERN = Pattern.compile(
             "^\\s*([^,]+?)\\s*,\\s*Size\\s*=\\s*([^,]+?)\\s*,\\s*Color\\s*=\\s*([^,]+?)\\s+must\\b.*",
@@ -252,34 +247,28 @@ public class AiPromptContextFormatter {
         if (context == null || context.promptUiEvidence() == null) {
             return "- none";
         }
-        Set<String> scopedIds = pageScenarios == null
-                ? Set.of()
-                : pageScenarios.stream()
-                .map(UiTestScenario::id)
-                .filter(id -> id != null && !id.isBlank())
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        PromptReadyPomScope scope = pomScopeSanitizer.sanitize(context, requestedPageName, pageScenarios);
+        PromptUiEvidence evidence = context.promptUiEvidence();
         StringBuilder builder = new StringBuilder();
-        builder.append("- targetPage=").append(scope.targetPage())
-                .append(" | targetRoute=").append(scope.targetRoute())
-                .append(" | requiresAuthentication=").append(scope.requiresAuthentication())
-                .append(" | confidence=").append(String.format(Locale.ROOT, "%.2f", scope.confidence()))
+        builder.append("- targetPage=").append(evidence.targetPage())
+                .append(" | targetRoute=").append(evidence.targetRoute())
+                .append(" | requiresAuthentication=").append(evidence.requiresAuthentication())
+                .append(" | confidence=").append(String.format(Locale.ROOT, "%.2f", evidence.confidence()))
                 .append(System.lineSeparator());
-        builder.append("- prerequisitePages=").append(scope.prerequisitePages()).append(System.lineSeparator());
-        builder.append("- requirementIds=").append(scope.requirementIds()).append(System.lineSeparator());
+        builder.append("- prerequisitePages=").append(evidence.prerequisitePages()).append(System.lineSeparator());
+        builder.append("- requirementIds=").append(evidence.requirementIds()).append(System.lineSeparator());
         builder.append("Page-owned actions:").append(System.lineSeparator());
-        if (scope.ownedActions().isEmpty()) {
+        if (evidence.requiredActions().isEmpty()) {
             builder.append("- none").append(System.lineSeparator());
         } else {
-            scope.ownedActions().forEach(action -> builder
-                    .append("- ").append(action)
+            evidence.requiredActions().forEach(action -> builder
+                    .append("- ").append(action.name())
                     .append(System.lineSeparator()));
         }
         builder.append("Page-owned assertions:").append(System.lineSeparator());
-        if (scope.ownedAssertions().isEmpty()) {
+        if (evidence.requiredAssertions().isEmpty()) {
             builder.append("- none").append(System.lineSeparator());
         } else {
-            scope.ownedAssertions().forEach(assertion -> builder
+            evidence.requiredAssertions().forEach(assertion -> builder
                     .append("- ").append(assertion.type())
                     .append(" | expectedValue=").append(assertion.expectedValue())
                     .append(" | confidence=").append(String.format(Locale.ROOT, "%.2f", assertion.confidence()))
@@ -449,51 +438,9 @@ public class AiPromptContextFormatter {
                 || context.promptUiEvidence().requiredLocators().isEmpty()) {
             return "- none";
         }
-        PromptReadyPomScope scope = pomScopeSanitizer.sanitize(context, context.promptUiEvidence().targetPage(), List.of());
-        if (!scope.allowedLocators().isEmpty()) {
-            StringBuilder builder = new StringBuilder();
-            appendGroupedPromptReadyLocators(builder, scope.allowedLocators().stream().limit(16).toList());
-            return builder.toString().stripTrailing();
-        }
         StringBuilder builder = new StringBuilder();
         appendGroupedAllowedLocators(builder, context.promptUiEvidence().requiredLocators().stream().limit(16).toList());
         return builder.toString().stripTrailing();
-    }
-
-    private void appendGroupedPromptReadyLocators(
-            StringBuilder builder,
-            List<PromptReadyLocator> locators
-    ) {
-        Map<String, List<PromptReadyLocator>> byComponent = new LinkedHashMap<>();
-        for (PromptReadyLocator locator : locators) {
-            String component = locator.componentName().isBlank() ? "PageScope" : locator.componentName();
-            byComponent.computeIfAbsent(component, ignored -> new java.util.ArrayList<>()).add(locator);
-        }
-        byComponent.forEach((component, componentLocators) -> {
-            builder.append("component: ").append(component);
-            String componentType = componentLocators.stream()
-                    .map(PromptReadyLocator::componentType)
-                    .filter(type -> type != null && !type.isBlank())
-                    .findFirst()
-                    .orElse("");
-            if (!componentType.isBlank()) {
-                builder.append(" | type=").append(componentType);
-            }
-            builder.append(System.lineSeparator());
-            componentLocators.forEach(locator -> builder
-                    .append("- ").append(locator.id())
-                    .append(" | element=").append(locator.elementName())
-                    .append(" | strategy=").append(locator.strategy())
-                    .append(" | value=").append(locator.value())
-                    .append(" | role=").append(locator.role())
-                    .append(" | evidenceType=").append(locator.evidenceType())
-                    .append(" | sameOrigin=").append(locator.sameOrigin())
-                    .append(" | uniqueWithinComponent=").append(locator.uniqueWithinComponent())
-                    .append(" | globalCount=").append(locator.globalMatchCount())
-                    .append(" | scopedCount=").append(locator.scopedMatchCount())
-                    .append(" | score=").append(String.format(Locale.ROOT, "%.2f", locator.score()))
-                    .append(System.lineSeparator()));
-        });
     }
 
     private void appendGroupedAllowedLocators(

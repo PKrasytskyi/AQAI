@@ -6,6 +6,7 @@ import ua.demo.agentlab.ui.contract.AssertionIntentKind;
 public record ScenarioAssertionCandidate(
         AssertionIntentKind intentKind,
         AssertionType assertionType,
+        String target,
         String expectedValue,
         String ownerPage,
         String route,
@@ -14,6 +15,7 @@ public record ScenarioAssertionCandidate(
     public ScenarioAssertionCandidate {
         intentKind = intentKind == null ? AssertionIntentKind.CONTENT_VISIBLE : intentKind;
         assertionType = assertionType == null ? AssertionType.ELEMENT_VISIBLE : assertionType;
+        target = target == null ? "" : target.trim();
         expectedValue = expectedValue == null ? "" : expectedValue.trim();
         ownerPage = ownerPage == null ? "" : ownerPage.trim();
         route = route == null ? "" : route.trim();

@@ -109,7 +109,7 @@ public class Neo4jArtifactRegistryTest {
                         "fingerprint-123",
                         "pom-contract-v1",
                         "pom-json-generation-v1",
-                        "gpt-5-mini",
+                        "gpt-5.6-luna",
                         0.0d,
                         ArtifactStatus.STABLE,
                         94.0d,

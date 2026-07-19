@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "generated-tests-execution-result.v1",
+  "title": "Generated Test Execution Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "status", "total", "passed", "failed", "skipped",
+    "durationMillis", "testClasses", "tests", "failures", "reportDirectory", "summary", "processOutput"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "generated-tests-execution-result.v1" },
+    "status": { "enum": ["PASSED", "FAILED", "SKIPPED", "UNAVAILABLE"] },
+    "total": { "type": "integer", "minimum": 0 },
+    "passed": { "type": "integer", "minimum": 0 },
+    "failed": { "type": "integer", "minimum": 0 },
+    "skipped": { "type": "integer", "minimum": 0 },
+    "durationMillis": { "type": "integer", "minimum": 0 },
+    "testClasses": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenarioId", "requirementIds", "testClass", "sourcePath", "status", "durationMillis",
+          "failure", "actionAndAssertionIds", "evidencePaths"
+        ],
+        "properties": {
+          "scenarioId": { "type": "string" },
+          "requirementIds": { "type": "array", "items": { "type": "string" } },
+          "testClass": { "type": "string", "minLength": 1 },
+          "sourcePath": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["PASSED", "FAILED", "SKIPPED", "MISSING"] },
+          "durationMillis": { "type": "integer", "minimum": 0 },
+          "failure": { "type": "string" },
+          "actionAndAssertionIds": { "type": "array", "items": { "type": "string" } },
+          "evidencePaths": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "failures": { "type": "array", "items": { "type": "string" } },
+    "reportDirectory": { "type": "string" },
+    "summary": { "type": "string" },
+    "processOutput": { "type": "string" }
+  }
+}

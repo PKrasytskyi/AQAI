@@ -21,4 +21,15 @@ public final class UiAssertions {
                 "Expected current URL to contain: " + expectedFragment
         );
     }
+
+    public static void assertEquals(Object actual, Object expected, String message) {
+        Assert.assertEquals(actual, expected, message);
+    }
+
+    public static void assertContains(String actual, String expectedFragment, String message) {
+        Assert.assertTrue(
+                actual != null && actual.contains(expectedFragment),
+                message
+        );
+    }
 }

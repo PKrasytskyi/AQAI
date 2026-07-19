@@ -8,7 +8,9 @@ import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredField;
 import ua.demo.agentlab.ui.discovery.selenium.model.DiscoveredForm;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public class FormStructureExtractor {
 
@@ -44,9 +46,11 @@ public class FormStructureExtractor {
 
     private List<DiscoveredField> extractFields(WebElement form) {
         List<DiscoveredField> fields = new ArrayList<>();
-        List<WebElement> elements = form.findElements(By.cssSelector(
-                "input:not([type='hidden']):not([type='submit']):not([type='button']), select, textarea"
-        ));
+        Set<WebElement> elements = new LinkedHashSet<>(form.findElements(By.cssSelector(
+                "input:not([type='hidden']):not([type='submit']):not([type='button']), select, textarea, "
+                        + "[role='combobox'], [role='listbox'], [class*='select'][tabindex], "
+                        + "[class*='select'] [tabindex]:not(input):not(button):not(a)"
+        )));
 
         for (WebElement field : elements) {
             if (!safeDisplayed(field)) {
@@ -58,6 +62,7 @@ public class FormStructureExtractor {
             String label = firstNonBlank(
                     safeAttribute(field, "aria-label"),
                     safeAttribute(field, "placeholder"),
+                    nearestLabel(field),
                     name,
                     id
             );
@@ -84,6 +89,13 @@ public class FormStructureExtractor {
         if ("textarea".equalsIgnoreCase(tag)) {
             return "textarea";
         }
+        String role = safeAttribute(field, "role");
+        String cssClass = safeAttribute(field, "class");
+        if ("combobox".equalsIgnoreCase(role)
+                || "listbox".equalsIgnoreCase(role)
+                || (cssClass != null && cssClass.toLowerCase().contains("select"))) {
+            return "select";
+        }
 
         String inputType = safeAttribute(field, "type");
         return (inputType == null || inputType.isBlank()) ? "text" : inputType;
@@ -97,7 +109,31 @@ public class FormStructureExtractor {
         if (name != null && !name.isBlank()) {
             return new LocatorHint(elementName, "name", name);
         }
+        if (label != null && !label.isBlank()) {
+            String escaped = label.replace("'", "\\'");
+            return new LocatorHint(
+                    elementName,
+                    "xpath",
+                    "(//label[normalize-space()='" + escaped
+                            + "']/ancestor::*[.//*[@tabindex]][1]//*[@tabindex][1])"
+            );
+        }
         return new LocatorHint(elementName, "css", "input, select, textarea");
+    }
+
+    private String nearestLabel(WebElement field) {
+        try {
+            List<WebElement> labels = field.findElements(By.xpath(
+                    "ancestor::*[.//label and .//*[@tabindex]][1]//label[1]"
+            ));
+            if (!labels.isEmpty()) {
+                String text = labels.get(0).getText();
+                return text == null ? null : text.trim();
+            }
+        } catch (Exception ignored) {
+            // Missing label ancestry is valid for controls labelled through ARIA or placeholder.
+        }
+        return null;
     }
 
     private boolean safeDisplayed(WebElement element) {
@@ -116,7 +152,7 @@ public class FormStructureExtractor {
 
     private String safeAttribute(WebElement element, String attribute) {
         try {
-            String value = element.getAttribute(attribute);
+            String value = element.getDomAttribute(attribute);
             return value == null ? null : value.trim();
         } catch (Exception exception) {
             return null;

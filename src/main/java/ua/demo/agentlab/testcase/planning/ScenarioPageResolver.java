@@ -2,6 +2,8 @@ package ua.demo.agentlab.testcase.planning;
 
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
+import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
+import ua.demo.agentlab.requirements.normalization.StructuredRequirementContext;
 import ua.demo.agentlab.ui.catalog.ConfirmedPageCandidate;
 import ua.demo.agentlab.ui.catalog.ConfirmedPageRegistry;
 import ua.demo.agentlab.ui.catalog.ConfirmedPageSourceResolver;
@@ -23,9 +25,14 @@ class ScenarioPageResolver {
     }
 
     ScenarioPageResolver(ProjectProfile profile, MappedUiKnowledge knowledge, NormalizedRequirementBundle requirements) {
+        this(profile, knowledge, requirements, true);
+    }
+
+    ScenarioPageResolver(ProjectProfile profile, MappedUiKnowledge knowledge,
+                         NormalizedRequirementBundle requirements, boolean includeStableCache) {
         this.profile = profile;
         this.knowledge = knowledge;
-        this.confirmedPages = new ConfirmedPageSourceResolver()
+        this.confirmedPages = new ConfirmedPageSourceResolver(includeStableCache)
                 .resolve(profile, requirements, stableMappedPages(knowledge));
     }
 
@@ -35,8 +42,23 @@ class ScenarioPageResolver {
                 .orElse("");
     }
 
+    String routeFor(NormalizedRequirement requirement, RequirementCapability capability) {
+        String contextRoute = resolveProfileRoute(StructuredRequirementContext.value(
+                requirement, "target context", "targetRoute"));
+        return contextRoute.isBlank() ? routeFor(capability) : contextRoute;
+    }
+
+    String sourceRouteFor(NormalizedRequirement requirement, RequirementCapability fallbackCapability) {
+        String contextRoute = resolveProfileRoute(StructuredRequirementContext.value(
+                requirement, "target context", "sourceRoute"));
+        return contextRoute.isBlank() ? routeFor(fallbackCapability) : contextRoute;
+    }
+
     String pageFor(RequirementCapability capability) {
         String route = routeFor(capability);
+        if (route.isBlank()) {
+            return "";
+        }
         String mapped = pageNameForRoute(route);
         if (!mapped.isBlank()) {
             return mapped;
@@ -44,7 +66,37 @@ class ScenarioPageResolver {
         return confirmedPageFor(capability)
                 .map(ConfirmedPageCandidate::pageName)
                 .filter(value -> !value.isBlank())
-                .orElse("GenericPage");
+                .orElse("");
+    }
+
+    String pageFor(NormalizedRequirement requirement, RequirementCapability capability) {
+        String route = routeFor(requirement, capability);
+        if (route.isBlank()) {
+            return "";
+        }
+        String mapped = pageNameForRoute(route);
+        if (!mapped.isBlank()) {
+            return mapped;
+        }
+        return confirmedPages == null ? "" : confirmedPages.findByRoute(route)
+                .map(ConfirmedPageCandidate::pageName)
+                .filter(value -> !value.isBlank())
+                .orElse("");
+    }
+
+    String sourcePageFor(NormalizedRequirement requirement, RequirementCapability fallbackCapability) {
+        String route = sourceRouteFor(requirement, fallbackCapability);
+        if (route.isBlank()) {
+            return "";
+        }
+        String mapped = pageNameForRoute(route);
+        if (!mapped.isBlank()) {
+            return mapped;
+        }
+        return confirmedPages == null ? "" : confirmedPages.findByRoute(route)
+                .map(ConfirmedPageCandidate::pageName)
+                .filter(value -> !value.isBlank())
+                .orElse("");
     }
 
     String pageNameForRoute(String route) {
@@ -74,10 +126,13 @@ class ScenarioPageResolver {
                     .or(() -> confirmedPages.findByCapability(PageCapability.AUTHENTICATION));
             case NAVIGATION -> confirmedPages.findByCapability(PageCapability.NAVIGATION)
                     .or(() -> confirmedPages.findByCapability(PageCapability.AUTHENTICATION));
-            case RECORD_LIST -> confirmedPages.findByCapability(PageCapability.RECORD_LIST);
+            // Protected business capabilities must never degrade to a login/form page.
+            // A missing record-list page is discovery work, not permission to invent ownership.
+            case MODULE_NAVIGATION, RECORD_LIST, FILTER, SEARCH, RESULTS_COLLECTION -> confirmedPages
+                    .findByCapability(PageCapability.RECORD_LIST);
             case RECORD_DETAILS -> confirmedPages.findByCapability(PageCapability.RECORD_DETAILS);
             case CONTAINER -> confirmedPages.findByCapability(PageCapability.CONTAINER);
-            case GENERIC -> confirmedPages.allPages().stream().findFirst();
+            case GENERIC -> Optional.empty();
         };
     }
 
@@ -130,5 +185,29 @@ class ScenarioPageResolver {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String resolveProfileRoute(String value) {
+        String explicit = StructuredRequirementContext.explicitRoute(value);
+        if (!explicit.isBlank() || profile == null) {
+            return explicit;
+        }
+        String symbolic = normalize(value).replaceAll("[^a-z0-9]", "");
+        if (symbolic.endsWith("loginroute") || symbolic.endsWith("authenticationroute")) {
+            return profile.loginRoute();
+        }
+        if (symbolic.endsWith("authenticatedroute") || symbolic.endsWith("secureroute")) {
+            return profile.authenticatedRoute();
+        }
+        if (symbolic.endsWith("homeroute")) {
+            return profile.homeRoute();
+        }
+        if (symbolic.endsWith("recoveryroute")) {
+            return profile.recoveryRoute();
+        }
+        if (symbolic.endsWith("formroute")) {
+            return profile.formRoute();
+        }
+        return "";
     }
 }

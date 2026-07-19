@@ -81,8 +81,14 @@ secrets.properties
 .DS_Store
 Thumbs.db
 
+# Private working roadmaps and local architecture notes
+docs/private/
+/docs/BUILD_WEEK_E2E_STABILIZATION_PLAN.md
+
 # Docker/local database volumes if created in the workspace
 neo4j_data/
 neo4j_logs/
 qdrant_storage/
 /data/
+build-week-artifacts/
+/docs/UI_PLATFORM_ARCHITECTURE_SYSTEM_PROMPT.md

@@ -2,6 +2,9 @@ package ua.demo.agentlab.app.workflow;
 
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.orchestration.WorkflowState;
+import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContractAgent;
+import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaSourceStateBindingAgent;
+import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaTargetStateBindingAgent;
 
 import java.util.List;
 
@@ -14,15 +17,23 @@ public class DeterministicWorkflowFactory {
         List<WorkflowAgent> agents = List.of(
                 core.requirementReaderAgent(),
                 core.requirementNormalizationAgent(),
+                new StructuredBehaviorContractAgent(),
                 core.policyLoadingAgent(),
                 core.uiDiscoveryAgent(),
                 core.uiRuntimeEvidenceAgent(),
                 core.uiPageModelAgent(),
                 core.uiPageMappingAgent(),
+                core.uiInteractionInventoryAgent(),
+                core.uiSpaComponentInteractionGraphAgent(),
                 core.uiPageKnowledgePersistenceAgent(),
                 core.uiDiscoveryArtifactPersistenceAgent(),
                 core.flowScopedKnowledgeAgent(),
                 core.requirementToTestCaseAgent(),
+                new UiSpaSourceStateBindingAgent(),
+                core.uiSpaTargetedVerificationAgent(),
+                core.uiLiveSpaTargetedVerificationAgent(),
+                new UiSpaTargetStateBindingAgent(),
+                core.uiSpaEvidenceRetentionAgent(),
                 core.flowContractBuilderAgent(),
                 core.flowContractPersistenceAgent(),
                 core.flowSemanticIndexAgent(),

@@ -15,10 +15,12 @@ import java.util.Set;
 public class PageOwnershipSlicer {
 
     public PromptPageScope slice(AiContextPackage context) {
-        if (context == null || context.mappedUiKnowledge() == null || context.mappedUiKnowledge().pages().isEmpty()) {
+        if (context == null || context.mappedUiKnowledge() == null
+                || context.mappedUiKnowledge().pages().size() != 1) {
             return null;
         }
-        MappedPage targetPage = context.mappedUiKnowledge().pages().get(0);
+        MappedPage targetPage = context.mappedUiKnowledge().pages().stream().findFirst().orElse(null);
+        if (targetPage == null) return null;
         Set<String> requirementIds = requirementIds(context);
         boolean requiresAuthentication = requiresAuthentication(targetPage);
         List<String> prerequisitePages = prerequisitePages(context, targetPage, requiresAuthentication);

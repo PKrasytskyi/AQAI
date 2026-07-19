@@ -27,10 +27,11 @@ public class CanonicalSubjectClassifier {
                     OPEN_DETAILS, OPEN_RECORD, CREATE_RECORD, EDIT_RECORD, DELETE_RECORD -> "entity";
             case OPEN_TARGET_CONTAINER, OPEN_DESTINATION_CONTAINER, ADD_ENTITY_TO_CONTAINER, ADD_ITEM_TO_CONTAINER,
                     REMOVE_ENTITY_FROM_CONTAINER, REMOVE_ITEM_FROM_CONTAINER -> "container";
-            case AUTHENTICATE, LOGOUT -> "session";
+            case AUTHENTICATE, HTTP_AUTHENTICATE, LOGOUT -> "session";
             case ENTER_TEXT -> "field";
             case SUBMIT_FORM -> "form";
-            case OPEN_MODAL, CONFIRM_ACTION -> "interaction";
+            case OPEN_MENU, OPEN_MODAL, CONFIRM_ACTION, ACCEPT_ALERT, DISMISS_ALERT, ENTER_ALERT_TEXT,
+                    OPEN_NEW_WINDOW, SWITCH_WINDOW, HOVER, SET_SLIDER -> "interaction";
             case UPLOAD_FILE, DOWNLOAD_FILE -> "file";
         };
 
@@ -52,11 +53,20 @@ public class CanonicalSubjectClassifier {
             case AUTHENTICATE -> "authenticated-session";
             case ENTER_TEXT -> "field-value";
             case SUBMIT_FORM -> "form-submission";
+            case OPEN_MENU -> "menu";
             case OPEN_MODAL -> "modal";
             case CONFIRM_ACTION -> "confirmed-action";
             case UPLOAD_FILE -> "uploaded-file";
             case DOWNLOAD_FILE -> "downloaded-file";
             case LOGOUT -> "signed-out-session";
+            case HTTP_AUTHENTICATE -> "authenticated-http-session";
+            case ACCEPT_ALERT -> "accepted-alert";
+            case DISMISS_ALERT -> "dismissed-alert";
+            case ENTER_ALERT_TEXT -> "alert-input";
+            case OPEN_NEW_WINDOW -> "new-window";
+            case SWITCH_WINDOW -> "selected-window";
+            case HOVER -> "hover-state";
+            case SET_SLIDER -> "slider-value";
         };
 
         Set<String> domainHints = new LinkedHashSet<>(operation.domainHints());

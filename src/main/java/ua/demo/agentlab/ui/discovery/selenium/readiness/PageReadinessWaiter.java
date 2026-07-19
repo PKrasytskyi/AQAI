@@ -8,16 +8,19 @@ import java.time.Duration;
 
 public class PageReadinessWaiter {
 
-    public void waitUntilReady(WebDriver driver, PageReadinessRule rule) {
-        if (driver == null || !(driver instanceof JavascriptExecutor)) {
-            return;
-        }
+    public PageReadinessResult waitUntilReady(WebDriver driver, PageReadinessRule rule) {
         PageReadinessRule resolvedRule = rule == null ? PageReadinessRule.generic("", 8_000L) : rule;
+        if (driver == null || !(driver instanceof JavascriptExecutor)) {
+            return PageReadinessResult.degraded(resolvedRule, "JavaScript-capable WebDriver is unavailable.");
+        }
         try {
             new WebDriverWait(driver, Duration.ofMillis(resolvedRule.timeoutMillis()))
                     .until(currentDriver -> Boolean.TRUE.equals(isReady(currentDriver, resolvedRule)));
+            return PageReadinessResult.ready(resolvedRule);
         } catch (RuntimeException ignored) {
-            // Discovery keeps the best available evidence when the application never reaches the configured readiness state.
+            return PageReadinessResult.degraded(resolvedRule,
+                    "Readiness timeout or browser error after " + resolvedRule.timeoutMillis() + " ms: "
+                            + concise(ignored));
         }
     }
 
@@ -55,17 +58,41 @@ public class PageReadinessWaiter {
 
                     const requiredSelectorsReady = requiredSelectors.length === 0
                       || requiredSelectors.every(selectorReady);
-                    const textReady = readyTextFragments.length === 0
-                      || readyTextFragments.some(fragment => normalizedText.includes(fragment));
-                    const genericReady = controls > 0 || bodyText.length > 0 || samePageLinks > 1;
-
-                    return ready && (requiredSelectors.length > 0
+                    const textReady = readyTextFragments.length > 0
+                      && readyTextFragments.some(fragment => normalizedText.includes(fragment));
+                    const structural = Array.from(document.querySelectorAll(
+                      "main, nav, form, table, [role='main'], [role='navigation'], [role='table'], [role='grid']"
+                    )).filter(visible).length;
+                    const genericReady = controls > 0 || samePageLinks > 1 || structural > 0 || bodyText.length >= 24;
+                    const candidateReady = ready && (requiredSelectors.length > 0
                       ? requiredSelectorsReady
                       : (textReady || genericReady));
+                    if (!candidateReady) {
+                      window.__agentlabReadinessProbe = null;
+                      return false;
+                    }
+
+                    const fingerprint = [location.href, document.readyState, bodyText.length,
+                      normalizedText.substring(0, 160), controls, samePageLinks, structural,
+                      document.querySelectorAll('*').length].join('|');
+                    const now = Date.now();
+                    const previous = window.__agentlabReadinessProbe;
+                    if (!previous || previous.fingerprint !== fingerprint) {
+                      window.__agentlabReadinessProbe = {fingerprint, since: now};
+                      return false;
+                    }
+                    return now - previous.since >= 300;
                     """, rule.requiredCssSelectors(), rule.readyTextFragments());
             return Boolean.TRUE.equals(result);
         } catch (RuntimeException exception) {
-            return true;
+            return false;
         }
+    }
+
+    private String concise(RuntimeException exception) {
+        String message = exception.getMessage();
+        return message == null || message.isBlank()
+                ? exception.getClass().getSimpleName()
+                : message.replaceAll("\\s+", " ").trim();
     }
 }

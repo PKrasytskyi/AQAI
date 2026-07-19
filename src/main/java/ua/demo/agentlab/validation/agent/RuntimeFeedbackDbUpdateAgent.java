@@ -11,6 +11,7 @@ import ua.demo.agentlab.validation.GeneratedCodeValidationResult;
 import ua.demo.agentlab.validation.feedback.GeneratedUiRuntimeFeedbackWriter;
 import ua.demo.agentlab.validation.feedback.RuntimeFeedbackDbUpdateResult;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeResult;
+import ua.demo.agentlab.validation.execution.GeneratedTestExecutionResult;
 
 import java.util.Set;
 
@@ -36,7 +37,8 @@ public class RuntimeFeedbackDbUpdateAgent implements WorkflowAgent,
         return Set.of(
                 WorkflowArtifact.GENERATED_UI_SMOKE_RESULT,
                 WorkflowArtifact.COMPILE_RESULT,
-                WorkflowArtifact.REVIEW_RESULT
+                WorkflowArtifact.REVIEW_RESULT,
+                WorkflowArtifact.GENERATED_TEST_EXECUTION_RESULT
         );
     }
 
@@ -66,7 +68,8 @@ public class RuntimeFeedbackDbUpdateAgent implements WorkflowAgent,
                 store == null
                         ? state.getGeneratedCodeReviewReport()
                         : (GeneratedCodeReviewReport) store.get(WorkflowArtifact.REVIEW_RESULT)
-                        .orElse(state.getGeneratedCodeReviewReport())
+                        .orElse(state.getGeneratedCodeReviewReport()),
+                store == null ? null : store.require(WorkflowArtifact.GENERATED_TEST_EXECUTION_RESULT)
         );
     }
 
@@ -78,7 +81,8 @@ public class RuntimeFeedbackDbUpdateAgent implements WorkflowAgent,
     @Override
     public RuntimeFeedbackDbUpdateResult execute(Input input, WorkflowRunEnvelope run) {
         String runId = run == null || run.runMetadata() == null ? "" : run.runMetadata().runId();
-        return feedbackWriter.write(input.smokeResult(), input.compileResult(), input.reviewReport(), runId);
+        return feedbackWriter.write(
+                input.smokeResult(), input.compileResult(), input.reviewReport(), input.testExecution(), runId);
     }
 
     @Override
@@ -96,7 +100,8 @@ public class RuntimeFeedbackDbUpdateAgent implements WorkflowAgent,
     public record Input(
             GeneratedUiSmokeResult smokeResult,
             GeneratedCodeValidationResult compileResult,
-            GeneratedCodeReviewReport reviewReport
+            GeneratedCodeReviewReport reviewReport,
+            GeneratedTestExecutionResult testExecution
     ) {
     }
 }

@@ -110,7 +110,7 @@ public class RuntimeLocatorCountCollector {
 
     private String safeAttribute(WebElement element, String attribute) {
         try {
-            String value = element.getAttribute(attribute);
+            String value = element.getDomAttribute(attribute);
             return value == null ? "" : value.trim();
         } catch (Exception ignored) {
             return "";
@@ -131,6 +131,8 @@ public class RuntimeLocatorCountCollector {
         add(locators, "css", element.ariaLabel().isBlank()
                 ? ""
                 : element.tag() + "[aria-label='" + escapeCssValue(element.ariaLabel()) + "']");
+        add(locators, "css", roleLocator(element));
+        add(locators, "xpath", element.attributes().getOrDefault("agentlab.field.locator.xpath", ""));
         add(locators, "id", element.id());
         add(locators, "name", element.name());
         add(locators, "css", element.href().isBlank() || isAbsoluteHttpUrl(element.href())
@@ -205,6 +207,12 @@ public class RuntimeLocatorCountCollector {
 
     private boolean stableSemanticClass(String token) {
         return token.contains("dropdown")
+                || token.contains("select")
+                || token.contains("combobox")
+                || token.contains("table")
+                || token.contains("grid")
+                || token.contains("result")
+                || token.contains("record")
                 || token.contains("breadcrumb")
                 || token.contains("topbar")
                 || token.contains("dashboard")
@@ -214,6 +222,15 @@ public class RuntimeLocatorCountCollector {
                 || token.contains("logout")
                 || token.contains("button")
                 || token.contains("link");
+    }
+
+    private String roleLocator(RawElement element) {
+        String role = safe(element.role()).toLowerCase(Locale.ROOT);
+        if (!List.of("combobox", "listbox", "table", "grid", "rowgroup", "row", "cell", "columnheader")
+                .contains(role)) {
+            return "";
+        }
+        return element.tag() + "[role='" + escapeCssValue(role) + "']";
     }
 
     private boolean headingTag(String tag) {

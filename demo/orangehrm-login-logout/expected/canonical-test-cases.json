@@ -1,0 +1,198 @@
+{
+  "schemaVersion" : "canonical-test-case-bundle.v1",
+  "primaryPage" : "LoginPage",
+  "pageNames" : [ "DashboardPage", "LoginPage" ],
+  "scenarios" : [ {
+    "id" : "REQ-001",
+    "title" : "Authentication Form Is Ready",
+    "flowType" : "OPEN_PAGE",
+    "requirementRefs" : [ "REQ-001" ],
+    "sourceContext" : {
+      "page" : "LoginPage",
+      "route" : "/auth/login"
+    },
+    "targetContext" : {
+      "page" : "LoginPage",
+      "route" : "/auth/login"
+    },
+    "precondition" : "Application is available",
+    "operations" : [ {
+      "kind" : "OPEN_PAGE",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login",
+      "dataKey" : "",
+      "setup" : false
+    } ],
+    "assertions" : [ {
+      "kind" : "ELEMENT_VISIBLE",
+      "target" : "loginButton",
+      "expectedValue" : "Login button is visible and enabled",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login"
+    }, {
+      "kind" : "ELEMENT_VISIBLE",
+      "target" : "passwordInput",
+      "expectedValue" : "Password input is visible and enabled",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login"
+    }, {
+      "kind" : "ELEMENT_VISIBLE",
+      "target" : "usernameInput",
+      "expectedValue" : "Username input is visible and enabled",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login"
+    }, {
+      "kind" : "URL_CONTAINS",
+      "target" : "authenticationRoute",
+      "expectedValue" : "/auth/login",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login"
+    } ],
+    "actions" : [ "Open the target page (/auth/login)" ],
+    "expectedResults" : [ "/auth/login", "Login button is visible and enabled", "Password input is visible and enabled", "Username input is visible and enabled" ]
+  }, {
+    "id" : "REQ-002",
+    "title" : "Authenticate With Valid Credentials",
+    "flowType" : "AUTHENTICATE",
+    "requirementRefs" : [ "REQ-002" ],
+    "sourceContext" : {
+      "page" : "LoginPage",
+      "route" : "/auth/login"
+    },
+    "targetContext" : {
+      "page" : "DashboardPage",
+      "route" : "/dashboard/index"
+    },
+    "precondition" : "Application is available",
+    "operations" : [ {
+      "kind" : "AUTHENTICATE",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login",
+      "dataKey" : "",
+      "setup" : false
+    } ],
+    "assertions" : [ {
+      "kind" : "AUTHENTICATION_SUCCEEDED",
+      "target" : "authenticatedSession",
+      "expectedValue" : "Valid credentials are accepted",
+      "ownerPage" : "DashboardPage",
+      "route" : "/dashboard/index"
+    }, {
+      "kind" : "ELEMENT_VISIBLE",
+      "target" : "authenticatedAreaHeading",
+      "expectedValue" : "Authenticated area heading is visible",
+      "ownerPage" : "DashboardPage",
+      "route" : "/dashboard/index"
+    }, {
+      "kind" : "URL_CONTAINS",
+      "target" : "authenticatedRoute",
+      "expectedValue" : "/dashboard/index",
+      "ownerPage" : "DashboardPage",
+      "route" : "/dashboard/index"
+    } ],
+    "actions" : [ "Authenticate using the configured credentials" ],
+    "expectedResults" : [ "/dashboard/index", "Authenticated area heading is visible", "Valid credentials are accepted" ]
+  }, {
+    "id" : "REQ-003",
+    "title" : "Open User Menu And Display Logout Action",
+    "flowType" : "OPEN_MENU",
+    "requirementRefs" : [ "REQ-003" ],
+    "sourceContext" : {
+      "page" : "DashboardPage",
+      "route" : "/dashboard/index"
+    },
+    "targetContext" : {
+      "page" : "DashboardPage",
+      "route" : "/dashboard/index"
+    },
+    "precondition" : "Application is available",
+    "operations" : [ {
+      "kind" : "AUTHENTICATE",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login",
+      "dataKey" : "",
+      "setup" : true
+    }, {
+      "kind" : "OPEN_MENU",
+      "ownerPage" : "DashboardPage",
+      "route" : "/dashboard/index",
+      "dataKey" : "userMenu",
+      "setup" : false
+    } ],
+    "assertions" : [ {
+      "kind" : "ELEMENT_VISIBLE",
+      "target" : "logoutAction",
+      "expectedValue" : "Logout action is visible and enabled after opening the user menu",
+      "ownerPage" : "DashboardPage",
+      "route" : "/dashboard/index"
+    }, {
+      "kind" : "ELEMENT_VISIBLE",
+      "target" : "userMenu",
+      "expectedValue" : "User menu is open and visible",
+      "ownerPage" : "DashboardPage",
+      "route" : "/dashboard/index"
+    }, {
+      "kind" : "SUCCESS_STATE_VISIBLE",
+      "target" : "authenticatedArea",
+      "expectedValue" : "User remains authenticated while the user menu is open",
+      "ownerPage" : "DashboardPage",
+      "route" : "/dashboard/index"
+    } ],
+    "actions" : [ "Authenticate using the configured credentials", "Open the user menu" ],
+    "expectedResults" : [ "Logout action is visible and enabled after opening the user menu", "User menu is open and visible", "User remains authenticated while the user menu is open" ]
+  }, {
+    "id" : "REQ-004",
+    "title" : "Logout And Return To Authentication Page",
+    "flowType" : "LOGOUT",
+    "requirementRefs" : [ "REQ-004" ],
+    "sourceContext" : {
+      "page" : "DashboardPage",
+      "route" : "/dashboard/index"
+    },
+    "targetContext" : {
+      "page" : "LoginPage",
+      "route" : "/auth/login"
+    },
+    "precondition" : "Application is available",
+    "operations" : [ {
+      "kind" : "AUTHENTICATE",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login",
+      "dataKey" : "",
+      "setup" : true
+    }, {
+      "kind" : "OPEN_MENU",
+      "ownerPage" : "DashboardPage",
+      "route" : "/dashboard/index",
+      "dataKey" : "userMenu",
+      "setup" : true
+    }, {
+      "kind" : "LOGOUT",
+      "ownerPage" : "DashboardPage",
+      "route" : "/dashboard/index",
+      "dataKey" : "",
+      "setup" : false
+    } ],
+    "assertions" : [ {
+      "kind" : "AUTHENTICATED_AREA_ABSENT",
+      "target" : "authenticatedArea",
+      "expectedValue" : "Authenticated area is no longer accessible after logout",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login"
+    }, {
+      "kind" : "ELEMENT_VISIBLE",
+      "target" : "usernameInput",
+      "expectedValue" : "Username input is visible after logout",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login"
+    }, {
+      "kind" : "URL_CONTAINS",
+      "target" : "authenticationRoute",
+      "expectedValue" : "/auth/login",
+      "ownerPage" : "LoginPage",
+      "route" : "/auth/login"
+    } ],
+    "actions" : [ "Authenticate using the configured credentials", "Open the user menu", "Sign out from the current session" ],
+    "expectedResults" : [ "/auth/login", "Authenticated area is no longer accessible after logout", "Username input is visible after logout" ]
+  } ]
+}

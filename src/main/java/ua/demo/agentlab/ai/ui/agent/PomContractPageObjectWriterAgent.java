@@ -4,6 +4,7 @@ import ua.demo.agentlab.ai.ui.contract.DeterministicPomJavaWriter;
 import ua.demo.agentlab.ai.ui.contract.PomActionSpec;
 import ua.demo.agentlab.ai.ui.contract.PomAssertionSpec;
 import ua.demo.agentlab.ai.ui.contract.PomContractSpec;
+import ua.demo.agentlab.ai.ui.contract.PomSourceMapBuilder;
 import ua.demo.agentlab.orchestration.pipeline.AiArtifactPublisher;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.orchestration.WorkflowArtifact;
@@ -28,6 +29,7 @@ public class PomContractPageObjectWriterAgent implements WorkflowAgent,
     private final DeterministicPomJavaWriter writer;
     private final StageOutputPublisher publisher = new StageOutputPublisher();
     private final AiArtifactPublisher artifactPublisher = new AiArtifactPublisher();
+    private final PomSourceMapBuilder sourceMapBuilder = new PomSourceMapBuilder();
 
     public PomContractPageObjectWriterAgent(DeterministicPomJavaWriter writer) {
         if (writer == null) {
@@ -85,6 +87,12 @@ public class PomContractPageObjectWriterAgent implements WorkflowAgent,
                 "validation",
                 "pom-source-traceability.json",
                 buildTraceability(state, output)
+        );
+        artifactPublisher.writeJson(
+                state,
+                "validation",
+                "pom-source-map.json",
+                sourceMapBuilder.build(state == null ? List.of() : state.getPomContractSpecs(), output)
         );
     }
 

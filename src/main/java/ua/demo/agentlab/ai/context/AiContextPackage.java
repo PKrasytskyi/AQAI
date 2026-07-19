@@ -33,6 +33,7 @@ public record AiContextPackage(
         List<PageModelEnrichmentRecord> pageModelEnrichments,
         List<String> templateCapabilities,
         List<PromptLocatorEvidence> dbStableLocatorEvidence,
+        List<PromptLocatorEvidence> confirmedCatalogLocatorEvidence,
         PromptUiEvidence promptUiEvidence
 ) {
     public AiContextPackage {
@@ -48,7 +49,53 @@ public record AiContextPackage(
         pageModelEnrichments = pageModelEnrichments == null ? List.of() : List.copyOf(pageModelEnrichments);
         templateCapabilities = templateCapabilities == null ? List.of() : List.copyOf(templateCapabilities);
         dbStableLocatorEvidence = dbStableLocatorEvidence == null ? List.of() : List.copyOf(dbStableLocatorEvidence);
+        confirmedCatalogLocatorEvidence = confirmedCatalogLocatorEvidence == null
+                ? List.of()
+                : List.copyOf(confirmedCatalogLocatorEvidence);
         promptUiEvidence = promptUiEvidence == null ? PromptUiEvidence.empty("prompt-evidence:not-built") : promptUiEvidence;
+    }
+
+    public AiContextPackage(
+            String objective,
+            NormalizedRequirementBundle normalizedRequirementBundle,
+            GenerationPolicy generationPolicy,
+            ProjectProfile projectProfile,
+            TestPlan testPlan,
+            CanonicalTestCaseBundle canonicalTestCaseBundle,
+            UiTestPlan uiTestPlan,
+            CanonicalPageFlowModel canonicalPageFlowModel,
+            MappedUiKnowledge mappedUiKnowledge,
+            MappedUiKnowledgeCurated mappedUiKnowledgeCurated,
+            PageModelBundle pageModelBundle,
+            CanonicalUiInteractionModel canonicalInteractionModel,
+            UiKnowledgeRetrievalContext retrievalContext,
+            List<AssertionContract> assertionContracts,
+            List<PageModelEnrichmentRecord> pageModelEnrichments,
+            List<String> templateCapabilities,
+            List<PromptLocatorEvidence> dbStableLocatorEvidence,
+            PromptUiEvidence promptUiEvidence
+    ) {
+        this(
+                objective,
+                normalizedRequirementBundle,
+                generationPolicy,
+                projectProfile,
+                testPlan,
+                canonicalTestCaseBundle,
+                uiTestPlan,
+                canonicalPageFlowModel,
+                mappedUiKnowledge,
+                mappedUiKnowledgeCurated,
+                pageModelBundle,
+                canonicalInteractionModel,
+                retrievalContext,
+                assertionContracts,
+                pageModelEnrichments,
+                templateCapabilities,
+                dbStableLocatorEvidence,
+                List.of(),
+                promptUiEvidence
+        );
     }
 
     public AiContextPackage(
@@ -87,6 +134,7 @@ public record AiContextPackage(
                 assertionContracts,
                 pageModelEnrichments,
                 templateCapabilities,
+                List.of(),
                 List.of(),
                 promptUiEvidence
         );

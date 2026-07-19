@@ -297,12 +297,18 @@ public class AiPageObjectTemplateWriter {
             if (token.isBlank()) {
                 continue;
             }
-            builder.append(Character.toUpperCase(token.charAt(0)));
-            if (token.length() > 1) {
-                builder.append(token.substring(1));
+            String normalized = allUpperCase(token) ? token.toLowerCase(Locale.ROOT) : token;
+            builder.append(Character.toUpperCase(normalized.charAt(0)));
+            if (normalized.length() > 1) {
+                builder.append(normalized.substring(1));
             }
         }
         return builder.toString();
+    }
+
+    private boolean allUpperCase(String value) {
+        return value.chars().anyMatch(Character::isLetter)
+                && value.equals(value.toUpperCase(Locale.ROOT));
     }
 
     private String defaultIfBlank(String value, String fallback) {

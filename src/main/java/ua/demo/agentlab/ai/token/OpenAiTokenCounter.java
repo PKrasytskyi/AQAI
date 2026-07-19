@@ -19,7 +19,9 @@ public class OpenAiTokenCounter {
             throw new IllegalArgumentException("registry cannot be null");
         }
         this.registry = registry;
-        this.modelName = modelName == null || modelName.isBlank() ? "gpt-5-mini" : modelName.trim();
+        this.modelName = modelName == null || modelName.isBlank()
+                ? ua.demo.agentlab.ai.openai.PropertiesOpenAiRuntimeConfig.DEFAULT_MODEL
+                : modelName.trim();
     }
 
     public TokenCountResult count(String text) {

@@ -8,6 +8,7 @@ import ua.demo.agentlab.ai.ui.writer.AiPageObjectTemplateWriter;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -22,7 +23,8 @@ public class DeterministicPomJavaWriter {
     );
 
     private final PomContractQualityGate qualityGate;
-    private final AiPageObjectTemplateWriter compatibilityWriter;
+    private final AiPageObjectTemplateWriter javaTemplateWriter;
+    private final PomJavaFieldNameResolver fieldNameResolver = new PomJavaFieldNameResolver();
 
     public DeterministicPomJavaWriter(String pagePackage) {
         this(new PomContractQualityGate(), new AiPageObjectTemplateWriter(pagePackage));
@@ -30,20 +32,20 @@ public class DeterministicPomJavaWriter {
 
     DeterministicPomJavaWriter(
             PomContractQualityGate qualityGate,
-            AiPageObjectTemplateWriter compatibilityWriter
+            AiPageObjectTemplateWriter javaTemplateWriter
     ) {
-        if (qualityGate == null || compatibilityWriter == null) {
+        if (qualityGate == null || javaTemplateWriter == null) {
             throw new IllegalArgumentException("writer dependencies cannot be null");
         }
         this.qualityGate = qualityGate;
-        this.compatibilityWriter = compatibilityWriter;
+        this.javaTemplateWriter = javaTemplateWriter;
     }
 
     public List<GeneratedSourceFile> write(List<PomContractSpec> contracts) {
         if (contracts == null || contracts.isEmpty()) {
             return List.of();
         }
-        List<AiPageObjectSpec> adapted = new ArrayList<>();
+        List<AiPageObjectSpec> renderingSpecs = new ArrayList<>();
         List<GeneratedSourceFile> componentFiles = new ArrayList<>();
         for (PomContractSpec contract : contracts) {
             PomContractQualityReport report = qualityGate.validate(contract);
@@ -56,30 +58,59 @@ public class DeterministicPomJavaWriter {
                         .reduce((left, right) -> left + "; " + right)
                         .orElse("no blocking issue details"));
             }
-            adapted.add(toAiPageObjectSpec(contract));
+            renderingSpecs.add(toRenderingSpec(contract));
             componentFiles.addAll(writeComponents(contract));
         }
-        List<GeneratedSourceFile> files = new ArrayList<>(compatibilityWriter.write(adapted));
+        List<GeneratedSourceFile> files = new ArrayList<>(javaTemplateWriter.write(renderingSpecs));
         files.addAll(componentFiles);
         return files;
     }
 
-    public AiPageObjectSpec toAiPageObjectSpec(PomContractSpec contract) {
+    public AiPageObjectSpec toRenderingSpec(PomContractSpec contract) {
         PomPageSpec page = contract.page();
+        List<PomLocatorSpec> pageLocators = pageLocators(contract);
+        Map<String, String> fieldNames = fieldNames(pageLocators);
         return new AiPageObjectSpec(
                 page.name(),
                 page.route(),
                 page.openMethod(),
-                pageLocators(contract).stream()
+                pageLocators.stream()
                         .map(locator -> new AiLocatorSpec(
-                                locator.id(),
+                                fieldNames.get(locator.id()),
                                 locator.elementName(),
                                 locator.strategy(),
                                 locator.value()
                         ))
                         .toList(),
-                buildMethods(contract)
+                rewriteLocatorReferences(buildMethods(contract), fieldNames)
         );
+    }
+
+    private Map<String, String> fieldNames(List<PomLocatorSpec> locators) {
+        Map<String, String> names = new LinkedHashMap<>();
+        locators.forEach(locator -> names.putIfAbsent(locator.id(), fieldNameResolver.resolve(locator)));
+        return names;
+    }
+
+    private List<AiMethodSpec> rewriteLocatorReferences(
+            List<AiMethodSpec> methods,
+            Map<String, String> fieldNames
+    ) {
+        return methods.stream().map(method -> new AiMethodSpec(
+                method.returnType(), method.methodName(), method.parameters(),
+                rewriteLocatorReferences(method.body(), fieldNames), method.requiredImports())).toList();
+    }
+
+    private String rewriteLocatorReferences(String body, Map<String, String> fieldNames) {
+        String rewritten = body == null ? "" : body;
+        List<Map.Entry<String, String>> entries = fieldNames.entrySet().stream()
+                .sorted(Map.Entry.<String, String>comparingByKey(
+                        Comparator.comparingInt(String::length).reversed()))
+                .toList();
+        for (Map.Entry<String, String> entry : entries) {
+            rewritten = rewritten.replace("this." + field(entry.getKey()), entry.getValue());
+        }
+        return rewritten;
     }
 
     private List<AiMethodSpec> buildMethods(PomContractSpec contract) {
@@ -103,7 +134,7 @@ public class DeterministicPomJavaWriter {
                     List.of(),
                     "return new %s(driver, runtimeConfig, %s);".formatted(
                             componentClassName(component.name()),
-                            field(rootLocatorId)
+                            locatorReference(rootLocatorId)
                     ),
                     List.of()
             ));
@@ -194,7 +225,7 @@ public class DeterministicPomJavaWriter {
             return List.of();
         }
         List<GeneratedSourceFile> files = new ArrayList<>();
-        String packageName = compatibilityWriter.pagePackage();
+        String packageName = javaTemplateWriter.pagePackage();
         for (PomComponentSpec component : contract.components()) {
             if (!isRenderableComponent(contract, component)) {
                 continue;
@@ -269,15 +300,16 @@ public class DeterministicPomJavaWriter {
             PomComponentSpec component,
             String rootLocatorId
     ) {
+        Map<String, String> fieldNames = fieldNames(component.locators());
         String locators = component.locators().stream()
                 .filter(locator -> !locator.id().equals(rootLocatorId))
                 .map(locator -> "    private final By %s = %s;".formatted(
-                        field(locator.id()),
+                        fieldNames.get(locator.id()),
                         byExpression(locator)
                 ))
                 .reduce((left, right) -> left + System.lineSeparator() + right)
                 .orElse("");
-        String methods = renderComponentMethods(component);
+        String methods = rewriteLocatorReferences(renderComponentMethods(component), fieldNames);
         return """
                 package %s;
 
@@ -358,13 +390,13 @@ public class DeterministicPomJavaWriter {
     private String renderComponentStep(PomStepSpec step, int stepIndex) {
         String value = valueExpression(step.valueFrom(), step.literalValue());
         return switch (step.action()) {
-            case CLICK -> "child(" + field(step.locator()) + ").click();";
+            case CLICK -> "child(" + locatorReference(step.locator()) + ").click();";
             case CLEAR_AND_TYPE -> """
                     WebElement element%d = child(%s);
                     element%d.clear();
-                    element%d.sendKeys(%s);""".formatted(stepIndex, field(step.locator()), stepIndex, stepIndex, value);
-            case SEND_KEYS, UPLOAD_FILE -> "child(" + field(step.locator()) + ").sendKeys(" + value + ");";
-            case SELECT_BY_VISIBLE_TEXT -> "dropdowns.selectByVisibleText(" + field(step.locator()) + ", " + value + ");";
+                    element%d.sendKeys(%s);""".formatted(stepIndex, locatorReference(step.locator()), stepIndex, stepIndex, value);
+            case SEND_KEYS, UPLOAD_FILE -> "child(" + locatorReference(step.locator()) + ").sendKeys(" + value + ");";
+            case SELECT_BY_VISIBLE_TEXT -> "dropdowns.selectByVisibleText(" + locatorReference(step.locator()) + ", " + value + ");";
             case OPEN_ROUTE -> "open(\"" + escapeJava(step.route()) + "\");";
         };
     }
@@ -374,7 +406,7 @@ public class DeterministicPomJavaWriter {
             PomCheckSpec check = assertion.checks().isEmpty() ? null : assertion.checks().get(0);
             return check == null || check.locator().isBlank()
                     ? "return \"\";"
-                    : "return child(" + field(check.locator()) + ").getText();";
+                    : "return child(" + locatorReference(check.locator()) + ").getText();";
         }
         List<String> expressions = assertion.checks().stream()
                 .map(this::renderComponentBooleanCheck)
@@ -390,17 +422,17 @@ public class DeterministicPomJavaWriter {
     private String renderComponentBooleanCheck(PomCheckSpec check) {
         String expected = valueExpression(check.valueFrom(), check.expectedValue());
         return switch (check.check()) {
-            case VISIBLE -> "child(" + field(check.locator()) + ").isDisplayed()";
-            case TEXT_PRESENT -> "!child(" + field(check.locator()) + ").getText().isBlank()";
-            case TEXT_CONTAINS -> "child(" + field(check.locator()) + ").getText().contains(" + expected + ")";
-            case TEXT_EQUALS -> "child(" + field(check.locator()) + ").getText().equals(" + expected + ")";
-            case ATTRIBUTE_EQUALS -> "child(" + field(check.locator()) + ").getAttribute(\""
+            case VISIBLE -> "child(" + locatorReference(check.locator()) + ").isDisplayed()";
+            case TEXT_PRESENT -> "!child(" + locatorReference(check.locator()) + ").getText().isBlank()";
+            case TEXT_CONTAINS -> "child(" + locatorReference(check.locator()) + ").getText().contains(" + expected + ")";
+            case TEXT_EQUALS -> "child(" + locatorReference(check.locator()) + ").getText().equals(" + expected + ")";
+            case ATTRIBUTE_EQUALS -> "child(" + locatorReference(check.locator()) + ").getDomAttribute(\""
                     + escapeJava(check.attribute()) + "\").equals(" + expected + ")";
             case URL_CONTAINS -> "getCurrentUrl().contains(" + valueExpression("", firstNonBlank(check.route(), check.expectedValue())) + ")";
             case URL_EQUALS -> "getCurrentUrl().equals(" + valueExpression("", firstNonBlank(check.route(), check.expectedValue())) + ")";
-            case COUNT_GREATER_THAN -> "root().findElements(" + field(check.locator()) + ").size() > "
+            case COUNT_GREATER_THAN -> "root().findElements(" + locatorReference(check.locator()) + ").size() > "
                     + integerLiteral(check.expectedValue(), "0");
-            case LIST_TEXTS -> "!root().findElements(" + field(check.locator()) + ").isEmpty()";
+            case LIST_TEXTS -> "!root().findElements(" + locatorReference(check.locator()) + ").isEmpty()";
         };
     }
 
@@ -459,11 +491,11 @@ public class DeterministicPomJavaWriter {
     private String renderStep(PomStepSpec step) {
         String value = valueExpression(step.valueFrom(), step.literalValue());
         return switch (step.action()) {
-            case CLICK -> "elements.click(" + field(step.locator()) + ");";
-            case CLEAR_AND_TYPE -> "elements.clearAndType(" + field(step.locator()) + ", " + value + ");";
-            case SEND_KEYS -> "elements.sendKeys(" + field(step.locator()) + ", " + value + ");";
-            case SELECT_BY_VISIBLE_TEXT -> "dropdowns.selectByVisibleText(" + field(step.locator()) + ", " + value + ");";
-            case UPLOAD_FILE -> "elements.sendKeys(" + field(step.locator()) + ", " + value + ");";
+            case CLICK -> "elements.click(" + locatorReference(step.locator()) + ");";
+            case CLEAR_AND_TYPE -> "elements.clearAndType(" + locatorReference(step.locator()) + ", " + value + ");";
+            case SEND_KEYS -> "elements.sendKeys(" + locatorReference(step.locator()) + ", " + value + ");";
+            case SELECT_BY_VISIBLE_TEXT -> "dropdowns.selectByVisibleText(" + locatorReference(step.locator()) + ", " + value + ");";
+            case UPLOAD_FILE -> "elements.sendKeys(" + locatorReference(step.locator()) + ", " + value + ");";
             case OPEN_ROUTE -> "open(\"" + escapeJava(step.route()) + "\");";
         };
     }
@@ -495,11 +527,11 @@ public class DeterministicPomJavaWriter {
             return "return \"\";";
         }
         return switch (check.check()) {
-            case TEXT_CONTAINS, TEXT_EQUALS, TEXT_PRESENT -> "return elements.text(" + field(check.locator()) + ");";
-            case ATTRIBUTE_EQUALS -> "return elements.attribute(" + field(check.locator()) + ", \""
+            case TEXT_CONTAINS, TEXT_EQUALS, TEXT_PRESENT -> "return elements.text(" + locatorReference(check.locator()) + ");";
+            case ATTRIBUTE_EQUALS -> "return elements.attribute(" + locatorReference(check.locator()) + ", \""
                     + escapeJava(check.attribute()) + "\");";
             case URL_CONTAINS, URL_EQUALS -> "return getCurrentUrl();";
-            default -> "return elements.text(" + field(check.locator()) + ");";
+            default -> "return elements.text(" + locatorReference(check.locator()) + ");";
         };
     }
 
@@ -513,23 +545,23 @@ public class DeterministicPomJavaWriter {
                         .map(WebElement::getText)
                         .map(String::trim)
                         .filter(value -> !value.isBlank())
-                        .toList();""".formatted(field(check.locator()));
+                        .toList();""".formatted(locatorReference(check.locator()));
     }
 
     private String renderBooleanCheck(PomCheckSpec check) {
         String expected = valueExpression(check.valueFrom(), check.expectedValue());
         return switch (check.check()) {
-            case VISIBLE -> "elements.isVisible(" + field(check.locator()) + ")";
-            case TEXT_PRESENT -> "!elements.text(" + field(check.locator()) + ").isBlank()";
-            case TEXT_CONTAINS -> "elements.text(" + field(check.locator()) + ").contains(" + expected + ")";
-            case TEXT_EQUALS -> "elements.text(" + field(check.locator()) + ").equals(" + expected + ")";
+            case VISIBLE -> "elements.isVisible(" + locatorReference(check.locator()) + ")";
+            case TEXT_PRESENT -> "!elements.text(" + locatorReference(check.locator()) + ").isBlank()";
+            case TEXT_CONTAINS -> "elements.text(" + locatorReference(check.locator()) + ").contains(" + expected + ")";
+            case TEXT_EQUALS -> "elements.text(" + locatorReference(check.locator()) + ").equals(" + expected + ")";
             case URL_CONTAINS -> "getCurrentUrl().contains(" + valueExpression("", firstNonBlank(check.route(), check.expectedValue())) + ")";
             case URL_EQUALS -> "getCurrentUrl().equals(" + valueExpression("", firstNonBlank(check.route(), check.expectedValue())) + ")";
-            case ATTRIBUTE_EQUALS -> "elements.attribute(" + field(check.locator()) + ", \""
+            case ATTRIBUTE_EQUALS -> "elements.attribute(" + locatorReference(check.locator()) + ", \""
                     + escapeJava(check.attribute()) + "\").equals(" + expected + ")";
-            case COUNT_GREATER_THAN -> "elements.findAll(" + field(check.locator()) + ").size() > "
+            case COUNT_GREATER_THAN -> "elements.findAll(" + locatorReference(check.locator()) + ").size() > "
                     + integerLiteral(check.expectedValue(), "0");
-            case LIST_TEXTS -> "!elements.findAll(" + field(check.locator()) + ").isEmpty()";
+            case LIST_TEXTS -> "!elements.findAll(" + locatorReference(check.locator()) + ").isEmpty()";
         };
     }
 
@@ -553,22 +585,16 @@ public class DeterministicPomJavaWriter {
         return sanitizeVariableName(locator);
     }
 
+    private String locatorReference(String locator) {
+        return "this." + field(locator);
+    }
+
     private String sanitizeVariableName(String value) {
-        String[] tokens = (value == null ? "" : value).split("[^A-Za-z0-9]+");
-        StringBuilder builder = new StringBuilder();
-        for (String token : tokens) {
-            if (token.isBlank()) {
-                continue;
-            }
-            builder.append(Character.toUpperCase(token.charAt(0)));
-            if (token.length() > 1) {
-                builder.append(token.substring(1));
-            }
-        }
-        if (builder.isEmpty()) {
+        String normalized = typeName(value);
+        if (normalized.isBlank()) {
             return "value";
         }
-        return Character.toLowerCase(builder.charAt(0)) + builder.substring(1);
+        return Character.toLowerCase(normalized.charAt(0)) + normalized.substring(1);
     }
 
     private String typeName(String value) {
@@ -578,12 +604,18 @@ public class DeterministicPomJavaWriter {
             if (token.isBlank()) {
                 continue;
             }
-            builder.append(Character.toUpperCase(token.charAt(0)));
-            if (token.length() > 1) {
-                builder.append(token.substring(1));
+            String normalized = allUpperCase(token) ? token.toLowerCase(Locale.ROOT) : token;
+            builder.append(Character.toUpperCase(normalized.charAt(0)));
+            if (normalized.length() > 1) {
+                builder.append(normalized.substring(1));
             }
         }
         return builder.toString();
+    }
+
+    private boolean allUpperCase(String value) {
+        return value.chars().anyMatch(Character::isLetter)
+                && value.equals(value.toUpperCase(Locale.ROOT));
     }
 
     private String indent(String value, int level) {

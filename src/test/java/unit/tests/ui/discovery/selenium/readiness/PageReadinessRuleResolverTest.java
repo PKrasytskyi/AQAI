@@ -8,7 +8,12 @@ import ua.demo.agentlab.ui.catalog.ConfirmedPageSourceResolver;
 import ua.demo.agentlab.ui.catalog.PageCapability;
 import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessRule;
 import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessRuleResolver;
+import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
+import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
+import ua.demo.agentlab.requirements.normalization.model.SourceReference;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 public class PageReadinessRuleResolverTest {
@@ -48,6 +53,24 @@ public class PageReadinessRuleResolverTest {
 
         Assert.assertEquals(rule.capability(), PageCapability.NAVIGATION);
         Assert.assertTrue(rule.requiredCssSelectors().isEmpty());
+    }
+
+    @Test
+    public void usesStructuredTargetCapabilityInsteadOfRouteNameGuessing() {
+        NormalizedRequirement requirement = new NormalizedRequirement(
+                "REQ-SELECT", "Select an option", "Select option 1.", "Option 1 is selected.",
+                true, false, List.of("structured-requirement", "capability-selection"),
+                new SourceReference("requirements/select.md", 1, 1, ""), List.of(),
+                Map.of("target context", List.of("`pageCapability: FORM_CONTROL`", "`targetRoute: /dropdown`"))
+        );
+        PageReadinessRule rule = new PageReadinessRuleResolver(new ConfirmedPageSourceResolver(), new Properties())
+                .resolve(profile(), new NormalizedRequirementBundle(
+                        "requirements/select.md", List.of(requirement), List.of(), List.of()),
+                        "https://example.test/web/index.php/dropdown");
+
+        Assert.assertEquals(rule.capability(), PageCapability.FORM);
+        Assert.assertTrue(rule.requiredCssSelectors().stream().anyMatch(selector -> selector.contains("select")));
+        Assert.assertTrue(rule.requiredCssSelectors().stream().noneMatch(selector -> selector.contains("table")));
     }
 
     private ProjectProfile profile() {

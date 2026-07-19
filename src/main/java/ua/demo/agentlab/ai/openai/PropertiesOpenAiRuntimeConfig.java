@@ -5,6 +5,8 @@ import ua.demo.agentlab.config.RuntimeProperties;
 
 public class PropertiesOpenAiRuntimeConfig implements OpenAiRuntimeConfig {
 
+    public static final String DEFAULT_MODEL = "gpt-5.6-luna";
+
     private final RuntimeProperties properties;
 
     public PropertiesOpenAiRuntimeConfig() {
@@ -36,7 +38,7 @@ public class PropertiesOpenAiRuntimeConfig implements OpenAiRuntimeConfig {
 
     @Override
     public String model() {
-        return readValue("openai.model", "gpt-5-mini");
+        return readValue("openai.model", DEFAULT_MODEL);
     }
 
     @Override

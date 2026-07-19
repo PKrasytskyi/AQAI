@@ -88,6 +88,10 @@ public class TemplateDrivenSeleniumWriter {
         return pagePackage;
     }
 
+    public String testPackage() {
+        return testPackage;
+    }
+
     public List<SharedPageObjectSpec> buildSharedPageObjectContracts(UiTestPlan uiTestPlan) {
         return pageObjectContractAggregator.aggregate(uiTestPlan);
     }
@@ -653,7 +657,7 @@ public class TemplateDrivenSeleniumWriter {
                 """
                 for (WebElement link : elements.findAll(%s)) {
                     String linkText = link.getText() == null ? "" : link.getText().trim().toLowerCase();
-                    String href = link.getAttribute("href");
+                    String href = link.getDomProperty("href");
                     String normalizedHref = href == null ? "" : href.toLowerCase();
                     String normalizedKey = entityKey == null ? "" : entityKey.trim().toLowerCase();
 

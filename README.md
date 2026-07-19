@@ -1,42 +1,176 @@
-# AI QA Automation Platform
+# AQAI - Autonomous Quality Assurance Intelligence
 
-AI-assisted Java platform for requirement-driven Selenium + TestNG automation.
+**From software requirements to verified executable tests.**
 
-The project reads requirements, discovers UI pages, maps page capabilities, enriches page knowledge, builds deterministic prompts, and validates generated Page Object / test artifacts through quality gates.
+AQAI is an AI-assisted Java platform that turns capability-first requirements into browser-verified UI evidence, structured Page Object contracts, deterministic Java, and executed TestNG tests.
 
-## What This Platform Does
+[Build Week Demo](docs/BUILD_WEEK_DEMO.md) | [Captured Demo Evidence](docs/build-week/README.md) | [Architecture](docs/CURRENT_AI_UI_ARCHITECTURE.md) | [Developer Onboarding](docs/DEVELOPER_ONBOARDING.md)
 
-- Loads requirements from files or URLs.
-- Normalizes requirements into canonical test cases.
-- Discovers UI pages with Selenium and maps page capabilities.
-- Scores locator quality and rejects weak or unsafe locator evidence.
-- Persists page knowledge into Neo4j and Qdrant when enabled.
-- Uses AI as an enrichment and prompt-assist layer, not as the source of truth.
-- Produces deterministic Page Object contract prompts and validated POM contracts for review.
-- Separates unresolved expected results into `target/ai-run/need-review`.
-- Generates run quality summaries and artifact diffs between runs.
+**Demo video:** link this repository from the Devpost submission so the video and the immutable demo fixture stay together.
 
-## Current Architecture
+## Problem
 
-The active workflow is:
+Traditional LLM test generation can invent locators, produce unstable browser code, blur page ownership, and repeatedly spend tokens on knowledge the system already discovered.
+
+That makes a generated test look plausible without proving that it is executable.
+
+## Solution
+
+AQAI separates semantic reasoning from execution. The browser discovers facts; the platform scores and verifies those facts; only promoted evidence can reach a POM contract. GPT-5.6 plans structured JSON contracts, while deterministic writers generate Java and TestNG code. Compile, review, smoke, execution, and runtime feedback close the loop.
+
+When the knowledge layer already contains validated evidence, AQAI reuses it instead of making unnecessary LLM calls.
+
+## Build Week Result
+
+Measured OrangeHRM authentication, user-menu, and logout demo. The DB-backed result is a warm run after the same workflow has seeded and validated knowledge.
+
+| Metric | Without DB: cold discovery | With knowledge layer: reuse |
+|---|---:|---:|
+| GPT-5.6 runtime calls | 4 | 0 |
+| Stable POM contracts reused | 0 | 2 |
+| Page-enrichment cache hits | 0 | 2 |
+| Generated TestNG tests | 4/4 passed | 4/4 passed |
+| Compile, review, and live smoke | passed | passed |
+
+The warm run demonstrates the product claim directly: AQAI learns only from validated evidence and then deterministically reuses that knowledge. See the immutable, repository-held [cold/warm comparison](docs/build-week/comparison.md).
+
+## How It Works
 
 ```text
-RequirementDocument
-  -> NormalizedRequirementBundle
-  -> PageModelBundle
-  -> MappedUiKnowledge
-  -> Expected Result Enrichment
-  -> PageModel Enrichment
-  -> AiContextPackage
-  -> POM Contract Prompts
-  -> pom-contract-v1 Validation
-  -> Deterministic Page Object Java Writer
-  -> Generated Source Persistence
-  -> Compile / Review / Smoke Validation
-  -> Quality Summary / Artifact Diff
+Requirements
+  -> Canonical scenarios
+  -> Browser discovery and typed UI evidence
+  -> Scoring, relevance filtering, and live verification
+  -> ConfirmedUiCatalog
+  -> GPT-5.6 JSON planning or stable knowledge reuse
+  -> Deterministic Page Object and TestNG Java
+  -> Compile, review, smoke, execution, runtime feedback
 ```
 
-The runtime now uses dependency-based orchestration: agents declare typed input/output artifacts, `AgentOrchestrator` builds a DAG, and `PipelineArtifactStore` is the primary in-run artifact registry. `WorkflowState` remains as the run envelope/read model for audit, failures, and artifact references while the remaining writer/reporting code is being simplified.
+Candidate, fallback, stale, or unverified locator evidence cannot enter a POM prompt or generated Java. Missing evidence becomes an explicit coverage gap rather than an invented assertion.
+
+## Role Of GPT-5.6
+
+GPT-5.6 is used by the running platform for two constrained semantic tasks:
+
+- page-model enrichment from scoped, curated evidence;
+- `pom-contract-v1` JSON planning for a Page Object contract.
+
+It does not write Selenium or Java method bodies. Schema validation, ownership checks, locator promotion, Java generation, compilation, review, smoke, and test execution are deterministic.
+
+## Role Of Codex
+
+Codex was used directly during repository development as the engineering collaborator: architecture enforcement, typed-pipeline refactoring, implementation, documentation, regression-oriented review, and workflow stabilization. Codex is not a runtime decision-maker in the generated test flow; GPT-5.6 is the runtime model boundary.
+
+## Architecture
+
+The runtime uses dependency-based orchestration: agents declare typed input/output artifacts, `AgentOrchestrator` builds a DAG, and `PipelineArtifactStore` is the primary in-run artifact registry. `WorkflowState` is a run envelope/read model for audit, failures, and artifact references.
+
+```mermaid
+flowchart TD
+    requirements["Requirements"] --> tests["Canonical Test Cases"]
+    tests --> discovery["UI Discovery"]
+    discovery --> verification["Evidence Verification"]
+    verification --> catalog["ConfirmedUiCatalog"]
+    catalog --> knowledge["Neo4j / Qdrant"]
+    catalog --> reasoning["GPT-5.6 Semantic Reasoning"]
+    reasoning --> contracts["Typed Contracts"]
+    contracts --> java["Deterministic Java"]
+    java --> generated["Generated Tests"]
+    generated --> validation["Compile -> Review -> Smoke -> Execute"]
+```
+
+The canonical evidence lifecycle is:
+
+```text
+Raw UI evidence
+  -> Locator / element / action candidates
+  -> Static scoring and requirement relevance
+  -> Top-K selection and live verification
+  -> State/postcondition verification
+  -> Promotion or rejection
+  -> ConfirmedUiCatalog
+  -> POM contract
+  -> Deterministic Java
+  -> Compile / review / smoke / execution feedback
+```
+
+## Quick Start
+
+### Recommended: Docker
+
+Docker is the reviewer path: the published image contains Java 17, Chromium, ChromeDriver, Maven dependencies, and precompiled AQAI classes. Docker still needs valid OpenAI and OrangeHRM environment variables because they are intentionally never embedded in an image.
+
+**Supported reviewer platforms:** Docker Engine or Docker Desktop running Linux containers on Windows, macOS, or Linux. The published image targets `linux/amd64`; Docker Desktop may emulate this architecture where needed.
+
+```powershell
+docker pull ghcr.io/pkrasytskyi/aqai-build-week:2026
+
+docker run --rm --shm-size=2g `
+  -e OPENAI_API_KEY="..." `
+  -e TEST_VALID_USERNAME="..." `
+  -e TEST_VALID_PASSWORD="..." `
+  -e KNOWLEDGE_DB_STATUS=false `
+  ghcr.io/pkrasytskyi/aqai-build-week:2026
+```
+
+The container invokes the versioned `--demo orangehrm` workflow and prints the Build Week result. It does not compile AQAI from source at runtime.
+
+### Full Knowledge-Layer Demo: Docker Compose
+
+Copy `.env.example` to `.env`, set the required variables, then run:
+
+```powershell
+docker compose -f docker-compose.build-week.yml down -v
+docker compose -f docker-compose.build-week.yml up --pull always
+```
+
+Compose starts clean Neo4j and Qdrant services, runs a knowledge seed, then runs the same fixture again to measure reuse. Captured seed and reuse summaries are written to `build-week-artifacts/`.
+
+### Alternative: Build The Image Locally
+
+```powershell
+docker build -t aqai-build-week:local .
+docker run --rm --shm-size=2g -e OPENAI_API_KEY="..." -e TEST_VALID_USERNAME="..." -e TEST_VALID_PASSWORD="..." -e KNOWLEDGE_DB_STATUS=false aqai-build-week:local
+```
+
+### Development: Source And Maven
+
+Requirements: Java 17, Maven 3.9+, Chrome/ChromeDriver, and valid OrangeHRM credentials. Set secrets only through environment variables:
+
+```powershell
+$env:OPENAI_API_KEY="..."
+$env:OPENAI_MODEL="gpt-5.6-luna"
+$env:TEST_VALID_USERNAME="..."
+$env:TEST_VALID_PASSWORD="..."
+$env:KNOWLEDGE_DB_STATUS="false"
+
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--demo orangehrm"
+```
+
+The versioned input bundle is [demo/orangehrm-login-logout](demo/orangehrm-login-logout). It contains the profile reference, requirement fixture, expected scenario identities, expected POM names, and no secret values.
+
+## Demo
+
+Use `KNOWLEDGE_DB_STATUS=false` for the cold baseline. For a DB-backed comparison, start Neo4j and Qdrant, set `KNOWLEDGE_GRAPH_NEO4J_PASSWORD`, then set `KNOWLEDGE_DB_STATUS=true`. A first run seeds validated knowledge; the next equivalent run is the measured reuse run.
+
+The final artifacts are:
+
+```text
+target/ai-run/quality/build-week-demo-summary.md
+target/ai-run/quality/confirmed-ui-catalog.json
+target/ai-run/validation/generated-tests-execution-result.json
+```
+
+Docker and Compose packaging details are in [GitHub Actions and container delivery](docs/GITHUB_ACTIONS_CI_CD.md).
+
+## Full Documentation
+
+- [Build Week Demo](docs/BUILD_WEEK_DEMO.md)
+- [Captured Build Week Evidence](docs/build-week/README.md)
+- [Current AI/UI Architecture](docs/CURRENT_AI_UI_ARCHITECTURE.md)
+- [Developer Onboarding](docs/DEVELOPER_ONBOARDING.md)
+- [API Layer](docs/API_LAYER.md)
 
 ## Main Modules
 
@@ -48,7 +182,8 @@ The runtime now uses dependency-based orchestration: agents declare typed input/
 - `ua.demo.agentlab.ai.context` - target-aware prompt context assembly and retrieval filtering.
 - `ua.demo.agentlab.ai.pageenrichment` - page-scoped enrichment over mapper output.
 - `ua.demo.agentlab.ai.expectationenrichment` - deterministic/AI expected-result resolution.
-- `ua.demo.agentlab.ai.ui` - Page Object and UI test prompt/spec generation.
+- `ua.demo.agentlab.ai.ui` - structured POM contract planning and deterministic Page Object generation.
+- `ua.demo.agentlab.ui.testcontract` - typed atomic UI test contracts, schema/semantic validation, deterministic TestNG generation, and source maps.
 - `ua.demo.agentlab.ai.quality` - run quality summary and artifact diff.
 - `ua.demo.agentlab.core.ui` - Selenium base page/test helpers used by generated code.
 - `ua.demo.agentlab.core.api` - RestAssured API runtime helper used by generated API clients.
@@ -105,6 +240,7 @@ src/main/resources/profiles/orangehrm.project-profile.yaml
 
 ```powershell
 $env:OPENAI_API_KEY="..."
+$env:OPENAI_MODEL="gpt-5.6-luna"
 $env:RAG_OPENAI_API_KEY="..."
 $env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD="..."
 $env:API_AUTH_TOKEN="..."
@@ -126,6 +262,19 @@ JVM system property > environment variable > project profile YAML > framework.pr
 
 If the CLI does not pass a requirement file, the runner uses `requirements.file` from the active project profile.
 
+Generated UI sources are isolated per project. Unless a profile explicitly declares output packages, the platform derives them from `profileId + baseUrlHash`:
+
+```text
+ua.demo.agentlab.ui.generated.<generationNamespace>.pages
+ua.demo.agentlab.ui.generated.<generationNamespace>.tests
+```
+
+The checked-in OpenAI generation default is `gpt-5.6-luna`. `OPENAI_MODEL` remains the runtime override
+for accounts or environments that expose a different model identifier; RAG generation inherits the same
+value unless `RAG_OPENAI_GENERATION_MODEL` is set explicitly.
+
+Persistence writes `target/ai-run/validation/generated-source-manifest.json`. Compile, review, and generated-source smoke accept only files whose package, path, class name, and content hash belong to that current-run manifest. Maven compile is scoped to the manifest namespace, so equal names such as `LoginPage` or `REQ001...Test` from another project cannot collide with the active run.
+
 Important runtime switches:
 
 ```properties
@@ -142,6 +291,7 @@ artifact.reuse.force-refresh=false
 
 - `KNOWLEDGE_DB_STATUS=false` disables RAG, Neo4j, Qdrant, and artifact reuse for a no-DB comparison run.
 - `KNOWLEDGE_DB_STATUS=true` enables RAG, Neo4j, Qdrant, and artifact reuse for a DB-backed run.
+- Demo manifests use `runtime.databaseMode: environment-controlled`, so the same immutable demo input supports both runs. Fixed `without-db-baseline` and `with-db-required` modes remain available for dedicated manifests.
 - `ai.page-enrichment.llm.enabled` controls whether page enrichment can call OpenAI.
 - `rag.enabled` controls retrieval/indexing behavior and must not be treated as the page-enrichment switch.
 - `knowledge.graph.enabled` and `knowledge.vector.enabled` control Neo4j/Qdrant persistence and retrieval availability.
@@ -217,6 +367,22 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" compile
 
 ## Run The Workflow
 
+Build Week OrangeHRM requirements-to-execution demo:
+
+```powershell
+$env:OPENAI_API_KEY="..."
+$env:OPENAI_MODEL="gpt-5.6-luna"
+$env:TEST_VALID_USERNAME="..."
+$env:TEST_VALID_PASSWORD="..."
+$env:KNOWLEDGE_DB_STATUS="false"
+
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--demo orangehrm"
+```
+
+The command resolves the versioned demo manifest, generates namespaced Page Objects and TestNG tests, compiles and reviews them, runs source/live smoke, executes only current-run manifest-owned generated tests, and writes `target/ai-run/quality/build-week-demo-summary.{json,md}`. See [Build Week Demo](docs/BUILD_WEEK_DEMO.md).
+
+In GitHub Actions, the `with-db` option intentionally runs twice on the same clean runner: a knowledge seed run persists validated evidence, then a measured reuse run proves Neo4j/Qdrant, enrichment-cache, and stable-POM reuse. The workflow uploads separate without-DB, seed, and reuse summaries.
+
 Deterministic run:
 
 ```powershell
@@ -259,9 +425,15 @@ The current golden UI slice is `requirements/valid-login-requirement.md`: LoginP
 
 Current golden-slice limitations:
 
-- Dashboard heading evidence is not forced when no confirmed heading locator exists; it remains a coverage gap.
+- Target-page assertions are promoted only when the target-state binding identifies an exact, browser-verified locator. Missing evidence remains a coverage gap; the platform never manufactures a locator to close it.
 - The generated-source smoke gate validates generated POM files, compile/review readiness, and structural interaction contracts. The profile/capability-driven live browser smoke additionally proves `open login -> authenticate -> dashboard route -> open user menu -> logout visible -> login route` when the relevant evidence and credentials are available.
 - Run quality score is intentionally conservative: it should exceed 90 only when confirmed locators, compile, review, and smoke evidence are all strong.
+
+### Reading The Quality Score
+
+`qualityScore` is an evidence-maturity signal, not a percentage of working product functionality or passed tests. It penalizes unpromoted candidate evidence, weak locator-score distribution, missing prompt-ready locator coverage, runtime feedback risk, and terminal gate failures. Compile, review, live smoke, and generated TestNG execution are reported separately as binary validation results.
+
+A demo can therefore be fully passing while reporting a conservative score such as `79/100`: `0` blocking issues, `0` review findings, compile and smoke passed, and all generated tests passed. Any assertion that lacks an exact confirmed locator remains an explicit coverage gap instead of an AI-invented assertion. This is intentional: AQAI prefers an actionable evidence gap over false confidence.
 
 POM prompts are compact by default: they contain the page capability contract, page-owned required actions/assertions, allowed locators, baseline API signatures, and the `pom-contract-v1` output schema. Full diagnostic prompt evidence can be enabled with `-Dai.page-object.prompt.mode=debug` or `-Dai.prompt.debug=true`.
 
@@ -330,6 +502,7 @@ The platform has executable checks for:
 
 ## Documentation
 
+- [Developer Onboarding and Delivery Guide](docs/DEVELOPER_ONBOARDING.md)
 - [License](LICENSE)
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
@@ -342,6 +515,11 @@ The platform has executable checks for:
 - [RAG Layer Guide](docs/RAG_LAYER_GUIDE.md)
 - [Target Architecture](docs/TARGET_ARCHITECTURE.md)
 - [Roadmap](ROADMAP.md)
+
+Development happens on short-lived `feature/`, `fix/`, `refactor/`, or `docs/`
+branches created from `dev`. `dev` is the stable integration baseline and
+`main` is the public/release baseline; see the onboarding guide for the merge
+and hotfix policy.
 
 ## Repository Hygiene
 

@@ -14,7 +14,12 @@ The current workflow is intentionally CI-safe:
 Default triggers:
 
 - push to `main`;
-- pull request to `main`.
+- push to `dev`;
+- pull request to `dev` or `main`.
+
+`dev` is the integration branch and `main` is the public/release branch. New
+work should reach either branch only through a short-lived feature/fix/refactor
+branch and pull request. See [Developer Onboarding and Delivery Guide](DEVELOPER_ONBOARDING.md).
 
 Default job:
 
@@ -87,6 +92,30 @@ GitHub repository -> Settings -> Secrets and variables -> Actions -> New reposit
 
 Do not commit real API tokens into `framework.properties`.
 
+## Build Week Container Delivery
+
+`.github/workflows/publish-build-week-image.yml` publishes the immutable Build Week runtime image to GitHub Container Registry on `main`, version tags, or manual dispatch.
+
+The image is tagged with:
+
+```text
+ghcr.io/<repository-owner>/aqai-build-week:2026
+ghcr.io/<repository-owner>/aqai-build-week:sha-<commit>
+```
+
+Set the published package visibility to **Public** in GitHub Packages so reviewers can pull it anonymously. The image contains Java 17, Chromium, ChromeDriver, Maven dependencies, and compiled AQAI classes. It does not contain API keys, credentials, or populated knowledge stores.
+
+The image targets `linux/amd64` and is intended for Docker Engine or Docker Desktop running Linux containers on Windows, macOS, and Linux.
+
+For the reproducible cold/warm knowledge demo, use:
+
+```bash
+docker compose -f docker-compose.build-week.yml down -v
+docker compose -f docker-compose.build-week.yml up --pull always
+```
+
+The Compose workflow starts fresh Neo4j/Qdrant volumes, performs a seed run, then performs a measured reuse run. It writes both summaries into the ignored local `build-week-artifacts/` directory.
+
 ## Future CI/CD Expansion
 
 Recommended next steps:
@@ -96,4 +125,3 @@ Recommended next steps:
 3. Add a scheduled dependency/security scan.
 4. Add an optional UI prompt generation smoke job that runs only with safe test credentials.
 5. Add release packaging once the API/UI generation contracts stabilize.
-

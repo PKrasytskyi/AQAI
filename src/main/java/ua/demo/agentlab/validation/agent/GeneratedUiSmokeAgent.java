@@ -9,6 +9,7 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.persistence.GeneratedUiSources;
+import ua.demo.agentlab.persistence.GeneratedSourceManifest;
 import ua.demo.agentlab.review.GeneratedCodeReviewReport;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 import ua.demo.agentlab.validation.GeneratedCodeValidationResult;
@@ -44,7 +45,7 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
     public Set<WorkflowArtifact> requires() {
         return Set.of(
                 WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES,
-                WorkflowArtifact.PERSISTED_GENERATED_SOURCES,
+                WorkflowArtifact.GENERATED_SOURCE_MANIFEST,
                 WorkflowArtifact.COMPILE_RESULT,
                 WorkflowArtifact.REVIEW_RESULT
         );
@@ -68,6 +69,7 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
     @Override
     @SuppressWarnings("unchecked")
     public Input inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        GeneratedSourceManifest manifest = store.require(WorkflowArtifact.GENERATED_SOURCE_MANIFEST);
         List<GeneratedSourceFile> pageObjects = store == null
                 ? state.getPageObjectFiles()
                 : (List<GeneratedSourceFile>) store.get(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES)
@@ -75,12 +77,13 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
                 .orElse(state.getPageObjectFiles());
         List<GeneratedSourceFile> tests = store == null
                 ? state.getUiTestFiles()
-                : (List<GeneratedSourceFile>) store.get(WorkflowArtifact.UI_TEST_FILES).orElse(state.getUiTestFiles());
-        List<String> persisted = store == null
-                ? state.getWrittenFiles()
-                : (List<String>) store.get(WorkflowArtifact.PERSISTED_GENERATED_SOURCES)
-                .or(() -> store.get(WorkflowArtifact.WRITTEN_FILES))
-                .orElse(state.getWrittenFiles());
+                : (List<GeneratedSourceFile>) store.get(WorkflowArtifact.GENERATED_UI_TEST_SOURCES)
+                .or(() -> store.get(WorkflowArtifact.UI_TEST_FILES))
+                .orElse(state.getUiTestFiles());
+        GeneratedUiSources sources = manifest.selectOwned(new GeneratedUiSources(pageObjects, tests));
+        if (sources.allFiles().size() != manifest.files().size()) {
+            throw new IllegalStateException("Smoke input contains sources outside or missing from current-run manifest");
+        }
         GeneratedCodeValidationResult compile = store == null
                 ? state.getGeneratedCodeValidationResult()
                 : (GeneratedCodeValidationResult) store.get(WorkflowArtifact.COMPILE_RESULT)
@@ -89,7 +92,7 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
                 ? state.getGeneratedCodeReviewReport()
                 : (GeneratedCodeReviewReport) store.get(WorkflowArtifact.REVIEW_RESULT)
                 .orElse(state.getGeneratedCodeReviewReport());
-        return new Input(new GeneratedUiSources(pageObjects, tests), persisted, compile, review);
+        return new Input(sources, manifest.persistedPaths(), compile, review);
     }
 
     @Override
@@ -115,10 +118,10 @@ public class GeneratedUiSmokeAgent implements WorkflowAgent,
         state.addArtifact("generated.ui.smoke.issue.count", String.valueOf(output.issues().size()));
         writeSmokeArtifact(output, state);
         state.addArtifact("generated.ui.live.smoke.enabled", String.valueOf(liveSmokeService.isEnabled()));
-        LiveUiSmokeResult liveSmoke = liveSmokeService.smoke(new GeneratedUiSources(
-                state.getPageObjectFiles(),
-                state.getUiTestFiles()
-        ));
+        LiveUiSmokeResult liveSmoke = output.passed()
+                ? liveSmokeService.smoke(new GeneratedUiSources(state.getPageObjectFiles(), state.getUiTestFiles()))
+                : new LiveUiSmokeResult(ua.demo.agentlab.validation.smoke.GeneratedUiSmokeStatus.SKIPPED,
+                "Live browser smoke skipped because generated source smoke is not green", "", List.of(), List.of());
         writeLiveSmokeArtifact(liveSmoke, state);
         state.addFinding(output.summary());
         state.addFinding(liveSmoke.summary());

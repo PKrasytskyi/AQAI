@@ -16,7 +16,7 @@ public class DemoRunner {
 
         if (result.isFailed()) {
             REPORT_PRINTER.printWorkflowFailure(result);
-            return;
+            throw new IllegalStateException(result.getFailureReason());
         }
 
         REPORT_PRINTER.printWorkflowSummary(result);

@@ -6,6 +6,7 @@ public record LiveUiSmokeResult(
         GeneratedUiSmokeStatus status,
         String summary,
         String baseUrl,
+        String executionMode,
         List<LiveUiSmokeStep> steps,
         List<GeneratedUiSmokeIssue> issues
 ) {
@@ -13,8 +14,19 @@ public record LiveUiSmokeResult(
         status = status == null ? GeneratedUiSmokeStatus.SKIPPED : status;
         summary = summary == null ? "" : summary.trim();
         baseUrl = baseUrl == null ? "" : baseUrl.trim();
+        executionMode = executionMode == null ? "" : executionMode.trim();
         steps = steps == null ? List.of() : List.copyOf(steps);
         issues = issues == null ? List.of() : List.copyOf(issues);
+    }
+
+    public LiveUiSmokeResult(
+            GeneratedUiSmokeStatus status,
+            String summary,
+            String baseUrl,
+            List<LiveUiSmokeStep> steps,
+            List<GeneratedUiSmokeIssue> issues
+    ) {
+        this(status, summary, baseUrl, "NOT_EXECUTED", steps, issues);
     }
 
     public boolean failed() {

@@ -154,6 +154,8 @@ public class RuntimeProperties {
         put(result, "project.name", flattened.get("project.name"));
         put(result, "project.base-url", flattened.get("project.baseUrl"));
         put(result, "project.requirements.file", flattened.get("requirements.file"));
+        put(result, "project.output.generated-pages-package", flattened.get("output.generatedPagesPackage"));
+        put(result, "project.output.generated-tests-package", flattened.get("output.generatedTestsPackage"));
         put(result, "project.route.home", flattened.get("routes.home"));
         put(result, "project.route.login", flattened.get("routes.login"));
         put(result, "project.route.registration", flattened.get("routes.registration"));
@@ -172,6 +174,8 @@ public class RuntimeProperties {
         put(result, "discovery.auth.enabled", flattened.get("auth.enabled"));
         putEnvPlaceholder(result, "discovery.auth.username", flattened.get("auth.usernameEnv"));
         putEnvPlaceholder(result, "discovery.auth.password", flattened.get("auth.passwordEnv"));
+        putEnvPlaceholder(result, "test.credentials.valid.username", flattened.get("auth.usernameEnv"));
+        putEnvPlaceholder(result, "test.credentials.valid.password", flattened.get("auth.passwordEnv"));
         put(result, "discovery.auth.username-selector", flattened.get("auth.usernameSelector"));
         put(result, "discovery.auth.password-selector", flattened.get("auth.passwordSelector"));
         put(result, "discovery.auth.submit-selector", flattened.get("auth.submitSelector"));
@@ -193,6 +197,21 @@ public class RuntimeProperties {
         put(result, "artifact.reuse.explain-decisions", flattened.get("artifactReuse.explainDecisions"));
         put(result, "artifact.reuse.writer-version", flattened.get("artifactReuse.writerVersion"));
         put(result, "semantic.reuse.enabled", flattened.get("semantic.reuseEnabled"));
+        put(result, "spa.inventory.enabled", flattened.get("spa.inventory.enabled"));
+        put(result, "spa.inventory.max-components", flattened.get("spa.inventory.maxComponents"));
+        put(result, "spa.discovery.mode", flattened.get("spa.discovery.mode"));
+        put(result, "spa.targeted-verification.enabled", flattened.get("spa.targetedVerification.enabled"));
+        put(result, "spa.evidence.min-confirmed-score", flattened.get("spa.evidence.minConfirmedScore"));
+        put(result, "spa.evidence.promote-after-successes", flattened.get("spa.evidence.promoteAfterSuccesses"));
+        put(result, "spa.evidence.demote-after-failures", flattened.get("spa.evidence.demoteAfterFailures"));
+        put(result, "spa.live-verification.enabled", flattened.get("spa.liveVerification.enabled"));
+        put(result, "spa.live-verification.execute-session-ending-actions", flattened.get("spa.liveVerification.executeSessionEndingActions"));
+        put(result, "spa.live-verification.execute-safe-actions", flattened.get("spa.liveVerification.executeSafeActions"));
+        put(result, "spa.live-verification.execute-data-actions", flattened.get("spa.liveVerification.executeDataActions"));
+        put(result, "spa.evidence.retention.enabled", flattened.get("spa.evidence.retention.enabled"));
+        put(result, "spa.evidence.retention.degraded-days", flattened.get("spa.evidence.retention.degradedDays"));
+        put(result, "spa.evidence.retention.orphan-days", flattened.get("spa.evidence.retention.orphanDays"));
+        put(result, "spa.evidence.retention.hard-delete", flattened.get("spa.evidence.retention.hardDelete"));
         return result;
     }
 
