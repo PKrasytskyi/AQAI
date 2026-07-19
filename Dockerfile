@@ -45,6 +45,7 @@ RUN chmod +x /opt/aqai/scripts/docker-entrypoint.sh \
     && chown -R aqai:aqai /opt/aqai /artifacts
 
 ENV AQAI_DEMO=orangehrm \
+    AQAI_CONTAINER=true \
     AQAI_ARTIFACTS_DIR=/artifacts \
     MAVEN_CONFIG=/opt/aqai/.m2 \
     MAVEN_OPTS="-Duser.home=/opt/aqai -Dmaven.repo.local=/opt/aqai/.m2/repository" \

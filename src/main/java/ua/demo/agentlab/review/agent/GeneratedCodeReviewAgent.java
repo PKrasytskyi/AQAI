@@ -95,6 +95,8 @@ public class GeneratedCodeReviewAgent implements WorkflowAgent,
     public boolean supports(PipelineArtifactStore store, WorkflowState state) {
         return state != null
                 && state.getGeneratedCodeReviewReport() == null
+                && store != null
+                && store.get(WorkflowArtifact.GENERATED_SOURCE_MANIFEST).isPresent()
                 && !inputFrom(store, state).sources().isEmpty();
     }
 

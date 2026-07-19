@@ -44,11 +44,21 @@ public class DefaultDriverFactory implements DriverFactory {
         options.addArguments("--start-maximized");
         options.addArguments("--disable-notifications");
         options.addArguments("--remote-allow-origins=*");
+        if (isContainerRuntime()) {
+            options.addArguments("--no-sandbox");
+            options.addArguments("--disable-dev-shm-usage");
+            options.addArguments("--disable-gpu");
+        }
         LoggingPreferences loggingPreferences = new LoggingPreferences();
         loggingPreferences.enable(LogType.BROWSER, Level.ALL);
         loggingPreferences.enable(LogType.PERFORMANCE, Level.ALL);
         options.setCapability("goog:loggingPrefs", loggingPreferences);
 
         return new ChromeDriver(options);
+    }
+
+    private boolean isContainerRuntime() {
+        return Boolean.parseBoolean(System.getenv().getOrDefault("AQAI_CONTAINER", "false"))
+                || Boolean.getBoolean("aqai.container");
     }
 }
