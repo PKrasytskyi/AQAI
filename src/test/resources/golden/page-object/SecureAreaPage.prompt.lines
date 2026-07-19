@@ -3,10 +3,10 @@
 Build one POM contract for:
 targetPage=SecureAreaPage
 targetRoute=/secure
-capability=UNKNOWN
+capability=AUTHENTICATED_AREA
 Contract schemaVersion=pom-contract-v1
 # Input
 Typed page contract:
-pageName=SecureAreaPage | route=/secure | capability=UNKNOWN | openMethodName=openSecureArea
+pageName=SecureAreaPage | route=/secure | capability=AUTHENTICATED_AREA | openMethodName=openSecureArea
 Page-owned actions and assertions:
 Confirmed selected locators:

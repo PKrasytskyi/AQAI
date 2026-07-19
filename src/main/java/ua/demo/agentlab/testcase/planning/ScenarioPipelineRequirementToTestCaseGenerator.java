@@ -12,6 +12,20 @@ import java.util.Set;
 
 public class ScenarioPipelineRequirementToTestCaseGenerator implements RequirementToTestCaseGenerator {
 
+    private final boolean includeStableCache;
+
+    public ScenarioPipelineRequirementToTestCaseGenerator() {
+        this(true);
+    }
+
+    private ScenarioPipelineRequirementToTestCaseGenerator(boolean includeStableCache) {
+        this.includeStableCache = includeStableCache;
+    }
+
+    public static ScenarioPipelineRequirementToTestCaseGenerator deterministic() {
+        return new ScenarioPipelineRequirementToTestCaseGenerator(false);
+    }
+
     @Override
     public CanonicalTestCaseBundle generate(RequirementToTestCaseInput input) {
         if (input == null || input.normalizedRequirementBundle() == null) {
@@ -20,7 +34,8 @@ public class ScenarioPipelineRequirementToTestCaseGenerator implements Requireme
         ScenarioPageResolver pageResolver = new ScenarioPageResolver(
                 input.projectProfile(),
                 input.mappedUiKnowledge(),
-                input.normalizedRequirementBundle()
+                input.normalizedRequirementBundle(),
+                includeStableCache
         );
         RequirementUnitClassifier classifier = new RequirementUnitClassifier(pageResolver);
         List<RequirementUnit> units = input.normalizedRequirementBundle().requirements().stream()

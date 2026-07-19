@@ -8,7 +8,7 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
-import ua.demo.agentlab.ui.discovery.mapping.LocatorPromotionFilter;
+import ua.demo.agentlab.ui.discovery.mapping.MappedKnowledgeCurationFilter;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeNamespaceEnricher;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.PageKnowledgeWriteResult;
@@ -22,7 +22,7 @@ public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
 
     private final List<PageKnowledgeWriter> writers;
     private final KnowledgeNamespaceEnricher namespaceEnricher = new KnowledgeNamespaceEnricher();
-    private final LocatorPromotionFilter locatorPromotionFilter = new LocatorPromotionFilter();
+    private final MappedKnowledgeCurationFilter curationFilter = new MappedKnowledgeCurationFilter();
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
 
     public UiPageKnowledgePersistenceAgent(List<PageKnowledgeWriter> writers) {
@@ -89,8 +89,8 @@ public class UiPageKnowledgePersistenceAgent implements WorkflowAgent,
 
     @Override
     public UiKnowledgePersistenceOutput execute(UiKnowledgePersistenceInput input, WorkflowRunEnvelope run) {
-        MappedUiKnowledge promotedKnowledge = locatorPromotionFilter.filterForPersistence(selectedKnowledge(input));
-        MappedUiKnowledge namespacedKnowledge = namespaceEnricher.enrich(promotedKnowledge, input.runMetadata());
+        MappedUiKnowledge curatedKnowledge = curationFilter.filterForCuration(selectedKnowledge(input));
+        MappedUiKnowledge namespacedKnowledge = namespaceEnricher.enrich(curatedKnowledge, input.runMetadata());
         List<PageKnowledgeWriteResult> results = new java.util.ArrayList<>();
         for (PageKnowledgeWriter writer : writers) {
             PageKnowledgeWriteResult result = writeSafely(writer, namespacedKnowledge);

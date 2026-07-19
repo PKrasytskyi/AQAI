@@ -21,6 +21,12 @@ class ExpectedResultContractCatalog {
                 .findFirst();
     }
 
+    List<ExpectedResultContract> exactAll(String requirementId) {
+        return contracts.stream()
+                .filter(contract -> contract.requirementId().equals(requirementId))
+                .toList();
+    }
+
     Optional<ExpectedResultContract> compatibleFor(RequirementUnit unit) {
         if (unit == null) {
             return Optional.empty();

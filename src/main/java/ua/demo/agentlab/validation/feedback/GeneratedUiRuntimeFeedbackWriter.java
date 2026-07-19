@@ -5,6 +5,8 @@ import ua.demo.agentlab.review.GeneratedCodeReviewReport;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.Neo4jRuntimeConfig;
 import ua.demo.agentlab.validation.GeneratedCodeValidationResult;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeResult;
+import ua.demo.agentlab.validation.execution.GeneratedTestExecutionResult;
+import ua.demo.agentlab.validation.execution.GeneratedTestExecutionStatus;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -31,6 +33,7 @@ public class GeneratedUiRuntimeFeedbackWriter {
             GeneratedUiSmokeResult smokeResult,
             GeneratedCodeValidationResult compileResult,
             GeneratedCodeReviewReport reviewReport,
+            GeneratedTestExecutionResult testExecution,
             String runId
     ) {
         if (config == null || !config.enabled()) {
@@ -40,19 +43,10 @@ public class GeneratedUiRuntimeFeedbackWriter {
             return new RuntimeFeedbackDbUpdateResult(false, "neo4j", 0, "Neo4j password is not configured");
         }
         try {
-            Map<String, Object> payload = payload(smokeResult, compileResult, reviewReport, runId);
+            Map<String, Object> payload = payload(smokeResult, compileResult, reviewReport, testExecution, runId);
             httpClient.post(
                     commitUrl(),
-                    Map.of("statements", List.of(
-                            Map.of(
-                                    "statement", statement(),
-                                    "parameters", payload
-                            ),
-                            Map.of(
-                                    "statement", stableLocatorFeedbackStatement(),
-                                    "parameters", payload
-                            )
-                    )),
+                    Map.of("statements", List.of(Map.of("statement", statement(), "parameters", payload))),
                     headers()
             );
             return new RuntimeFeedbackDbUpdateResult(true, "neo4j", 1,
@@ -67,6 +61,7 @@ public class GeneratedUiRuntimeFeedbackWriter {
             GeneratedUiSmokeResult smokeResult,
             GeneratedCodeValidationResult compileResult,
             GeneratedCodeReviewReport reviewReport,
+            GeneratedTestExecutionResult testExecution,
             String runId
     ) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -80,14 +75,21 @@ public class GeneratedUiRuntimeFeedbackWriter {
         payload.put("filesChecked", smokeResult == null ? 0 : smokeResult.filesChecked());
         payload.put("compileStatus", compileResult == null ? "UNKNOWN" : compileResult.status().name());
         payload.put("reviewFindings", reviewReport == null ? 0 : reviewReport.totalFindings());
-        payload.put("qualitySignal", smokeResult != null && smokeResult.passed() ? "PASSED" : "NEEDS_REVIEW");
-        payload.put("locatorStatus", smokeResult != null && smokeResult.passed() ? "ACTIVE" : "DEMOTED");
-        payload.put("locatorValidationStatus", smokeResult != null && smokeResult.passed() ? "PASSED" : "FAILED");
-        payload.put("locatorRuntimePassRate", smokeResult != null && smokeResult.passed() ? 1.0d : 0.0d);
-        payload.put("locatorFlakyRate", smokeResult != null && smokeResult.passed() ? 0.0d : 1.0d);
-        payload.put("demotionReason", smokeResult != null && smokeResult.passed()
+        payload.put("generatedTestExecutionStatus", testExecution == null ? "MISSING" : testExecution.status().name());
+        payload.put("generatedTestsExecuted", testExecution == null ? 0 : testExecution.total());
+        payload.put("generatedTestsPassed", testExecution == null ? 0 : testExecution.passed());
+        boolean executionAccepted = testExecution != null
+                && (testExecution.status() == GeneratedTestExecutionStatus.PASSED
+                || testExecution.status() == GeneratedTestExecutionStatus.SKIPPED);
+        boolean passed = smokeResult != null && smokeResult.passed() && executionAccepted;
+        payload.put("qualitySignal", passed ? "PASSED" : "NEEDS_REVIEW");
+        payload.put("locatorStatus", passed ? "ACTIVE" : "DEMOTED");
+        payload.put("locatorValidationStatus", passed ? "PASSED" : "FAILED");
+        payload.put("locatorRuntimePassRate", passed ? 1.0d : 0.0d);
+        payload.put("locatorFlakyRate", passed ? 0.0d : 1.0d);
+        payload.put("demotionReason", passed
                 ? ""
-                : "generated-ui-smoke-failed-or-skipped");
+                : "generated-ui-smoke-or-generated-test-execution-failed");
         return payload;
     }
 
@@ -103,28 +105,11 @@ public class GeneratedUiRuntimeFeedbackWriter {
                     n.filesChecked = $filesChecked,
                     n.compileStatus = $compileStatus,
                     n.reviewFindings = $reviewFindings,
+                    n.generatedTestExecutionStatus = $generatedTestExecutionStatus,
+                    n.generatedTestsExecuted = $generatedTestsExecuted,
+                    n.generatedTestsPassed = $generatedTestsPassed,
                     n.qualitySignal = $qualitySignal
                 RETURN n.feedbackId
-                """;
-    }
-
-    private String stableLocatorFeedbackStatement() {
-        return """
-                MATCH (l:UiStableLocator {runId: $runId})
-                SET l.validationStatus = $locatorValidationStatus,
-                    l.status = $locatorStatus,
-                    l.runtimePassRate = $locatorRuntimePassRate,
-                    l.flakyRate = $locatorFlakyRate,
-                    l.demotionReason = $demotionReason,
-                    l.lastFeedbackAt = $createdAt,
-                    l.lastSmokeStatus = $smokeStatus,
-                    l.lastCompileStatus = $compileStatus,
-                    l.lastReviewFindings = $reviewFindings,
-                    l.lastSuccessfulSmoke = CASE
-                      WHEN $locatorValidationStatus = 'PASSED' THEN $createdAt
-                      ELSE coalesce(l.lastSuccessfulSmoke, '')
-                    END
-                RETURN count(l) AS updatedLocators
                 """;
     }
 

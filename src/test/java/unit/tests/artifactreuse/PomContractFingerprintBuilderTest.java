@@ -50,7 +50,7 @@ public class PomContractFingerprintBuilderTest {
                         List.of(new PromptActionEvidence("login", "AUTHENTICATE", "LoginPage", "requirement")),
                         List.of(new PromptAssertionEvidence("URL_CONTAINS", "/auth/login", "LoginPage", "requirement", 1.0d)),
                         List.of(password(), username()), List.of(), List.of(), List.of(), List.of(), List.of("changed"), 1.0d),
-                Map.of("promptMode", "compact"), "pom-json-generation-v1", "pom-contract-v1", "gpt-5-mini",
+                Map.of("promptMode", "compact"), "pom-json-generation-v1", "pom-contract-v1", "gpt-5.6-luna",
                 0.0d, "llm-pom-contract", "repository-code-rag"));
 
         Assert.assertEquals(first.value(), second.value());
@@ -91,7 +91,7 @@ public class PomContractFingerprintBuilderTest {
                 Map.of("promptMode", "compact"),
                 "pom-json-generation-v1",
                 "pom-contract-v1",
-                "gpt-5-mini",
+                "gpt-5.6-luna",
                 0.0d,
                 "llm-pom-contract",
                 "stable-page-cache"
@@ -123,7 +123,7 @@ public class PomContractFingerprintBuilderTest {
                 Map.of("promptMode", "compact"),
                 "pom-json-generation-v1",
                 "pom-contract-v1",
-                "gpt-5-mini",
+                "gpt-5.6-luna",
                 0.0d,
                 "llm-pom-contract",
                 "stable-page-cache"
@@ -142,7 +142,7 @@ public class PomContractFingerprintBuilderTest {
                         List.of(new PromptActionEvidence("login", "AUTHENTICATE", "LoginPage", "requirement")),
                         List.of(new PromptAssertionEvidence("URL_CONTAINS", "/login", "LoginPage", "requirement", 1.0d)),
                         List.of(username(), password()), List.of(), List.of(), List.of(), List.of(), List.of(), 1.0d),
-                Map.of("promptMode", "compact"), "pom-json-generation-v2", "pom-contract-v1", "gpt-5-mini",
+                Map.of("promptMode", "compact"), "pom-json-generation-v2", "pom-contract-v1", "gpt-5.6-luna",
                 0.0d, "llm-pom-contract", "stable-page-cache", "deterministic-pom-java-writer-v1", null,
                 appId, baseUrlHash);
     }

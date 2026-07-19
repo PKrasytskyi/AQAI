@@ -74,7 +74,7 @@ public class PageKnowledgeCacheQueryService {
 
     private PageModelEnrichmentRecord toRecord(JsonNode node) {
         Map<String, String> properties = new LinkedHashMap<>();
-        node.fields().forEachRemaining(entry -> properties.put(entry.getKey(), entry.getValue().asText("")));
+        node.properties().forEach(entry -> properties.put(entry.getKey(), entry.getValue().asText("")));
         return new PageModelEnrichmentRecord(
                 properties.getOrDefault("pageId", ""),
                 properties.getOrDefault("pageName", properties.getOrDefault("name", "")),

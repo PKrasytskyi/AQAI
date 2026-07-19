@@ -1,5 +1,7 @@
 # Rules
 - Generate only page-owned actions and page-owned assertions.
+- Copy each page-owned action method name and parameter list exactly; do not rename semantic actions.
+- `page.openMethod` is the page navigation API. Do not duplicate it in the `actions` array.
 - Do not use full canonical/scoped test cases as POM input; test cases belong to test-json-generation.
 - Do not write Java, Selenium, WebDriver, WebElement, By, waits, or helper calls.
 - Use only CONFIRMED allowed locators supplied in the input.
@@ -15,5 +17,6 @@
 - Every assertion uses `methodName`, `returnType`, non-empty `checks`, and `combine`.
 - Every assertion check includes all six keys: `check`, `locator`, `expectedValue`, `valueFrom`, `attribute`, `route`; use an empty string for an unused value.
 - Map element visibility to `check: "VISIBLE"`, and route verification to `check: "URL_CONTAINS"` or `"URL_EQUALS"`.
+- When an assertion declares `targetLocator`, use that exact confirmed locator id in its check.
 - A form-visible requirement must use `VISIBLE` checks for confirmed form controls, or become a coverage gap when no confirmed control exists.
 - Invalid action/assertion aliases and fields include `name`, `params`, `returns`, `description`, `type`, `expected`, and `locatorIds`.

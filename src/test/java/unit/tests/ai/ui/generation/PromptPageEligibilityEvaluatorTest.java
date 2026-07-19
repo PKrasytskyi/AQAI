@@ -6,9 +6,14 @@ import ua.demo.agentlab.ai.context.AiContextPackage;
 import ua.demo.agentlab.ai.context.PromptActionEvidence;
 import ua.demo.agentlab.ai.context.PromptAssertionEvidence;
 import ua.demo.agentlab.ai.context.PromptUiEvidence;
+import ua.demo.agentlab.ai.assertions.model.AssertionContract;
+import ua.demo.agentlab.ai.assertions.model.AssertionSource;
+import ua.demo.agentlab.ai.assertions.model.AssertionType;
 import ua.demo.agentlab.ai.ui.generation.AiPageObjectPromptScope;
 import ua.demo.agentlab.ai.ui.generation.PromptPage;
 import ua.demo.agentlab.ai.ui.generation.PromptPageEligibilityEvaluator;
+import ua.demo.agentlab.ui.discovery.catalog.ConfirmedCatalogPage;
+import ua.demo.agentlab.ui.discovery.catalog.ConfirmedUiCatalog;
 
 import java.util.List;
 import java.util.Map;
@@ -16,7 +21,7 @@ import java.util.Map;
 public class PromptPageEligibilityEvaluatorTest {
 
     @Test
-    public void pageWithoutRawEvidenceOrLocatorsIsNotPromptEligible() {
+    public void pageWithoutConfirmedCatalogActionsOrLocatorsIsReducedToRouteOnlyScope() {
         AiPageObjectPromptScope scope = scope(new PromptUiEvidence(
                 "DashboardPage",
                 "/dashboard/index",
@@ -39,11 +44,13 @@ public class PromptPageEligibilityEvaluatorTest {
         PromptPage promptPage = new PromptPageEligibilityEvaluator().evaluate(scope);
 
         Assert.assertFalse(promptPage.eligible());
-        Assert.assertTrue(promptPage.reasons().stream().anyMatch(reason -> reason.contains("no raw DOM evidence")));
+        Assert.assertTrue(promptPage.routeOnlyContract());
+        Assert.assertTrue(promptPage.reasons().stream()
+                .anyMatch(reason -> reason.contains("does not require a generated POM")));
     }
 
     @Test
-    public void routeOnlyContractIsPromptEligibleWithoutLocators() {
+    public void routeOnlyContractIsSkippedBecauseBasePageAlreadyOwnsRouteNavigation() {
         AiPageObjectPromptScope scope = scope(new PromptUiEvidence(
                 "ProtectedRoutePage",
                 "/dashboard/index",
@@ -65,12 +72,12 @@ public class PromptPageEligibilityEvaluatorTest {
 
         PromptPage promptPage = new PromptPageEligibilityEvaluator().evaluate(scope);
 
-        Assert.assertTrue(promptPage.eligible());
+        Assert.assertFalse(promptPage.eligible());
         Assert.assertTrue(promptPage.routeOnlyContract());
     }
 
     @Test
-    public void routeBackedContractWithMissingLocatorAssertionsIsPromptEligibleForCoverageGaps() {
+    public void routeBackedContractWithMissingLocatorAssertionsIsSkippedUntilPageEvidenceExists() {
         AiPageObjectPromptScope scope = scope(new PromptUiEvidence(
                 "DashboardPage",
                 "/dashboard/index",
@@ -101,9 +108,9 @@ public class PromptPageEligibilityEvaluatorTest {
 
         PromptPage promptPage = new PromptPageEligibilityEvaluator().evaluate(scope);
 
-        Assert.assertTrue(promptPage.eligible());
+        Assert.assertFalse(promptPage.eligible());
         Assert.assertTrue(promptPage.routeOnlyContract());
-        Assert.assertTrue(promptPage.reasons().stream().anyMatch(reason -> reason.contains("coverage gaps")));
+        Assert.assertTrue(promptPage.reasons().stream().anyMatch(reason -> reason.contains("does not require a generated POM")));
     }
 
     private AiPageObjectPromptScope scope(PromptUiEvidence evidence) {
@@ -126,6 +133,25 @@ public class PromptPageEligibilityEvaluatorTest {
                 List.of(),
                 evidence
         );
+        ConfirmedUiCatalog catalog = new ConfirmedUiCatalog(
+                ConfirmedUiCatalog.SCHEMA_VERSION,
+                "test-run",
+                true,
+                List.of(new ConfirmedCatalogPage(
+                        "AUTHENTICATED_AREA",
+                        evidence.targetPage().toLowerCase(),
+                        evidence.targetPage(),
+                        evidence.targetRoute(),
+                        evidence.targetPage().toLowerCase() + ":state",
+                        List.of(),
+                        evidence.requiredAssertions().stream().map(assertion -> new AssertionContract(
+                                "REQ", "REQ", AssertionType.valueOf(assertion.type()), assertion.expectedValue(),
+                                assertion.ownerPage(), evidence.targetRoute(), assertion.sourceTrace(),
+                                assertion.confidence(), AssertionSource.REQUIREMENT)).toList(),
+                        List.of()
+                )),
+                List.of()
+        );
         return new AiPageObjectPromptScope(
                 evidence.targetPage(),
                 evidence.targetPage(),
@@ -134,7 +160,8 @@ public class PromptPageEligibilityEvaluatorTest {
                 context,
                 List.of(),
                 null,
-                Map.of()
+                Map.of(),
+                catalog
         );
     }
 }

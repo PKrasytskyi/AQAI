@@ -28,6 +28,7 @@ public enum UiOperationKind {
     CREATE_RECORD,
     EDIT_RECORD,
     DELETE_RECORD,
+    OPEN_MENU,
     OPEN_MODAL,
     CONFIRM_ACTION,
     SORT_COLLECTION,
@@ -35,5 +36,13 @@ public enum UiOperationKind {
     SORT,
     LOGOUT,
     UPLOAD_FILE,
-    DOWNLOAD_FILE
+    DOWNLOAD_FILE,
+    HTTP_AUTHENTICATE,
+    ACCEPT_ALERT,
+    DISMISS_ALERT,
+    ENTER_ALERT_TEXT,
+    OPEN_NEW_WINDOW,
+    SWITCH_WINDOW,
+    HOVER,
+    SET_SLIDER
 }

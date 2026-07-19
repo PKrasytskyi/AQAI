@@ -4,6 +4,7 @@ import ua.demo.agentlab.orchestration.WorkflowArtifact;
 import ua.demo.agentlab.orchestration.WorkflowState;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -27,6 +28,20 @@ public class PipelineArtifactStore {
             return Optional.empty();
         }
         return Optional.ofNullable(artifacts.get(artifact));
+    }
+
+    public <T> List<T> getList(WorkflowArtifact artifact, Class<T> elementType) {
+        if (elementType == null) {
+            throw new IllegalArgumentException("elementType cannot be null");
+        }
+        Object value = get(artifact).orElse(null);
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> values)) {
+            throw new IllegalStateException("Pipeline artifact is not a list: " + artifact);
+        }
+        return values.stream().map(elementType::cast).toList();
     }
 
     @SuppressWarnings("unchecked")
@@ -64,6 +79,46 @@ public class PipelineArtifactStore {
             putIfPresent(WorkflowArtifact.MAPPED_UI_KNOWLEDGE, output.curatedKnowledge().knowledge());
             return;
         }
+        if (value instanceof ua.demo.agentlab.ui.discovery.interaction.inventory.agent.UiInteractionInventoryOutput output) {
+            putIfPresent(WorkflowArtifact.UI_INTERACTION_INVENTORY, output.inventory());
+            putIfPresent(WorkflowArtifact.UI_INTERACTION_INVENTORY_PERSISTENCE, output.persistence());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaTargetedVerificationOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_TARGETED_VERIFICATION, output.verification());
+            putIfPresent(WorkflowArtifact.SPA_EVIDENCE_LIFECYCLE, output.lifecycle());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaSourceStateBindingOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS, output.bindings());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaLiveTargetedVerificationOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION, output.result());
+            putIfPresent(WorkflowArtifact.SPA_LIVE_TRANSITION_DISCOVERY, output.transitionDiscovery());
+            putIfPresent(WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_EXECUTION, output.behaviorExecution());
+            putIfPresent(WorkflowArtifact.SPA_EVIDENCE_LIFECYCLE, output.lifecycle());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaTargetStateBindingOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_TARGET_STATE_BINDINGS, output.bindings());
+            putIfPresent(WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS, output.bindings().behaviorBindings());
+            putIfPresent(WorkflowArtifact.UI_EFFECTIVE_INTERACTION_INVENTORY, output.effectiveInventory());
+            putIfPresent(WorkflowArtifact.SPA_REBOUND_SOURCE_STATE_BINDINGS, output.reboundSources());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaComponentInteractionGraphOutput output) {
+            putIfPresent(WorkflowArtifact.SPA_COMPONENT_INTERACTION_GRAPH, output.graph());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.discovery.interaction.agent.UiInteractionEvidenceOutput output) {
+            putIfPresent(WorkflowArtifact.CANONICAL_INTERACTION_EVIDENCE, output.canonical());
+            putIfPresent(WorkflowArtifact.LOCATOR_CANDIDATE_COVERAGE_REPORT, output.coverage());
+            putIfPresent(WorkflowArtifact.CONFIRMED_UI_CATALOG, output.catalog());
+            putIfPresent(WorkflowArtifact.INTERACTION_GRAPH_PROJECTION, output.graphProjection());
+            putIfPresent(WorkflowArtifact.EVIDENCE_PROJECTION_TRACE, output.projectionTrace());
+            return;
+        }
         if (value instanceof ua.demo.agentlab.ai.pageenrichment.agent.PageKnowledgeCacheLookupOutput output) {
             putIfPresent(WorkflowArtifact.PAGE_KNOWLEDGE_CACHE_LOOKUP, output.result());
             return;
@@ -93,6 +148,23 @@ public class PipelineArtifactStore {
         }
         if (value instanceof ua.demo.agentlab.ai.ui.generation.AiUiTestGenerationResult result) {
             putIfPresent(WorkflowArtifact.AI_UI_TEST_SPECS, result.specs());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.testcontract.validation.UiTestContractValidationResult result) {
+            putIfPresent(WorkflowArtifact.UI_TEST_CONTRACT_SCHEMA_VALIDATION, result.schemaReport());
+            putIfPresent(WorkflowArtifact.UI_TEST_CONTRACT_QUALITY_REPORT, result.qualityReport());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.testcontract.writer.DeterministicTestNgGenerationResult result) {
+            putIfPresent(WorkflowArtifact.GENERATED_UI_TEST_SOURCES, result.files());
+            putIfPresent(WorkflowArtifact.UI_TEST_FILES, result.files());
+            putIfPresent(WorkflowArtifact.UI_TEST_SOURCE_MAP, result.sourceMap());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.persistence.GeneratedSourceManifest manifest) {
+            putIfPresent(WorkflowArtifact.GENERATED_SOURCE_MANIFEST, manifest);
+            putIfPresent(WorkflowArtifact.PERSISTED_GENERATED_SOURCES, manifest.persistedPaths());
+            putIfPresent(WorkflowArtifact.WRITTEN_FILES, manifest.persistedPaths());
             return;
         }
         if (value instanceof java.util.List list) {

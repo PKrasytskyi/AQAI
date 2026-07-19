@@ -10,12 +10,12 @@ import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.validation.GeneratedCodeValidationResult;
 import ua.demo.agentlab.validation.GeneratedCodeValidator;
+import ua.demo.agentlab.persistence.GeneratedSourceManifest;
 
-import java.util.List;
 import java.util.Set;
 
 public class GeneratedCodeCompileAgent implements WorkflowAgent,
-        PipelineAgent<List<String>, GeneratedCodeValidationResult> {
+        PipelineAgent<GeneratedSourceManifest, GeneratedCodeValidationResult> {
 
     private final GeneratedCodeValidator validator;
     private final StageOutputPublisher publisher = new StageOutputPublisher();
@@ -32,7 +32,10 @@ public class GeneratedCodeCompileAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.PERSISTED_GENERATED_SOURCES);
+        return Set.of(
+                WorkflowArtifact.GENERATED_SOURCE_MANIFEST,
+                WorkflowArtifact.GENERATED_UI_CONTRACT_VALIDATION
+        );
     }
 
     @Override
@@ -42,7 +45,7 @@ public class GeneratedCodeCompileAgent implements WorkflowAgent,
 
     @Override
     public WorkflowArtifact input() {
-        return WorkflowArtifact.PERSISTED_GENERATED_SOURCES;
+        return WorkflowArtifact.GENERATED_SOURCE_MANIFEST;
     }
 
     @Override
@@ -51,25 +54,20 @@ public class GeneratedCodeCompileAgent implements WorkflowAgent,
     }
 
     @Override
-    public List<String> inputFrom(PipelineArtifactStore store, WorkflowState state) {
-        if (store == null) {
-            return state.getWrittenFiles();
-        }
-        return (List<String>) store.get(WorkflowArtifact.PERSISTED_GENERATED_SOURCES)
-                .or(() -> store.get(WorkflowArtifact.WRITTEN_FILES))
-                .orElse(state.getWrittenFiles());
+    public GeneratedSourceManifest inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        return store.require(WorkflowArtifact.GENERATED_SOURCE_MANIFEST);
     }
 
     @Override
     public boolean supports(PipelineArtifactStore store, WorkflowState state) {
         return state != null
                 && state.getGeneratedCodeValidationResult() == null
-                && !inputFrom(store, state).isEmpty();
+                && !inputFrom(store, state).files().isEmpty();
     }
 
     @Override
-    public GeneratedCodeValidationResult execute(List<String> input, WorkflowRunEnvelope run) {
-        return validator.validate(input);
+    public GeneratedCodeValidationResult execute(GeneratedSourceManifest input, WorkflowRunEnvelope run) {
+        return validator.validate(input.persistedPaths());
     }
 
     @Override

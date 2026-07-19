@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 public class LocalFilePersistenceAgent implements WorkflowAgent,
-        PipelineAgent<GeneratedUiSources, List<String>> {
+        PipelineAgent<GeneratedSourcePersistenceInput, GeneratedSourceManifest> {
 
     private final GeneratedFileWriter generatedFileWriter;
     private final GeneratedPageSourceReconciler pageSourceReconciler;
@@ -41,12 +41,20 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES);
+        return Set.of(
+                WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES,
+                WorkflowArtifact.GENERATED_UI_TEST_SOURCES,
+                WorkflowArtifact.PROJECT_PROFILE
+        );
     }
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.PERSISTED_GENERATED_SOURCES, WorkflowArtifact.WRITTEN_FILES);
+        return Set.of(
+                WorkflowArtifact.GENERATED_SOURCE_MANIFEST,
+                WorkflowArtifact.PERSISTED_GENERATED_SOURCES,
+                WorkflowArtifact.WRITTEN_FILES
+        );
     }
 
     @Override
@@ -56,19 +64,28 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
 
     @Override
     public WorkflowArtifact output() {
-        return WorkflowArtifact.PERSISTED_GENERATED_SOURCES;
+        return WorkflowArtifact.GENERATED_SOURCE_MANIFEST;
     }
 
     @Override
-    public GeneratedUiSources inputFrom(PipelineArtifactStore store, WorkflowState state) {
-        return new GeneratedUiSources(
-                store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES)
-                        .or(() -> store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.PAGE_OBJECT_FILES))
-                        .map(value -> (java.util.List<GeneratedSourceFile>) value)
-                        .orElse(List.of()),
-                store.<java.util.List<GeneratedSourceFile>>get(WorkflowArtifact.UI_TEST_FILES)
-                        .map(value -> (java.util.List<GeneratedSourceFile>) value)
-                        .orElse(List.of())
+    public GeneratedSourcePersistenceInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        List<GeneratedSourceFile> pageObjectFiles = store.getList(
+                WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES,
+                GeneratedSourceFile.class
+        );
+        if (pageObjectFiles.isEmpty()) {
+            pageObjectFiles = store.getList(WorkflowArtifact.PAGE_OBJECT_FILES, GeneratedSourceFile.class);
+        }
+        List<GeneratedSourceFile> testFiles = store.getList(
+                WorkflowArtifact.GENERATED_UI_TEST_SOURCES,
+                GeneratedSourceFile.class
+        );
+        if (testFiles.isEmpty()) {
+            testFiles = store.getList(WorkflowArtifact.UI_TEST_FILES, GeneratedSourceFile.class);
+        }
+        return new GeneratedSourcePersistenceInput(
+                store.require(WorkflowArtifact.PROJECT_PROFILE),
+                new GeneratedUiSources(pageObjectFiles, testFiles)
         );
     }
 
@@ -80,23 +97,25 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
         if ("true".equalsIgnoreCase(state.getArtifacts().get("generated.file.persisted"))) {
             return false;
         }
-        return !inputFrom(store, state).isEmpty();
+        return !inputFrom(store, state).sources().isEmpty();
     }
 
     @Override
-    public List<String> execute(GeneratedUiSources input, WorkflowRunEnvelope run) {
-        List<String> written = new java.util.ArrayList<>();
-        pageSourceReconciler.removeStalePageSources(input.pageObjectFiles());
-        for (GeneratedSourceFile file : input.allFiles()) {
+    public GeneratedSourceManifest execute(GeneratedSourcePersistenceInput input, WorkflowRunEnvelope run) {
+        GeneratedUiSources sources = input.sources();
+        pageSourceReconciler.removeStaleGeneratedSources(sources.allFiles());
+        for (GeneratedSourceFile file : sources.allFiles()) {
             generatedFileWriter.write(file);
-            written.add(file.relativePath());
         }
-        return written;
+        return GeneratedSourceManifest.create(input.projectProfile(), run, sources);
     }
 
     @Override
-    public void applyOutput(List<String> paths, WorkflowState state) {
-        List<String> persisted = paths == null ? List.of() : List.copyOf(paths);
+    public void applyOutput(GeneratedSourceManifest manifest, WorkflowState state) {
+        if (manifest == null) {
+            return;
+        }
+        List<String> persisted = manifest.persistedPaths();
         for (String path : persisted) {
             state.addWrittenFile(path);
         }
@@ -107,14 +126,26 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
         artifactPublisher.writeJson(
                 state,
                 "validation",
+                "generated-source-manifest.json",
+                manifest
+        );
+        artifactPublisher.writeJson(
+                state,
+                "validation",
                 "persisted-generated-sources.json",
-                new PersistedGeneratedSourcesArtifact(writtenCount, persisted)
+                new PersistedGeneratedSourcesArtifact(
+                        manifest.runId(),
+                        manifest.namespaceId(),
+                        writtenCount,
+                        persisted
+                )
         );
     }
 
     private record PersistedGeneratedSourcesArtifact(
+            String runId,
+            String namespaceId,
             int filesWritten,
             List<String> files
-    ) {
-    }
+    ) { }
 }

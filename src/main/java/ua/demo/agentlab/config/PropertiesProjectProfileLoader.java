@@ -18,10 +18,21 @@ public class PropertiesProjectProfileLoader implements ProjectProfileLoader {
 
     @Override
     public ProjectProfile loadDefaultProfile() {
+        String profileId = readText("project.profile-id", "default-project");
+        String baseUrl = readText(
+                "project.base-url",
+                readText("ui.base-url", readText("test.base-url", "http://localhost:8080"))
+        );
+        GenerationNamespace generationNamespace = GenerationNamespace.resolve(
+                profileId,
+                baseUrl,
+                readOptionalText("project.output.generated-pages-package"),
+                readOptionalText("project.output.generated-tests-package")
+        );
         return new ProjectProfile(
-                readText("project.profile-id", "default-project"),
+                profileId,
                 readText("project.name", "Demo Project"),
-                readText("project.base-url", readText("ui.base-url", readText("test.base-url", "http://localhost:8080"))),
+                baseUrl,
                 readOptionalText("project.route.home"),
                 readOptionalText("project.route.login"),
                 readOptionalText("project.route.registration"),
@@ -34,8 +45,8 @@ public class PropertiesProjectProfileLoader implements ProjectProfileLoader {
                 readOptionalText("project.route.products"),
                 readOptionalText("project.route.cart"),
                 new OutputProfile(
-                        readText("project.output.generated-pages-package", "ua.demo.agentlab.ui.generated.pages"),
-                        readText("project.output.generated-tests-package", "ua.demo.agentlab.ui.generated.tests")
+                        generationNamespace.pagesPackage(),
+                        generationNamespace.testsPackage()
                 )
         );
     }

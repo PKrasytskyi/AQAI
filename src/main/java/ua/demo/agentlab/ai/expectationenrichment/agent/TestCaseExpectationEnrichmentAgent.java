@@ -132,7 +132,7 @@ public class TestCaseExpectationEnrichmentAgent implements WorkflowAgent,
         List<AssertionIntent> intents = testCase.assertionIntents().stream()
                 .map(intent -> intent.kind() == AssertionIntentKind.URL_CONTAINS
                         ? intent
-                        : new AssertionIntent(intent.kind(), result.expectedValue()))
+                        : new AssertionIntent(intent.kind(), intent.target(), result.expectedValue()))
                 .toList();
         List<String> assertions = intents.stream().map(intent -> assertionText(intent, result.expectedValue())).distinct().toList();
         return new CanonicalTestCase(

@@ -10,6 +10,8 @@ import ua.demo.agentlab.artifactreuse.flow.FlowRuntimeFeedbackAgent;
 import ua.demo.agentlab.artifactreuse.flow.FlowRuntimeFeedbackResult;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeResult;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeStatus;
+import ua.demo.agentlab.validation.execution.GeneratedTestExecutionResult;
+import ua.demo.agentlab.validation.execution.GeneratedTestExecutionStatus;
 
 import java.util.List;
 
@@ -21,7 +23,8 @@ public class FlowRuntimeFeedbackAgentTest {
         FlowRuntimeFeedbackAgent agent = new FlowRuntimeFeedbackAgent(config(), registry);
         var result = agent.execute(new FlowRuntimeFeedbackAgent.Input(
                 new FlowContractBundle("flow-contract-bundle.v1", null, List.of(flow())),
-                new GeneratedUiSmokeResult(GeneratedUiSmokeStatus.PASSED, "passed", 1, List.of()), false, "SKIPPED"), null);
+                new GeneratedUiSmokeResult(GeneratedUiSmokeStatus.PASSED, "passed", 1, List.of()),
+                passedExecution(), false, "SKIPPED"), null);
 
         Assert.assertFalse(result.attempted());
         Assert.assertNull(registry.feedback);
@@ -33,7 +36,8 @@ public class FlowRuntimeFeedbackAgentTest {
         FlowRuntimeFeedbackAgent agent = new FlowRuntimeFeedbackAgent(config(), registry);
         agent.execute(new FlowRuntimeFeedbackAgent.Input(
                 new FlowContractBundle("flow-contract-bundle.v1", null, List.of(flow())),
-                new GeneratedUiSmokeResult(GeneratedUiSmokeStatus.PASSED, "passed", 1, List.of()), true, "SKIPPED"), null);
+                new GeneratedUiSmokeResult(GeneratedUiSmokeStatus.PASSED, "passed", 1, List.of()),
+                passedExecution(), true, "SKIPPED"), null);
 
         Assert.assertFalse(registry.feedback.smokePassed());
         Assert.assertEquals(registry.feedback.smokeSource(), "live-ui-smoke");
@@ -45,7 +49,8 @@ public class FlowRuntimeFeedbackAgentTest {
         FlowRuntimeFeedbackAgent agent = new FlowRuntimeFeedbackAgent(config(), registry);
         var result = agent.execute(new FlowRuntimeFeedbackAgent.Input(
                 new FlowContractBundle("flow-contract-bundle.v1", null, List.of(flow())),
-                new GeneratedUiSmokeResult(GeneratedUiSmokeStatus.PASSED, "passed", 1, List.of()), true, "PASSED"), null);
+                new GeneratedUiSmokeResult(GeneratedUiSmokeStatus.PASSED, "passed", 1, List.of()),
+                passedExecution(), true, "PASSED"), null);
 
         Assert.assertTrue(result.success());
         Assert.assertEquals(registry.persistCalls, 1);
@@ -61,6 +66,15 @@ public class FlowRuntimeFeedbackAgentTest {
             @Override public String stableRoot() { return "target"; }
             @Override public boolean flowContractEnabled() { return true; }
         };
+    }
+
+    private GeneratedTestExecutionResult passedExecution() {
+        return new GeneratedTestExecutionResult(
+                GeneratedTestExecutionResult.SCHEMA_VERSION,
+                GeneratedTestExecutionStatus.PASSED,
+                1, 1, 0, 0, 1L,
+                List.of("GeneratedTest"), List.of(), List.of(), "target/reports", "passed", ""
+        );
     }
 
     private ua.demo.agentlab.artifactreuse.flow.FlowContract flow() {

@@ -9,6 +9,7 @@ import ua.demo.agentlab.ai.ui.model.AiMethodSpec;
 import ua.demo.agentlab.ai.ui.model.AiPageObjectSpec;
 import ua.demo.agentlab.ai.ui.prompt.AiPageObjectPromptBuilder;
 import ua.demo.agentlab.ai.ui.prompt.PromptNormalizer;
+import ua.demo.agentlab.ai.ui.prompt.scope.PromptReadyPomScope;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -64,7 +65,8 @@ public class AiPageObjectPromptGoldenTest {
                 ))
         );
 
-        String prompt = builder.buildForPage(emptyContext(), "LoginPage", List.of(), baseline);
+        String prompt = builder.buildForPage(emptyContext(), "LoginPage", baseline,
+                scope("LoginPage", "/login"), "AUTHENTICATION");
 
         Assert.assertTrue(prompt.contains("methodSignatures=[void clickLoginButton()]"));
         Assert.assertFalse(prompt.contains("elements.click(loginButton);"));
@@ -82,7 +84,18 @@ public class AiPageObjectPromptGoldenTest {
 
     private String prompt(String pageName, String route, String openMethod) {
         AiPageObjectSpec baseline = new AiPageObjectSpec(pageName, route, openMethod, List.of(), List.of());
-        return builder.buildForPage(emptyContext(), pageName, List.of(), baseline);
+        return builder.buildForPage(emptyContext(), pageName, baseline, scope(pageName, route), capability(pageName));
+    }
+
+    private PromptReadyPomScope scope(String pageName, String route) {
+        return new PromptReadyPomScope(pageName, route, false, List.of(), List.of(), List.of(), List.of(),
+                List.of(), List.of(), List.of(), 0.0d);
+    }
+
+    private String capability(String pageName) {
+        if ("LoginPage".equals(pageName)) return "AUTHENTICATION";
+        if ("SecureAreaPage".equals(pageName)) return "AUTHENTICATED_AREA";
+        return "NAVIGATION";
     }
 
     private AiContextPackage emptyContext() {

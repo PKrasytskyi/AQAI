@@ -165,12 +165,14 @@ public class OpenAiTestCaseExpectationEnrichmentClient implements TestCaseExpect
                 .filter(candidate -> testCase.requirementRefs().contains(candidate.requirementId())
                         || candidate.requirementId().equals(testCase.id())
                         || candidate.requirementId().equals(fallback.sourceRequirementId()))
+                .filter(candidate -> conflictDetector.detect(testCase, candidate).isEmpty())
                 .distinct()
                 .toList();
         if (!exact.isEmpty()) {
             return exact.stream().limit(3).toList();
         }
         return safeCandidates.stream()
+                .filter(candidate -> conflictDetector.detect(testCase, candidate).isEmpty())
                 .map(candidate -> Map.entry(candidate, similarity(testCase, candidate)))
                 .filter(entry -> entry.getValue() >= 0.35d)
                 .sorted(Map.Entry.<ExpectedResultCandidate, Double>comparingByValue(Comparator.reverseOrder()))
@@ -243,6 +245,12 @@ public class OpenAiTestCaseExpectationEnrichmentClient implements TestCaseExpect
                 .orElse(null);
         if (candidate == null) {
             return fallback;
+        }
+        if (!conflictDetector.detect(testCase, candidate).isEmpty()) {
+            return new ResolvedExpectedResult(
+                    testCase.id(), "", candidate.requirementId(), "conflict-detector", 0.0d,
+                    "needs-review", String.join(" ", conflictDetector.detect(testCase, candidate))
+            );
         }
         double confidence = node.path("confidence").isNumber() ? node.path("confidence").asDouble() : 0.0d;
         String status = text(node, "status");

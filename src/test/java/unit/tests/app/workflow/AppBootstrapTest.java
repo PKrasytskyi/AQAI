@@ -17,6 +17,12 @@ import ua.demo.agentlab.requirements.model.SourceType;
 
 public class AppBootstrapTest {
 
+    @Test(expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = ".*Strict profile mode does not allow fallback requirements.*")
+    public void bootstrapRejectsMissingExplicitRequirementWithoutFallback() {
+        new AppBootstrap().createWorkflow(new String[]{"requirements/does-not-exist.md", "--deterministic"});
+    }
+
     @Test
     public void bootstrapCreatesDeterministicWorkflowDefinition() {
         WorkflowDefinition definition = new AppBootstrap().createWorkflow(new String[]{"--deterministic"});
@@ -49,6 +55,9 @@ public class AppBootstrapTest {
                 .anyMatch("ai-page-object-spec-agent"::equals));
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)
+                .anyMatch("ui-evidence-funnel-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
                 .anyMatch("flow-contract-builder-agent"::equals));
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)
@@ -68,6 +77,15 @@ public class AppBootstrapTest {
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)
                 .anyMatch("pom-contract-page-object-writer-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("ui-test-contract-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("ui-test-contract-validation-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("deterministic-testng-writer-agent"::equals));
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)
                 .anyMatch("file-persistence-agent"::equals));

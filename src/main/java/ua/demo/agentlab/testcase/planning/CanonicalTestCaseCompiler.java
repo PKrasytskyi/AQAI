@@ -21,7 +21,7 @@ class CanonicalTestCaseCompiler {
                 .map(step -> new UiOperationIntent(step.kind(), step.ownerPage(), step.dataKey()))
                 .toList();
         List<AssertionIntent> assertionIntents = scenario.assertions().stream()
-                .map(assertion -> new AssertionIntent(assertion.intentKind(), assertion.expectedValue()))
+                .map(assertion -> new AssertionIntent(assertion.intentKind(), assertion.target(), assertion.expectedValue()))
                 .toList();
         List<String> targetPages = targetPages(scenario);
         List<String> actions = scenario.steps().stream().map(this::actionText).distinct().toList();
@@ -105,6 +105,8 @@ class CanonicalTestCaseCompiler {
             case SUBMIT_FORM -> "Submit the target form with valid data";
             case INSPECT_PAGE_CONTENT -> "Inspect the rendered content area";
             case LOGOUT -> "Sign out from the current session";
+            case OPEN_MENU -> "Open the user menu";
+            case OPEN_MODAL -> "userMenu".equals(step.dataKey()) ? "Open the user menu" : "Open the target modal";
             default -> titleCase(step.kind().name());
         };
     }

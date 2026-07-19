@@ -1,5 +1,12 @@
 # AgentLab Project Guide
 
+> **Reference snapshot.** This guide contains useful architecture detail but is
+> not the operational source of truth. Use
+> [Developer Onboarding and Delivery Guide](DEVELOPER_ONBOARDING.md) for current
+> setup, run commands, artifact review, and branch policy. Consolidate or archive
+> this document after its still-relevant technical detail is absorbed into the
+> current architecture documentation.
+
 ## 1. Project Purpose
 
 AgentLab is a Java platform for requirement-driven automation generation. It combines deterministic parsing, UI/API discovery, typed contracts, optional AI enrichment, executable quality gates, and controlled artifact writing.
@@ -104,7 +111,7 @@ Detailed API layer documentation: [API Layer Documentation](API_LAYER.md).
 - `ua.demo.agentlab.ai.pageenrichment` - PageModel enrichment over mapper output.
 - `ua.demo.agentlab.ai.expectationenrichment` - expected-result resolution.
 - `ua.demo.agentlab.ai.ui` - deterministic POM/test prompt/spec generation.
-- `ua.demo.agentlab.ai.ui.contract` - `pom-contract-v1`, POM contract quality gate, deterministic Java writer, and compatibility adapter.
+- `ua.demo.agentlab.ai.ui.contract` - `pom-contract-v1`, POM contract quality gate, deterministic Java writer, and internal Java rendering projection.
 - `ua.demo.agentlab.api` - API discovery, canonical cases, specs, quality gate, and writer.
 - `ua.demo.agentlab.core.ui` - Selenium support classes for generated UI code.
 - `ua.demo.agentlab.core.api` - RestAssured support for generated API clients.

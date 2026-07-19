@@ -60,11 +60,15 @@ public class AiRunQualitySummaryService {
                 .filter(locator -> locator.stabilityScore() < LOW_CONFIDENCE_LOCATOR_THRESHOLD
                         || locator.risks().stream().anyMatch(this::isUnstableRisk))
                 .count();
-        int confirmedLocators = evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CONFIRMED_LOCATOR);
-        int candidateLocators = evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CANDIDATE_LOCATOR);
+        int promptAllowedLocators = finalPromptAllowedLocatorCount(input);
+        int confirmedLocators = Math.max(
+                evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CONFIRMED_LOCATOR),
+                promptAllowedLocators
+        );
+        int candidateLocators = Math.max(0,
+                evidenceTypeCount(locatorCandidates, LocatorEvidenceType.CANDIDATE_LOCATOR) - confirmedLocators);
         int fallbackLocators = evidenceTypeCount(locatorCandidates, LocatorEvidenceType.FALLBACK_LOCATOR);
         int promptBlockingIssues = promptBlockingIssues(input);
-        int promptAllowedLocators = intArtifact(input, "prompt.ui.evidence.locator.count", 0);
         int runtimeFeedbackIssues = intArtifact(input, "ui.runtime.feedback.issue.count", 0);
         double runtimeLocatorPassRate = doubleArtifact(input, "ui.runtime.feedback.locator.pass.rate", 1.0d);
         double runtimeFlakyRiskScore = doubleArtifact(input, "ui.runtime.feedback.flaky.risk.score", 0.0d);
@@ -107,6 +111,8 @@ public class AiRunQualitySummaryService {
         );
         int staleEvidenceRejected = intArtifact(input, "ui.knowledge.retrieval.stale.evidence.rejected", 0);
         String vectorUnavailableReason = stringArtifact(input, "ui.knowledge.retrieval.vector.unavailable.reason", "");
+        boolean terminalFailure = "FAILED".equalsIgnoreCase(stringArtifact(input, "ai.workflow.terminal.status", ""));
+        int terminalBlockingIssues = intArtifact(input, "ai.workflow.terminal.blocking.issues", 0);
         double averageLocatorScore = averageLocatorScore(locatorCandidates);
         int qualityScore = qualityScore(
                 canonicalTestCases,
@@ -131,7 +137,9 @@ public class AiRunQualitySummaryService {
                 runtimeFlakyRiskScore,
                 qdrantHit,
                 vectorUnavailableReason,
-                staleEvidenceRejected
+                staleEvidenceRejected,
+                terminalFailure,
+                terminalBlockingIssues
         );
         return new AiRunQualitySummary(
                 runId(input),
@@ -312,14 +320,19 @@ public class AiRunQualitySummaryService {
     }
 
     private int pageObjectPromptCount(AiRunQualitySummaryInput input) {
-        int scopedRequests = intArtifact(input, "openai.page.object.scoped.requests", -1);
-        if (scopedRequests >= 0) {
-            return scopedRequests;
-        }
-        return (int) input.artifacts().keySet().stream()
+        int writtenPrompts = (int) input.artifacts().keySet().stream()
                 .filter(key -> key.startsWith("ai.page.object.prompt.")
                         && key.endsWith(".allowedLocators"))
                 .count();
+        if (writtenPrompts > 0) {
+            return writtenPrompts;
+        }
+        boolean evaluatedAnyScope = input.artifacts().keySet().stream()
+                .anyMatch(key -> key.startsWith("ai.page.object.prompt.") && key.endsWith(".eligible"));
+        if (evaluatedAnyScope) {
+            return 0;
+        }
+        return Math.max(0, intArtifact(input, "openai.page.object.scoped.requests", 0));
     }
 
     private int promptPagesWithoutAllowedLocators(AiRunQualitySummaryInput input) {
@@ -337,6 +350,15 @@ public class AiRunQualitySummaryService {
                 .filter(entry -> parseInt(entry.getValue(), 0) > 0)
                 .filter(entry -> parseInt(entry.getValue(), 0) < 3)
                 .count();
+    }
+
+    private int finalPromptAllowedLocatorCount(AiRunQualitySummaryInput input) {
+        int count = input.artifacts().entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith("ai.page.object.prompt."))
+                .filter(entry -> entry.getKey().endsWith(".allowedLocators"))
+                .mapToInt(entry -> parseInt(entry.getValue(), 0))
+                .sum();
+        return count > 0 ? count : intArtifact(input, "prompt.ui.evidence.locator.count", 0);
     }
 
     private int intArtifact(AiRunQualitySummaryInput input, String key, int defaultValue) {
@@ -417,7 +439,9 @@ public class AiRunQualitySummaryService {
             double runtimeFlakyRiskScore,
             boolean qdrantHit,
             String vectorUnavailableReason,
-            int staleEvidenceRejected
+            int staleEvidenceRejected,
+            boolean terminalFailure,
+            int terminalBlockingIssues
     ) {
         double score = 100.0d;
         if (canonicalTestCases > 0) {
@@ -463,6 +487,10 @@ public class AiRunQualitySummaryService {
             score -= 5.0d;
         }
         score -= Math.min(10.0d, staleEvidenceRejected * 2.0d);
+        if (terminalFailure) {
+            return 0;
+        }
+        score -= Math.min(30.0d, terminalBlockingIssues * 10.0d);
         return (int) Math.round(Math.max(0.0d, Math.min(100.0d, score)));
     }
 

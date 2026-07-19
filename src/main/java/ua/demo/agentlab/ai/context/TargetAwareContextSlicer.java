@@ -28,6 +28,7 @@ import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
 import ua.demo.agentlab.ui.flow.model.CanonicalFlow;
 import ua.demo.agentlab.ui.flow.model.CanonicalPage;
 import ua.demo.agentlab.ui.flow.model.CanonicalPageFlowModel;
+import ua.demo.agentlab.ai.context.slicing.*;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,8 +37,14 @@ import java.util.Set;
 
 public class TargetAwareContextSlicer {
 
-    private final ConfirmedPageSourceResolver confirmedPageSourceResolver = new ConfirmedPageSourceResolver();
     private final PromptUiEvidenceBuilder promptUiEvidenceBuilder = new PromptUiEvidenceBuilder();
+    private final TargetPageScopeResolver targetScopeResolver = new TargetPageScopeResolver();
+    private final RequirementScopeSlicer requirementSlicer = new RequirementScopeSlicer();
+    private final FlowScopeSlicer flowSlicer = new FlowScopeSlicer();
+    private final AssertionScopeSlicer assertionSlicer = new AssertionScopeSlicer();
+    private final RetrievalScopeSlicer retrievalSlicer = new RetrievalScopeSlicer();
+    private final EnrichmentScopeSlicer enrichmentSlicer = new EnrichmentScopeSlicer();
+    private final ScopedContextAssembler contextAssembler = new ScopedContextAssembler(promptUiEvidenceBuilder);
 
     public AiContextPackage slice(AiContextPackage context, AiContextScope scope) {
         if (context == null) {
@@ -47,81 +54,27 @@ public class TargetAwareContextSlicer {
             return context;
         }
 
-        NormalizedRequirementBundle requirements = sliceRequirements(context, scope);
-        CanonicalPageFlowModel flows = sliceFlows(context, scope);
-        MappedUiKnowledge mappedUiKnowledge = sliceMappedKnowledge(context, scope);
-        PageModelBundle pageModelBundle = slicePageModels(context, scope, mappedUiKnowledge);
+        TargetPageScopeResolver.TargetPageScope targetScope = targetScopeResolver.resolve(context, scope);
+        NormalizedRequirementBundle requirements = requirementSlicer.slice(context.normalizedRequirementBundle(), scope);
+        CanonicalPageFlowModel flows = flowSlicer.slice(context.canonicalPageFlowModel(), targetScope);
+        MappedUiKnowledge mappedUiKnowledge = sliceMappedKnowledge(context, scope, targetScope.routeGuard());
+        PageModelBundle pageModelBundle = slicePageModels(context, scope, mappedUiKnowledge, targetScope.routeGuard());
         CanonicalUiInteractionModel canonicalInteractions = sliceCanonicalInteractions(context, scope);
-        UiKnowledgeRetrievalContext retrievalContext = sliceRetrievalContext(context, scope);
-        List<PageModelEnrichmentRecord> pageModelEnrichments = slicePageModelEnrichments(context, scope);
+        UiKnowledgeRetrievalContext retrievalContext = retrievalSlicer.slice(context, targetScope);
+        List<PageModelEnrichmentRecord> pageModelEnrichments = enrichmentSlicer.slice(context.pageModelEnrichments(), targetScope);
         TestPlan testPlan = sliceTestPlan(context, scope);
         CanonicalTestCaseBundle canonicalTestCaseBundle = sliceCanonicalTestCaseBundle(context, scope);
-        List<AssertionContract> assertionContracts = sliceAssertionContracts(context, scope, canonicalTestCaseBundle);
+        List<AssertionContract> assertionContracts = assertionSlicer.slice(context.assertionContracts(), scope,
+                canonicalTestCaseBundle);
         UiTestPlan uiTestPlan = sliceUiTestPlan(context, scope);
 
         MappedUiKnowledgeCurated curatedScope = sliceCuratedKnowledge(context, mappedUiKnowledge);
-        AiContextPackage scopedPackage = new AiContextPackage(
-                context.objective(),
-                requirements,
-                context.generationPolicy(),
-                context.projectProfile(),
-                testPlan,
-                canonicalTestCaseBundle,
-                uiTestPlan,
-                flows,
-                mappedUiKnowledge,
-                curatedScope,
-                pageModelBundle,
-                canonicalInteractions,
-                retrievalContext,
-                assertionContracts,
-                pageModelEnrichments,
-                context.templateCapabilities(),
-                sliceDbStableLocators(context, mappedUiKnowledge),
-                PromptUiEvidence.empty("prompt-evidence:slicer-bootstrap")
-        );
-        return new AiContextPackage(
-                scopedPackage.objective(),
-                scopedPackage.normalizedRequirementBundle(),
-                scopedPackage.generationPolicy(),
-                scopedPackage.projectProfile(),
-                scopedPackage.testPlan(),
-                scopedPackage.canonicalTestCaseBundle(),
-                scopedPackage.uiTestPlan(),
-                scopedPackage.canonicalPageFlowModel(),
-                scopedPackage.mappedUiKnowledge(),
-                scopedPackage.mappedUiKnowledgeCurated(),
-                scopedPackage.pageModelBundle(),
-                scopedPackage.canonicalInteractionModel(),
-                scopedPackage.retrievalContext(),
-                scopedPackage.assertionContracts(),
-                scopedPackage.pageModelEnrichments(),
-                scopedPackage.templateCapabilities(),
-                scopedPackage.dbStableLocatorEvidence(),
-                promptUiEvidenceBuilder.build(scopedPackage)
-        );
-    }
-
-    private List<PromptLocatorEvidence> sliceDbStableLocators(AiContextPackage context, MappedUiKnowledge mappedUiKnowledge) {
-        if (context == null || context.dbStableLocatorEvidence().isEmpty() || mappedUiKnowledge == null) {
-            return List.of();
-        }
-        Set<String> pageIds = mappedUiKnowledge.pages().stream()
-                .map(MappedPage::pageId)
-                .map(this::normalize)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        Set<String> routes = mappedUiKnowledge.pages().stream()
-                .flatMap(page -> java.util.stream.Stream.of(page.urlPattern(), page.url()))
-                .map(this::normalize)
-                .filter(value -> !value.isBlank())
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        return context.dbStableLocatorEvidence().stream()
-                .filter(locator -> locator.sourceTrace().stream().anyMatch(trace -> {
-                    String normalized = normalize(trace);
-                    return pageIds.stream().anyMatch(pageId -> normalized.equals("db-page-id:" + pageId))
-                            || routes.stream().anyMatch(route -> normalized.equals("db-route:" + route));
-                }))
-                .toList();
+        RetrievalScopeSlicer.LocatorEvidenceScope locatorEvidence =
+                retrievalSlicer.sliceLocatorEvidence(context, mappedUiKnowledge);
+        return contextAssembler.assemble(context, new ScopedContextAssembler.ScopedContextParts(requirements,
+                testPlan, canonicalTestCaseBundle, uiTestPlan, flows, mappedUiKnowledge, curatedScope,
+                pageModelBundle, canonicalInteractions, retrievalContext, assertionContracts, pageModelEnrichments,
+                locatorEvidence.dbStable(), locatorEvidence.confirmedCatalog()));
     }
 
     private MappedUiKnowledgeCurated sliceCuratedKnowledge(AiContextPackage context, MappedUiKnowledge mappedUiKnowledge) {
@@ -144,65 +97,12 @@ public class TargetAwareContextSlicer {
         );
     }
 
-    private NormalizedRequirementBundle sliceRequirements(AiContextPackage context, AiContextScope scope) {
-        if (context.normalizedRequirementBundle() == null) {
-            return null;
-        }
-
-        List<NormalizedRequirement> filtered = context.normalizedRequirementBundle().requirements().stream()
-                .filter(requirement -> scope.targetRequirementIds().isEmpty()
-                        || scope.targetRequirementIds().contains(requirement.id()))
-                .toList();
-
-        if (filtered.isEmpty()) {
-            filtered = context.normalizedRequirementBundle().requirements();
-        }
-
-        return new NormalizedRequirementBundle(
-                context.normalizedRequirementBundle().source(),
-                filtered,
-                context.normalizedRequirementBundle().assumptions(),
-                context.normalizedRequirementBundle().risks()
-        );
-    }
-
-    private CanonicalPageFlowModel sliceFlows(AiContextPackage context, AiContextScope scope) {
-        if (context.canonicalPageFlowModel() == null) {
-            return null;
-        }
-
-        List<CanonicalFlow> filteredFlows = context.canonicalPageFlowModel().flows().stream()
-                .filter(flow -> flowMatchesScope(flow, scope))
-                .toList();
-
-        if (filteredFlows.isEmpty()) {
-            filteredFlows = context.canonicalPageFlowModel().flows().stream().limit(6).toList();
-        }
-
-        Set<String> pageNames = new LinkedHashSet<>(scope.targetPageNames());
-        for (CanonicalFlow flow : filteredFlows) {
-            addIfPresent(pageNames, flow.sourcePageName());
-            addIfPresent(pageNames, flow.targetPageName());
-        }
-
-        List<CanonicalPage> filteredPages = context.canonicalPageFlowModel().pages().stream()
-                .filter(page -> pageNames.isEmpty() || PageReferenceMatcher.matchesAny(page, pageNames))
-                .toList();
-
-        return new CanonicalPageFlowModel(
-                context.canonicalPageFlowModel().projectProfileId(),
-                context.canonicalPageFlowModel().projectName(),
-                filteredPages,
-                filteredFlows
-        );
-    }
-
-    private MappedUiKnowledge sliceMappedKnowledge(AiContextPackage context, AiContextScope scope) {
+    private MappedUiKnowledge sliceMappedKnowledge(AiContextPackage context, AiContextScope scope,
+                                                    ConfirmedRouteGuard guard) {
         if (context.mappedUiKnowledge() == null) {
             return null;
         }
         boolean strictPageScope = isPageObjectScope(scope);
-        ConfirmedRouteGuard guard = confirmedRouteGuard(context);
 
         List<MappedPage> directPages = context.mappedUiKnowledge().pages().stream()
                 .filter(page -> mappedPageMatchesScope(page, scope))
@@ -292,12 +192,12 @@ public class TargetAwareContextSlicer {
     private PageModelBundle slicePageModels(
             AiContextPackage context,
             AiContextScope scope,
-            MappedUiKnowledge slicedMappedKnowledge
+            MappedUiKnowledge slicedMappedKnowledge,
+            ConfirmedRouteGuard guard
     ) {
         if (context.pageModelBundle() == null || context.pageModelBundle().pages().isEmpty()) {
             return new PageModelBundle(List.of());
         }
-        ConfirmedRouteGuard guard = confirmedRouteGuard(context);
 
         Set<String> mappedPageIds = slicedMappedKnowledge == null
                 ? Set.of()
@@ -372,150 +272,6 @@ public class TargetAwareContextSlicer {
         return new CanonicalUiInteractionModel(interactions);
     }
 
-    private UiKnowledgeRetrievalContext sliceRetrievalContext(AiContextPackage context, AiContextScope scope) {
-        if (context.retrievalContext() == null) {
-            return UiKnowledgeRetrievalContext.empty("Retrieval context is not available");
-        }
-
-        Set<String> pageNames = scope.targetPageNames().stream()
-                .map(this::normalize)
-                .filter(value -> !value.isBlank())
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        Set<String> pageIds = context.mappedUiKnowledge() == null
-                ? Set.of()
-                : context.mappedUiKnowledge().pages().stream()
-                .filter(page -> {
-                    ConfirmedRouteGuard guard = confirmedRouteGuard(context);
-                    return !guard.hasConfirmedPages() || confirmedMappedPage(guard, page);
-                })
-                .filter(page -> scope.targetRoutes().isEmpty()
-                        ? pageNames.isEmpty() || PageReferenceMatcher.matchesAny(page, pageNames)
-                        : routeMatchesAny(scope.targetRoutes(), page.urlPattern())
-                        || routeMatchesAny(scope.targetRoutes(), page.url()))
-                .map(MappedPage::pageId)
-                .map(this::normalize)
-                .filter(value -> !value.isBlank())
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-
-        List<ua.demo.agentlab.ai.rag.model.RetrievedChunk> vectorMatches = context.retrievalContext().vectorMatches().stream()
-                .filter(match -> retrievalChunkMatches(match, pageIds, pageNames))
-                .limit(6)
-                .toList();
-
-        List<UiKnowledgeGraphMatch> graphMatches = context.retrievalContext().graphMatches().stream()
-                .filter(match -> graphMatchMatches(match, pageIds, pageNames))
-                .limit(8)
-                .toList();
-
-        return new UiKnowledgeRetrievalContext(
-                context.retrievalContext().query(),
-                context.retrievalContext().queryTerms(),
-                vectorMatches,
-                graphMatches,
-                context.retrievalContext().vectorSource(),
-                context.retrievalContext().graphSource(),
-                context.retrievalContext().notes()
-        );
-    }
-
-    private List<PageModelEnrichmentRecord> slicePageModelEnrichments(AiContextPackage context, AiContextScope scope) {
-        if (context.pageModelEnrichments() == null || context.pageModelEnrichments().isEmpty()) {
-            return List.of();
-        }
-        ConfirmedRouteGuard guard = confirmedRouteGuard(context);
-        return context.pageModelEnrichments().stream()
-                .filter(record -> !guard.hasConfirmedPages() || guard.isConfirmed(record.pageName(), record.route()))
-                .filter(record -> scope.targetRoutes().isEmpty()
-                        ? scope.targetPageNames().stream().anyMatch(page -> PageReferenceMatcher.matchesScenarioPage(record.pageName(), record.route(), page))
-                        : scope.targetRoutes().stream().anyMatch(route -> PageReferenceMatcher.routeMatches(record.route(), route)))
-                .map(record -> scope.targetRequirementIds().isEmpty()
-                        ? record
-                        : restrictEnrichmentToRequirements(record, scope.targetRequirementIds()))
-                .toList();
-    }
-
-    private PageModelEnrichmentRecord restrictEnrichmentToRequirements(
-            PageModelEnrichmentRecord record,
-            List<String> requirementIds
-    ) {
-        Set<String> allowedIds = requirementIds.stream()
-                .map(this::normalizeRequirementId)
-                .filter(value -> !value.isBlank())
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        Map<String, List<String>> actions = filterRequirementFacts(record.actionsByRequirement(), allowedIds);
-        Map<String, List<String>> postconditions = filterRequirementFacts(record.postconditionsByRequirement(), allowedIds);
-        List<String> traceability = record.requirementTraceability().stream()
-                .filter(requirementId -> allowedIds.contains(normalizeRequirementId(requirementId)))
-                .toList();
-        return new PageModelEnrichmentRecord(
-                record.pageId(),
-                record.pageName(),
-                record.route(),
-                record.businessIntent(),
-                record.pageSummary(),
-                flattenRequirementFacts(actions),
-                record.stableLocators(),
-                record.preconditions(),
-                flattenRequirementFacts(postconditions),
-                record.risks(),
-                record.coverageGaps(),
-                traceability,
-                actions,
-                postconditions,
-                record.confidenceScore(),
-                record.enrichmentSource()
-        );
-    }
-
-    private Map<String, List<String>> filterRequirementFacts(
-            Map<String, List<String>> facts,
-            Set<String> allowedIds
-    ) {
-        if (facts == null || facts.isEmpty()) {
-            return Map.of();
-        }
-        return facts.entrySet().stream()
-                .filter(entry -> allowedIds.contains(normalizeRequirementId(entry.getKey())))
-                .collect(java.util.stream.Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (first, ignored) -> first,
-                        java.util.LinkedHashMap::new
-                ));
-    }
-
-    private List<String> flattenRequirementFacts(Map<String, List<String>> facts) {
-        return facts.values().stream()
-                .flatMap(List::stream)
-                .filter(value -> value != null && !value.isBlank())
-                .distinct()
-                .toList();
-    }
-
-    private String normalizeRequirementId(String value) {
-        return normalize(value).toLowerCase(java.util.Locale.ROOT);
-    }
-
-    private ConfirmedRouteGuard confirmedRouteGuard(AiContextPackage context) {
-        List<ConfirmedPageCandidate> currentMappedPages = context == null || context.mappedUiKnowledge() == null
-                ? List.of()
-                : context.mappedUiKnowledge().pages().stream()
-                .map(page -> new ConfirmedPageCandidate(
-                        page.pageName(),
-                        !page.urlPattern().isBlank() ? page.urlPattern() : page.url(),
-                        PageCapability.GENERIC,
-                        PageSource.DB_STABLE_CACHE,
-                        0.86d,
-                        List.of("current-ai-context-mapped-ui-knowledge")
-                ))
-                .toList();
-        return new ConfirmedRouteGuard(confirmedPageSourceResolver.resolve(
-                context == null ? null : context.projectProfile(),
-                context == null ? null : context.normalizedRequirementBundle(),
-                currentMappedPages
-        ));
-    }
-
     private boolean confirmedMappedPage(ConfirmedRouteGuard guard, MappedPage page) {
         return page != null && (guard.isConfirmed(page.pageName(), page.urlPattern())
                 || guard.isConfirmed(page.pageName(), page.url()));
@@ -584,36 +340,6 @@ public class TargetAwareContextSlicer {
                 pageNames,
                 testCases
         );
-    }
-
-    private List<AssertionContract> sliceAssertionContracts(
-            AiContextPackage context,
-            AiContextScope scope,
-            CanonicalTestCaseBundle canonicalTestCaseBundle
-    ) {
-        if (context.assertionContracts().isEmpty()) {
-            return List.of();
-        }
-        Set<String> scopedTestCaseIds = canonicalTestCaseBundle == null
-                ? Set.of()
-                : canonicalTestCaseBundle.testCases().stream()
-                .map(CanonicalTestCase::id)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        return context.assertionContracts().stream()
-                .filter(contract -> scopedTestCaseIds.contains(contract.testCaseId())
-                        || scope.targetRequirementIds().contains(normalize(contract.requirementId())))
-                .toList();
-    }
-
-    private boolean flowMatchesScope(CanonicalFlow flow, AiContextScope scope) {
-        boolean requirementMatch = !scope.targetRequirementIds().isEmpty()
-                && flow.sourceRequirementIds().stream().anyMatch(id -> scope.targetRequirementIds().contains(normalize(id)));
-        return requirementMatch
-                || scope.targetPageNames().stream().anyMatch(reference ->
-                        PageReferenceMatcher.matchesScenarioPage(flow.sourcePageName(), flow.sourceRoute(), reference)
-                                || PageReferenceMatcher.matchesScenarioPage(flow.targetPageName(), flow.targetRoute(), reference))
-                || routeMatchesAny(scope.targetRoutes(), flow.sourceRoute())
-                || routeMatchesAny(scope.targetRoutes(), flow.targetRoute());
     }
 
     private boolean mappedPageMatchesScope(MappedPage page, AiContextScope scope) {
@@ -771,36 +497,6 @@ public class TargetAwareContextSlicer {
                 || scope.targetRoutes().stream().anyMatch(route -> interaction.domainHints().stream()
                 .map(this::normalize)
                 .anyMatch(route::equals));
-    }
-
-    private boolean retrievalChunkMatches(
-            ua.demo.agentlab.ai.rag.model.RetrievedChunk match,
-            Set<String> pageIds,
-            Set<String> pageNames
-    ) {
-        if (match == null || match.metadata() == null) {
-            return false;
-        }
-        List<String> tags = match.metadata().tags();
-        if (tags == null || tags.isEmpty()) {
-            return false;
-        }
-        return tags.stream().map(this::normalize).anyMatch(tag -> pageIds.contains(tag) || pageNames.contains(tag))
-                || pageNames.contains(normalize(match.metadata().artifactName()))
-                || pageNames.contains(normalize(match.metadata().packageName()));
-    }
-
-    private boolean graphMatchMatches(
-            UiKnowledgeGraphMatch match,
-            Set<String> pageIds,
-            Set<String> pageNames
-    ) {
-        if (match == null) {
-            return false;
-        }
-        String pageId = normalize(match.pageId());
-        String nodeName = normalize(match.name());
-        return pageIds.contains(pageId) || pageNames.contains(pageId) || pageNames.contains(nodeName);
     }
 
     private boolean matchesRequirementSource(String sourceReference, Set<String> targetRequirementSources) {

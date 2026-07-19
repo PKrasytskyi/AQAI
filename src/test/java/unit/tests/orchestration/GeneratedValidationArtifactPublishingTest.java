@@ -15,7 +15,11 @@ import ua.demo.agentlab.ai.ui.contract.PomStepAction;
 import ua.demo.agentlab.ai.ui.contract.PomStepSpec;
 import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.persistence.GeneratedUiSources;
+import ua.demo.agentlab.persistence.GeneratedSourceManifest;
 import ua.demo.agentlab.persistence.LocalFilePersistenceAgent;
+import ua.demo.agentlab.config.OutputProfile;
+import ua.demo.agentlab.config.ProjectProfile;
+import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.requirements.model.RequirementInput;
 import ua.demo.agentlab.requirements.model.SourceType;
 import ua.demo.agentlab.review.GeneratedCodeReviewReport;
@@ -71,12 +75,25 @@ public class GeneratedValidationArtifactPublishingTest {
         LocalFilePersistenceAgent agent = new LocalFilePersistenceAgent(sourceFile -> {
         });
 
-        agent.applyOutput(List.of(file.relativePath()), state);
+        GeneratedSourceManifest manifest = GeneratedSourceManifest.create(
+                profile("artifact-test", "https://artifact.test", file.packageName(), "generated.tests"),
+                WorkflowRunEnvelope.from(state),
+                new GeneratedUiSources(List.of(file), List.of())
+        );
+        agent.applyOutput(manifest, state);
 
         Assert.assertTrue(state.getAiArtifactFiles().stream()
                 .anyMatch(path -> path.endsWith("target\\ai-run\\validation\\persisted-generated-sources.json")
                         || path.endsWith("target/ai-run/validation/persisted-generated-sources.json")));
         Assert.assertEquals(state.getWrittenFiles(), List.of(file.relativePath()));
+    }
+
+    private ProjectProfile profile(String id, String baseUrl, String pagesPackage, String testsPackage) {
+        return new ProjectProfile(
+                id, id, baseUrl,
+                "/login", "/login", "", "/secure", "", "", "", "", "", "", "",
+                new OutputProfile(pagesPackage, testsPackage)
+        );
     }
 
     @Test

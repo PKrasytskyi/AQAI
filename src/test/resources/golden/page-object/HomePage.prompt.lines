@@ -3,10 +3,10 @@
 Build one POM contract for:
 targetPage=HomePage
 targetRoute=/
-capability=UNKNOWN
+capability=NAVIGATION
 Contract schemaVersion=pom-contract-v1
 # Input
 Typed page contract:
-pageName=HomePage | route=/ | capability=UNKNOWN | openMethodName=openHome
+pageName=HomePage | route=/ | capability=NAVIGATION | openMethodName=openHome
 Page-owned actions and assertions:
 Confirmed selected locators:

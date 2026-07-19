@@ -48,7 +48,8 @@ The runtime now uses dependency-based orchestration: agents declare typed input/
 - `ua.demo.agentlab.ai.context` - target-aware prompt context assembly and retrieval filtering.
 - `ua.demo.agentlab.ai.pageenrichment` - page-scoped enrichment over mapper output.
 - `ua.demo.agentlab.ai.expectationenrichment` - deterministic/AI expected-result resolution.
-- `ua.demo.agentlab.ai.ui` - Page Object and UI test prompt/spec generation.
+- `ua.demo.agentlab.ai.ui` - structured POM contract planning and deterministic Page Object generation.
+- `ua.demo.agentlab.ui.testcontract` - typed atomic UI test contracts, schema/semantic validation, deterministic TestNG generation, and source maps.
 - `ua.demo.agentlab.ai.quality` - run quality summary and artifact diff.
 - `ua.demo.agentlab.core.ui` - Selenium base page/test helpers used by generated code.
 - `ua.demo.agentlab.core.api` - RestAssured API runtime helper used by generated API clients.
@@ -105,6 +106,7 @@ src/main/resources/profiles/orangehrm.project-profile.yaml
 
 ```powershell
 $env:OPENAI_API_KEY="..."
+$env:OPENAI_MODEL="gpt-5.6-luna"
 $env:RAG_OPENAI_API_KEY="..."
 $env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD="..."
 $env:API_AUTH_TOKEN="..."
@@ -126,6 +128,19 @@ JVM system property > environment variable > project profile YAML > framework.pr
 
 If the CLI does not pass a requirement file, the runner uses `requirements.file` from the active project profile.
 
+Generated UI sources are isolated per project. Unless a profile explicitly declares output packages, the platform derives them from `profileId + baseUrlHash`:
+
+```text
+ua.demo.agentlab.ui.generated.<generationNamespace>.pages
+ua.demo.agentlab.ui.generated.<generationNamespace>.tests
+```
+
+The checked-in OpenAI generation default is `gpt-5.6-luna`. `OPENAI_MODEL` remains the runtime override
+for accounts or environments that expose a different model identifier; RAG generation inherits the same
+value unless `RAG_OPENAI_GENERATION_MODEL` is set explicitly.
+
+Persistence writes `target/ai-run/validation/generated-source-manifest.json`. Compile, review, and generated-source smoke accept only files whose package, path, class name, and content hash belong to that current-run manifest. Maven compile is scoped to the manifest namespace, so equal names such as `LoginPage` or `REQ001...Test` from another project cannot collide with the active run.
+
 Important runtime switches:
 
 ```properties
@@ -142,6 +157,7 @@ artifact.reuse.force-refresh=false
 
 - `KNOWLEDGE_DB_STATUS=false` disables RAG, Neo4j, Qdrant, and artifact reuse for a no-DB comparison run.
 - `KNOWLEDGE_DB_STATUS=true` enables RAG, Neo4j, Qdrant, and artifact reuse for a DB-backed run.
+- Demo manifests use `runtime.databaseMode: environment-controlled`, so the same immutable demo input supports both runs. Fixed `without-db-baseline` and `with-db-required` modes remain available for dedicated manifests.
 - `ai.page-enrichment.llm.enabled` controls whether page enrichment can call OpenAI.
 - `rag.enabled` controls retrieval/indexing behavior and must not be treated as the page-enrichment switch.
 - `knowledge.graph.enabled` and `knowledge.vector.enabled` control Neo4j/Qdrant persistence and retrieval availability.
@@ -216,6 +232,20 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" compile
 ```
 
 ## Run The Workflow
+
+Build Week OrangeHRM requirements-to-execution demo:
+
+```powershell
+$env:OPENAI_API_KEY="..."
+$env:OPENAI_MODEL="gpt-5.6-luna"
+$env:TEST_VALID_USERNAME="..."
+$env:TEST_VALID_PASSWORD="..."
+$env:KNOWLEDGE_DB_STATUS="false"
+
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--demo orangehrm"
+```
+
+The command resolves the versioned demo manifest, generates namespaced Page Objects and TestNG tests, compiles and reviews them, runs source/live smoke, executes only current-run manifest-owned generated tests, and writes `target/ai-run/quality/build-week-demo-summary.{json,md}`. See [Build Week Demo](docs/BUILD_WEEK_DEMO.md).
 
 Deterministic run:
 
@@ -330,6 +360,7 @@ The platform has executable checks for:
 
 ## Documentation
 
+- [Developer Onboarding and Delivery Guide](docs/DEVELOPER_ONBOARDING.md)
 - [License](LICENSE)
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
@@ -342,6 +373,11 @@ The platform has executable checks for:
 - [RAG Layer Guide](docs/RAG_LAYER_GUIDE.md)
 - [Target Architecture](docs/TARGET_ARCHITECTURE.md)
 - [Roadmap](ROADMAP.md)
+
+Development happens on short-lived `feature/`, `fix/`, `refactor/`, or `docs/`
+branches created from `dev`. `dev` is the stable integration baseline and
+`main` is the public/release baseline; see the onboarding guide for the merge
+and hotfix policy.
 
 ## Repository Hygiene
 

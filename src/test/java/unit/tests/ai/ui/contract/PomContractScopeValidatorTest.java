@@ -90,6 +90,34 @@ public class PomContractScopeValidatorTest {
                 .anyMatch(issue -> issue.ruleId().equals("POM_SCOPE_COVERAGE_GAP_REPRESENTED")));
     }
 
+    @Test
+    public void matchesElementVisibilityByBoundLocatorInsteadOfBusinessExpectedText() {
+        PromptReadyPomScope scope = new PromptReadyPomScope(
+                "LoginPage", "/login", false, List.of(), List.of("REQ-LOGIN"),
+                List.of(),
+                List.of(new PromptReadyAssertion("ELEMENT_VISIBLE", "Username input is visible and enabled",
+                        "LoginPage", "username", "REQ-LOGIN", 1.0d)),
+                List.of(locator("username")), List.of(), 1.0d
+        );
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("LoginPage", "/login", "AUTHENTICATION", "openLogin"),
+                List.of(contractLocator("username")),
+                List.of(),
+                List.of(new ua.demo.agentlab.ai.ui.contract.PomAssertionSpec(
+                        "isUsernameVisible", "boolean",
+                        List.of(new PomCheckSpec(PomCheckType.VISIBLE, "username", "", "", "", "")),
+                        "AND")),
+                List.of(),
+                List.of()
+        );
+
+        var report = new PomContractScopeValidator().validate(contract, scope);
+
+        Assert.assertFalse(report.issues().stream()
+                .anyMatch(issue -> issue.ruleId().equals("POM_SCOPE_ASSERTION_COVERED")));
+    }
+
     private PromptReadyPomScope dashboardScope() {
         return new PromptReadyPomScope(
                 "DashboardPage", "/dashboard", true, List.of("LoginPage"), List.of("REQ-1"),

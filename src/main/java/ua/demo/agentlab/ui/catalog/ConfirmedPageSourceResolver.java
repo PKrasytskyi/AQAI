@@ -3,6 +3,7 @@ package ua.demo.agentlab.ui.catalog;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirement;
 import ua.demo.agentlab.requirements.normalization.model.NormalizedRequirementBundle;
+import ua.demo.agentlab.requirements.normalization.StructuredRequirementContext;
 import ua.demo.agentlab.ui.discovery.model.DiscoveredUiPage;
 import ua.demo.agentlab.ui.discovery.model.UiDiscoverySnapshot;
 
@@ -17,6 +18,15 @@ import java.util.regex.Pattern;
 public class ConfirmedPageSourceResolver {
 
     private static final Pattern ROUTE_PATTERN = Pattern.compile("(?<![A-Za-z0-9])/[a-zA-Z0-9][a-zA-Z0-9/_\\-.]*");
+    private final Neo4jStableCapabilityLookupService stableCapabilityLookup;
+
+    public ConfirmedPageSourceResolver() { this(new Neo4jStableCapabilityLookupService()); }
+    public ConfirmedPageSourceResolver(boolean includeStableCache) {
+        this(includeStableCache ? new Neo4jStableCapabilityLookupService() : null);
+    }
+    ConfirmedPageSourceResolver(Neo4jStableCapabilityLookupService stableCapabilityLookup) {
+        this.stableCapabilityLookup = stableCapabilityLookup;
+    }
 
     public ConfirmedPageRegistry resolve(ProjectProfile profile) {
         return resolve(profile, null, List.of());
@@ -40,9 +50,12 @@ public class ConfirmedPageSourceResolver {
         addProfileRoutes(candidates, profile);
         addRequirementRoutes(candidates, requirements);
         addDiscoveryRoutes(candidates, discoverySnapshot);
+        if (stableCapabilityLookup != null) {
+            candidates.addAll(stableCapabilityLookup.findStablePages(profile));
+        }
         if (stableCachedPages != null) {
             stableCachedPages.stream()
-                    .filter(candidate -> candidate != null && candidate.source() == PageSource.DB_STABLE_CACHE)
+                    .filter(candidate -> candidate != null && candidate.hasRoute())
                     .forEach(candidates::add);
         }
         return new ConfirmedPageRegistry(candidates);
@@ -82,6 +95,14 @@ public class ConfirmedPageSourceResolver {
         }
         Set<String> seen = new LinkedHashSet<>();
         for (NormalizedRequirement requirement : requirements.requirements()) {
+            String structuredRoute = StructuredRequirementContext.targetRoute(requirement);
+            if (!structuredRoute.isBlank() && seen.add(structuredRoute)) {
+                String capabilityText = StructuredRequirementContext.pageCapability(requirement);
+                addCandidate(candidates, structuredRoute,
+                        inferCapability(capabilityText + " " + requirement.title()),
+                        PageSource.REQUIREMENT_ROUTE,
+                        requirement.id() + " " + sourceLine(requirement));
+            }
             String text = requirementText(requirement);
             Matcher matcher = ROUTE_PATTERN.matcher(text);
             while (matcher.find()) {

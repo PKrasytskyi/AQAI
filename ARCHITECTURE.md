@@ -156,7 +156,7 @@ Do not add new platform implementation code to root packages.
 Current unit tests live in:
 
 ```text
-src/test/unit/tests
+src/test/java/unit/tests
 ```
 
 `src/test/java` is reserved for future integration tests and generated-test compile fixtures.

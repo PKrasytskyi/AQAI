@@ -6,7 +6,7 @@ project:
   baseUrl: https://the-internet.herokuapp.com
 
 requirements:
-  file: requirements/the-internet-valid-login-requirement.md
+  file: requirements/the-internet-test-flow.md
 
 routes:
   home: /

@@ -20,9 +20,13 @@
         <cucumber.version>7.34.3</cucumber.version>
         <rest.assured.version>5.5.7</rest.assured.version>
         <exec.mainClass>ua.demo.agentlab.app.DemoRunner</exec.mainClass>
+        <agentlab.testSourceDirectory>${project.basedir}/src/test/java</agentlab.testSourceDirectory>
+        <agentlab.surefireReportsDirectory>${project.build.directory}/surefire-reports</agentlab.surefireReportsDirectory>
+        <maven.compiler.fork>false</maven.compiler.fork>
     </properties>
 
     <build>
+        <testSourceDirectory>${agentlab.testSourceDirectory}</testSourceDirectory>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -34,7 +38,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.14.1</version>
                 <configuration>
-                    <fork>true</fork>
+                    <fork>${maven.compiler.fork}</fork>
                 </configuration>
             </plugin>
 
@@ -43,6 +47,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.3</version>
                 <configuration>
+                    <reportsDirectory>${agentlab.surefireReportsDirectory}</reportsDirectory>
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>

@@ -63,7 +63,8 @@ public class PropertiesRagRuntimeConfig implements RagRuntimeConfig {
 
     @Override
     public String generationModel() {
-        return readValue("rag.openai.generation-model", readValue("openai.model", "gpt-5-mini"));
+        return readValue("rag.openai.generation-model", readValue("openai.model",
+                ua.demo.agentlab.ai.openai.PropertiesOpenAiRuntimeConfig.DEFAULT_MODEL));
     }
 
     @Override

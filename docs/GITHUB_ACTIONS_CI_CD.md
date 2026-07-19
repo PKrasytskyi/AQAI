@@ -14,7 +14,12 @@ The current workflow is intentionally CI-safe:
 Default triggers:
 
 - push to `main`;
-- pull request to `main`.
+- push to `dev`;
+- pull request to `dev` or `main`.
+
+`dev` is the integration branch and `main` is the public/release branch. New
+work should reach either branch only through a short-lived feature/fix/refactor
+branch and pull request. See [Developer Onboarding and Delivery Guide](DEVELOPER_ONBOARDING.md).
 
 Default job:
 
@@ -96,4 +101,3 @@ Recommended next steps:
 3. Add a scheduled dependency/security scan.
 4. Add an optional UI prompt generation smoke job that runs only with safe test credentials.
 5. Add release packaging once the API/UI generation contracts stabilize.
-

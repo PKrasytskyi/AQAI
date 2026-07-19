@@ -197,7 +197,7 @@ public class QdrantPageKnowledgeWriter implements PageKnowledgeWriter {
 
         @Override
         public String generationModel() {
-            return "gpt-5-mini";
+            return ua.demo.agentlab.ai.openai.PropertiesOpenAiRuntimeConfig.DEFAULT_MODEL;
         }
 
         @Override

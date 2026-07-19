@@ -1,0 +1,74 @@
+schemaVersion: demo-manifest.v3
+
+demo:
+  id: orangehrm-login-user-menu-logout-v1
+
+inputs:
+  projectProfile: demo/orangehrm-login-logout/project-profile.yaml
+  requirementFixture: demo/orangehrm-login-logout/requirements.md
+  requiredEnvironment:
+    - TEST_VALID_USERNAME
+    - TEST_VALID_PASSWORD
+    - OPENAI_API_KEY
+    - KNOWLEDGE_DB_STATUS
+
+expected:
+  pageCapabilities:
+    - AUTHENTICATION
+    - AUTHENTICATED_AREA
+    - USER_MENU
+    - LOGOUT
+  scenarioIds:
+    - REQ-001
+    - REQ-002
+    - REQ-003
+    - REQ-004
+  pomNames:
+    - LoginPage
+    - DashboardPage
+  generatedTests:
+    - REQ001AuthenticationFormIsReadyTest
+    - REQ002AuthenticateWithValidCredentialsTest
+    - REQ003OpenUserMenuAndDisplayLogoutActionTest
+    - REQ004LogoutAndReturnToAuthenticationPageTest
+  pipeline:
+    - REQUIREMENTS
+    - NORMALIZED_REQUIREMENTS
+    - CANONICAL_TEST_CASES
+    - CONFIRMED_UI_CATALOG
+    - POM_CONTRACTS
+    - PAGE_OBJECTS
+    - UI_TEST_CONTRACTS
+    - GENERATED_TESTNG_TESTS
+    - COMPILE
+    - EXECUTION
+    - QUALITY_REPORT
+  logoutAccessMode: USER_MENU
+  lifecycle:
+    - AUTHENTICATION
+    - AUTHENTICATED_AREA
+    - USER_MENU
+    - LOGOUT
+  finalRoute: /auth/login
+  finalState: UNAUTHENTICATED_LOGIN_READY
+
+runtime:
+  databaseMode: environment-controlled
+  aiMode: semantic-and-pom-contract
+  generatedTestExecutionRequired: true
+
+schemas:
+  requirements: normalized-requirement-bundle.v1
+  structuredBehaviorContracts: structured-behavior-contracts.v1
+  requirementGovernance: requirement-governance-bundle.v1
+  canonicalTestCase: canonical-test-case-bundle.v1
+  goldenRequirementSnapshot: golden-requirement-snapshot.v1
+  pomContract: pom-contract-v1
+  uiTestContract: ui-test-contract-bundle.v1
+  generationNamespace: generation-namespace.v1
+  generatedSourceManifest: generated-source-manifest.v1
+  generatedTestExecution: generated-tests-execution-result.v1
+  pageEnrichment: page-model-enrichment-record.v1
+  interactionInventory: ui-interaction-inventory.v1
+  evidenceFunnel: ui-evidence-funnel.v4
+  qualityReport: ai-run-quality-summary.v1

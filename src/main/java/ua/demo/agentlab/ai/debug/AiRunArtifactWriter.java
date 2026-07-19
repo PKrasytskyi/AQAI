@@ -13,12 +13,13 @@ public class AiRunArtifactWriter {
     private static final Path ROOT = Path.of("target", "ai-run");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ArtifactSecretRedactor secretRedactor = new ArtifactSecretRedactor();
 
     public Path writeText(String stage, String fileName, String content) {
         try {
             Path directory = ensureStageDirectory(stage);
             Path target = directory.resolve(sanitizeFileName(fileName));
-            Files.writeString(target, content == null ? "" : content, StandardCharsets.UTF_8);
+            Files.writeString(target, secretRedactor.redactText(content), StandardCharsets.UTF_8);
             return target.toAbsolutePath().normalize();
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to write AI text artifact for stage '%s'".formatted(stage), exception);
@@ -36,7 +37,8 @@ public class AiRunArtifactWriter {
         try {
             Path directory = ensureStageDirectory(stage);
             Path target = directory.resolve(sanitizeFileName(fileName));
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(target.toFile(), payload);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(
+                    target.toFile(), secretRedactor.redact(payload, objectMapper));
             return target.toAbsolutePath().normalize();
         } catch (IOException exception) {
             String detail = exception.getMessage() == null || exception.getMessage().isBlank()

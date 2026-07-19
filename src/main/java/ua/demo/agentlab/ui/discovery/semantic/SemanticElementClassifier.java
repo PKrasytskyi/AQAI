@@ -16,48 +16,63 @@ public class SemanticElementClassifier {
                 || "true".equalsIgnoreCase(element.attributes().get("aria-hidden"))) {
             return "SYSTEM_HIDDEN";
         }
-        String evidence = normalize(String.join(" ",
-                element.technicalType(),
-                element.semanticType(),
-                element.tag(),
-                element.inputType(),
-                element.role(),
-                element.name(),
-                element.id(),
-                element.placeholder(),
-                element.text()
+        String structuralEvidence = normalize(String.join(" ",
+                element.technicalType(), element.semanticType(), element.tag(), element.inputType(), element.role()
         ));
-        if (containsAny(evidence, "_token", "csrf", "xsrf", "authenticity_token")) {
+        String identityEvidence = normalize(String.join(" ",
+                element.name(), element.id(), element.placeholder(), element.ariaLabel()
+        ));
+        if (containsAny(structuralEvidence + " " + identityEvidence,
+                "_token", "csrf", "xsrf", "authenticity_token")) {
             return "SYSTEM_HIDDEN";
         }
-        if (containsAny(evidence, "password")) {
+        String tag = normalize(element.tag());
+        String inputType = normalize(element.inputType());
+        String role = normalize(element.role());
+
+        // Control type is structural. Visible text such as a heading named "Checkboxes" or
+        // "Dropdown" must never turn a non-interactive element into an executable control.
+        if ("input".equals(tag) && "password".equals(inputType)) {
             return "PASSWORD_INPUT";
         }
-        if (containsAny(evidence, "file")) {
+        if ("input".equals(tag) && "file".equals(inputType)) {
             return "FILE_INPUT";
         }
-        if (containsAny(evidence, "checkbox")) {
+        if (("input".equals(tag) && "checkbox".equals(inputType)) || "checkbox".equals(role)) {
             return "CHECKBOX";
         }
-        if (containsAny(evidence, "radio")) {
+        if (("input".equals(tag) && "radio".equals(inputType)) || "radio".equals(role)) {
             return "RADIO";
         }
-        if (containsAny(evidence, "select", "dropdown", "combobox")) {
+        if ("input".equals(tag) && "range".equals(inputType)) {
+            return "RANGE_SLIDER";
+        }
+        if ("select".equals(tag) || "combobox".equals(role)) {
             return "SELECT";
         }
-        if (containsAny(evidence, "textarea")) {
+        if ("textarea".equals(tag)) {
             return "TEXTAREA";
         }
-        if (containsAny(evidence, "button", "submit")) {
+        if ("button".equals(tag) || "button".equals(role)
+                || "input".equals(tag) && ("submit".equals(inputType) || "button".equals(inputType))) {
             return "BUTTON";
         }
-        if (containsAny(evidence, "anchor", " link ", "navigation-link") || "a".equalsIgnoreCase(element.tag())) {
+        if ("a".equals(tag) || "link".equals(role)) {
             return "LINK";
         }
-        if (containsAny(evidence, "table", "grid", "list", "collection", "card")) {
+        if ("img".equals(tag) || "image".equals(role)) {
+            return "IMAGE";
+        }
+        if ("input".equals(tag) && !"hidden".equals(inputType)) {
+            return "INPUT";
+        }
+        if (tag.matches("h[1-6]") || "heading".equals(role)) {
+            return "HEADING";
+        }
+        if (containsAny(structuralEvidence, "table", "grid", "list", "collection", "card")) {
             return "COLLECTION";
         }
-        if (containsAny(evidence, "input", "field", "textbox", "search")) {
+        if (containsAny(structuralEvidence, "input", "field", "textbox", "search")) {
             return "INPUT";
         }
         return element.tag().isBlank() ? "UNKNOWN" : element.tag().toUpperCase(Locale.ROOT);

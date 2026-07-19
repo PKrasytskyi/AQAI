@@ -1,0 +1,125 @@
+[ {
+  "requirementId" : "REQ-001",
+  "capability" : "AUTHENTICATION",
+  "actions" : [ "Open the target page at the configured login route.", "Inspect the authentication form." ],
+  "sourceContext" : {
+    "page" : "LoginPage",
+    "route" : "/auth/login"
+  },
+  "targetContext" : {
+    "page" : "LoginPage",
+    "route" : "/auth/login"
+  },
+  "assertions" : [ {
+    "type" : "ELEMENT_VISIBLE",
+    "target" : "loginButton",
+    "expectedValue" : "Login button is visible and enabled"
+  }, {
+    "type" : "ELEMENT_VISIBLE",
+    "target" : "passwordInput",
+    "expectedValue" : "Password input is visible and enabled"
+  }, {
+    "type" : "ELEMENT_VISIBLE",
+    "target" : "usernameInput",
+    "expectedValue" : "Username input is visible and enabled"
+  }, {
+    "type" : "URL_CONTAINS",
+    "target" : "authenticationRoute",
+    "expectedValue" : "project-profile.loginRoute"
+  } ],
+  "dataRequirements" : { },
+  "executable" : true,
+  "reviewReasons" : [ ]
+}, {
+  "requirementId" : "REQ-002",
+  "capability" : "AUTHENTICATION",
+  "actions" : [ "Enter username `${TEST_VALID_USERNAME}` into the username input.", "Enter password `${TEST_VALID_PASSWORD}` into the password input.", "Submit the authentication form." ],
+  "sourceContext" : {
+    "page" : "LoginPage",
+    "route" : "/auth/login"
+  },
+  "targetContext" : {
+    "page" : "DashboardPage",
+    "route" : "/dashboard/index"
+  },
+  "assertions" : [ {
+    "type" : "AUTHENTICATION_SUCCEEDED",
+    "target" : "authenticatedSession",
+    "expectedValue" : "Valid credentials are accepted"
+  }, {
+    "type" : "ELEMENT_VISIBLE",
+    "target" : "authenticatedAreaHeading",
+    "expectedValue" : "Authenticated area heading is visible"
+  }, {
+    "type" : "URL_CONTAINS",
+    "target" : "authenticatedRoute",
+    "expectedValue" : "project-profile.authenticatedRoute"
+  } ],
+  "dataRequirements" : {
+    "TEST_VALID_PASSWORD" : "${TEST_VALID_PASSWORD}",
+    "TEST_VALID_USERNAME" : "${TEST_VALID_USERNAME}",
+    "dataset" : "valid-authentication"
+  },
+  "executable" : true,
+  "reviewReasons" : [ ]
+}, {
+  "requirementId" : "REQ-003",
+  "capability" : "LOGOUT",
+  "actions" : [ "Open the authenticated user menu." ],
+  "sourceContext" : {
+    "page" : "DashboardPage",
+    "route" : "/dashboard/index"
+  },
+  "targetContext" : {
+    "page" : "DashboardPage",
+    "route" : "/dashboard/index"
+  },
+  "assertions" : [ {
+    "type" : "AUTHENTICATED_AREA_VISIBLE",
+    "target" : "authenticatedArea",
+    "expectedValue" : "User remains authenticated while the user menu is open"
+  }, {
+    "type" : "ELEMENT_VISIBLE",
+    "target" : "logoutAction",
+    "expectedValue" : "Logout action is visible and enabled after opening the user menu"
+  }, {
+    "type" : "ELEMENT_VISIBLE",
+    "target" : "userMenu",
+    "expectedValue" : "User menu is open and visible"
+  } ],
+  "dataRequirements" : { },
+  "executable" : true,
+  "reviewReasons" : [ ]
+}, {
+  "requirementId" : "REQ-004",
+  "capability" : "LOGOUT",
+  "actions" : [ "Click the logout action from the open user menu." ],
+  "sourceContext" : {
+    "page" : "DashboardPage",
+    "route" : "/dashboard/index"
+  },
+  "targetContext" : {
+    "page" : "LoginPage",
+    "route" : "/auth/login"
+  },
+  "assertions" : [ {
+    "type" : "AUTHENTICATED_AREA_ABSENT",
+    "target" : "authenticatedArea",
+    "expectedValue" : "Authenticated area is no longer accessible after logout"
+  }, {
+    "type" : "ELEMENT_VISIBLE",
+    "target" : "usernameInput",
+    "expectedValue" : "Username input is visible after logout"
+  }, {
+    "type" : "URL_CONTAINS",
+    "target" : "authenticationRoute",
+    "expectedValue" : "project-profile.loginRoute"
+  } ],
+  "dataRequirements" : {
+    "TEST_VALID_PASSWORD" : "${TEST_VALID_PASSWORD}",
+    "TEST_VALID_USERNAME" : "${TEST_VALID_USERNAME}",
+    "dataset" : "valid-authentication"
+  },
+  "executable" : true,
+  "reviewReasons" : [ ]
+} ]

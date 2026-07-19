@@ -47,7 +47,8 @@ public class ArtifactLifecyclePromotionAgent implements WorkflowAgent,
                 WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES,
                 WorkflowArtifact.COMPILE_RESULT,
                 WorkflowArtifact.REVIEW_RESULT,
-                WorkflowArtifact.GENERATED_UI_SMOKE_RESULT
+                WorkflowArtifact.GENERATED_UI_SMOKE_RESULT,
+                WorkflowArtifact.GENERATED_TEST_EXECUTION_RESULT
         );
     }
 

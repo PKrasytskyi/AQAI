@@ -26,8 +26,8 @@ class RequirementUnitClassifier {
                 type,
                 capability,
                 intent,
-                pageResolver.pageFor(capability),
-                pageResolver.routeFor(capability)
+                pageResolver.pageFor(requirement, capability),
+                pageResolver.routeFor(requirement, capability)
         );
     }
 
@@ -51,12 +51,33 @@ class RequirementUnitClassifier {
     }
 
     private RequirementCapability capability(NormalizedRequirement requirement) {
+        RequirementCapability declared = declaredCapability(requirement);
+        if (declared != RequirementCapability.GENERIC) {
+            return declared;
+        }
         String text = text(requirement);
         if (containsAny(text, "logout", "sign out", "log out")) {
             return RequirementCapability.LOGOUT;
         }
+        // Product vocabulary wins over generic authentication wording such as
+        // "authenticated application area" in protected business requirements.
+        if (containsAny(text, "recruitment", "vacancies", "vacancy", "module")) {
+            return RequirementCapability.MODULE_NAVIGATION;
+        }
+        if (containsAny(text, "search results", "matching vacancy", "displayed vacancy", "displayed job title",
+                "displayed hiring manager", "displayed status", "results are displayed")) {
+            return RequirementCapability.RESULTS_COLLECTION;
+        }
+        if (containsAny(text, "search button", "click search", "search")) {
+            return RequirementCapability.SEARCH;
+        }
+        if (containsAny(text, "job title", "hiring manager", "select a vacancy", "select a status",
+                "selected filters", "filter")) {
+            return RequirementCapability.FILTER;
+        }
         if (containsAny(text, "authenticated area", "authenticated route", "successful login state",
-                "welcome message", "dashboard", "secure area", "redirected to the authenticated")) {
+                "authenticated user", "authenticated application", "welcome message", "dashboard", "secure area",
+                "redirected to the authenticated")) {
             return RequirementCapability.AUTHENTICATED_AREA;
         }
         if (containsAny(text, "login", "sign in", "authenticate", "username", "password", "credentials", "home/login")) {
@@ -81,12 +102,29 @@ class RequirementUnitClassifier {
     }
 
     private RequirementIntent intent(NormalizedRequirement requirement, RequirementUnitType type, RequirementCapability capability) {
+        RequirementIntent structuredIntent = structuredIntent(requirement, capability);
+        if (structuredIntent != null) {
+            return structuredIntent;
+        }
         String text = text(requirement);
         if (type == RequirementUnitType.ROUTE_EXPECTATION || containsAny(text, "route", "url")) {
             return RequirementIntent.VERIFY_ROUTE;
         }
         if (containsAny(text, "logout", "sign out", "log out")) {
             return containsAny(text, "visible", "see") ? RequirementIntent.VERIFY_LOGOUT_AVAILABLE : RequirementIntent.LOGOUT;
+        }
+        if (capability == RequirementCapability.MODULE_NAVIGATION
+                && containsAny(text, "open", "view", "recruitment", "vacancies")) {
+            return RequirementIntent.MODULE_NAVIGATION;
+        }
+        if (containsAny(text, "select a", "select the", "select ")) {
+            return RequirementIntent.SELECT_OPTION;
+        }
+        if (capability == RequirementCapability.SEARCH && containsAny(text, "click", "search")) {
+            return RequirementIntent.SEARCH;
+        }
+        if (capability == RequirementCapability.FILTER && containsAny(text, "apply", "filter", "selected")) {
+            return RequirementIntent.FILTER;
         }
         if (containsAny(text, "navigate")) {
             return RequirementIntent.NAVIGATE;
@@ -114,6 +152,31 @@ class RequirementUnitClassifier {
         return RequirementIntent.INSPECT_CONTENT;
     }
 
+    private RequirementIntent structuredIntent(NormalizedRequirement requirement, RequirementCapability capability) {
+        if (!hasTag(requirement, "structured-requirement")) {
+            return null;
+        }
+        String actions = normalize(String.join(" ", requirement.structuredSections()
+                .getOrDefault("action", List.of())));
+        if ((actions.contains("logout") && containsAny(actions, "click", "activate", "select"))
+                || containsAny(actions, "sign out", "log out")) {
+            return RequirementIntent.LOGOUT;
+        }
+        if (containsAny(actions, "open the authenticated user menu", "open user menu", "open the user menu")) {
+            return RequirementIntent.OPEN_MENU;
+        }
+        if (containsAny(actions, "enter username", "enter password") && containsAny(actions, "submit")) {
+            return RequirementIntent.AUTHENTICATE;
+        }
+        if (capability == RequirementCapability.MODULE_NAVIGATION) return RequirementIntent.MODULE_NAVIGATION;
+        if (capability == RequirementCapability.FILTER) return RequirementIntent.FILTER;
+        if (capability == RequirementCapability.SEARCH) return RequirementIntent.SEARCH;
+        if (capability == RequirementCapability.RESULTS_COLLECTION) return RequirementIntent.INSPECT_CONTENT;
+        if (containsAny(actions, "open the target page", "open target page")) return RequirementIntent.OPEN_PAGE;
+        if (containsAny(actions, "inspect", "verify", "read")) return RequirementIntent.INSPECT_CONTENT;
+        return null;
+    }
+
     private boolean containsAny(String value, String... fragments) {
         for (String fragment : fragments) {
             if (value.contains(normalize(fragment))) {
@@ -121,6 +184,23 @@ class RequirementUnitClassifier {
             }
         }
         return false;
+    }
+
+    private RequirementCapability declaredCapability(NormalizedRequirement requirement) {
+        if (requirement == null || requirement.tags() == null) return RequirementCapability.GENERIC;
+        for (String tag : requirement.tags()) {
+            String normalized = normalize(tag);
+            if (!normalized.startsWith("capability-")) continue;
+            String value = normalized.substring("capability-".length()).replace('-', '_');
+            try { return RequirementCapability.valueOf(value.toUpperCase(Locale.ROOT)); }
+            catch (IllegalArgumentException ignored) { return RequirementCapability.GENERIC; }
+        }
+        return RequirementCapability.GENERIC;
+    }
+
+    private boolean hasTag(NormalizedRequirement requirement, String expected) {
+        return requirement != null && requirement.tags() != null
+                && requirement.tags().stream().anyMatch(tag -> normalize(tag).equals(normalize(expected)));
     }
 
     private String text(NormalizedRequirement requirement) {

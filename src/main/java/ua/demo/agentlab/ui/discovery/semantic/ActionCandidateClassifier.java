@@ -2,6 +2,7 @@ package ua.demo.agentlab.ui.discovery.semantic;
 
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageActionModel;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageElementModel;
+import ua.demo.agentlab.ui.discovery.interaction.compatibility.ActionCompatibilityService;
 import ua.demo.agentlab.ui.discovery.semantic.model.ActionCandidate;
 
 import java.util.ArrayList;
@@ -11,6 +12,18 @@ import java.util.Locale;
 import java.util.Map;
 
 public class ActionCandidateClassifier {
+
+    private final ActionCompatibilityService compatibilityService;
+
+    public ActionCandidateClassifier() {
+        this(new ActionCompatibilityService());
+    }
+
+    ActionCandidateClassifier(ActionCompatibilityService compatibilityService) {
+        this.compatibilityService = compatibilityService == null
+                ? new ActionCompatibilityService()
+                : compatibilityService;
+    }
 
     public List<ActionCandidate> classify(PageElementModel element, String semanticType) {
         if (element == null || !element.visible() || ignoredSystemElement(element)) {
@@ -47,6 +60,9 @@ public class ActionCandidateClassifier {
                 add(candidates, "UNCHECK", element.elementId(), 0.86d, "semantic-element:CHECKBOX");
             }
             case "FILE_INPUT" -> add(candidates, "UPLOAD", element.elementId(), 0.90d, "semantic-element:FILE_INPUT");
+            case "RANGE_SLIDER" -> add(candidates, "SET_SLIDER", element.elementId(), 0.90d,
+                    "semantic-element:RANGE_SLIDER");
+            case "IMAGE" -> add(candidates, "HOVER", element.elementId(), 0.78d, "semantic-element:IMAGE");
             case "COLLECTION" -> add(candidates, "READ", element.elementId(), 0.78d, "semantic-element:COLLECTION");
             default -> {
                 if (containsAny(evidence, "button", "click", "submit", "link")) {
@@ -90,10 +106,15 @@ public class ActionCandidateClassifier {
         if (containsAny(evidence, "logout", "log out", "sign out")) {
             add(candidates, "LOGOUT", element.elementId(), 0.92d, "semantic-evidence:logout");
         }
-        if (containsAny(evidence, "user_menu_trigger", "user menu", "userdropdown", "dropdown")) {
+        if (containsAny(evidence, "new window", "open window")) {
+            add(candidates, "OPEN_NEW_WINDOW", element.elementId(), 0.86d, "semantic-evidence:new-window");
+        }
+        if (containsAny(evidence, "user_menu_trigger", "user menu trigger", "userdropdown-tab", "aria-haspopup")) {
             add(candidates, "OPEN_MENU", element.elementId(), 0.86d, "semantic-evidence:user-menu");
         }
-        return new ArrayList<>(candidates.values());
+        return candidates.values().stream()
+                .filter(candidate -> compatibilityService.allows(element, semanticType, candidate.action()))
+                .toList();
     }
 
     private void add(
@@ -134,6 +155,9 @@ public class ActionCandidateClassifier {
             case "check" -> "CHECK";
             case "uncheck" -> "UNCHECK";
             case "upload" -> "UPLOAD";
+            case "hover" -> "HOVER";
+            case "setslider", "slider", "range" -> "SET_SLIDER";
+            case "opennewwindow", "openwindow" -> "OPEN_NEW_WINDOW";
             case "download" -> "DOWNLOAD";
             case "read", "inspect" -> "READ";
             default -> actionType == null ? "" : actionType.trim().toUpperCase(Locale.ROOT);

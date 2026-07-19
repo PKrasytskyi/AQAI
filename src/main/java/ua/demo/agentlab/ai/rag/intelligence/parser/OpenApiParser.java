@@ -93,13 +93,13 @@ public class OpenApiParser {
             List<OpenApiEndpointDefinition> endpoints = new ArrayList<>();
             JsonNode paths = root.path("paths");
             if (paths.isObject()) {
-                Iterator<Map.Entry<String, JsonNode>> pathIterator = paths.fields();
+                Iterator<Map.Entry<String, JsonNode>> pathIterator = paths.properties().iterator();
                 while (pathIterator.hasNext()) {
                     Map.Entry<String, JsonNode> pathEntry = pathIterator.next();
                     if (!pathEntry.getValue().isObject()) {
                         continue;
                     }
-                    Iterator<Map.Entry<String, JsonNode>> methodIterator = pathEntry.getValue().fields();
+                    Iterator<Map.Entry<String, JsonNode>> methodIterator = pathEntry.getValue().properties().iterator();
                     while (methodIterator.hasNext()) {
                         Map.Entry<String, JsonNode> methodEntry = methodIterator.next();
                         endpoints.add(new OpenApiEndpointDefinition(

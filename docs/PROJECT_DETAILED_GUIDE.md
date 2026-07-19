@@ -56,7 +56,7 @@ The system should generate:
 - no test that depends on another test;
 - no test that bypasses the page-object API.
 
-At the current checkpoint, LoginPage Page Object generation is stable enough to serve as the golden UI vertical slice. UI test generation is still kept out of the LLM path until test contracts and deterministic test writing are brought to the same quality level.
+At the current checkpoint, LoginPage and DashboardPage generation form the golden UI vertical slice. UI test Java remains outside the LLM path: canonical scenarios are assembled into typed test contracts, validated against the generated POM API, and rendered by the deterministic TestNG writer.
 
 ## 3. Why `TestPlan` is no longer the primary path
 
@@ -387,7 +387,7 @@ AI quality still depends on:
 - precision of page/action discovery;
 - strictness of output parsing.
 
-The LoginPage POM flow is now stable enough for the golden demo slice. DashboardPage also participates in that slice when authenticated discovery succeeds: route evidence, user-menu trigger, and logout link can become confirmed POM evidence. Dashboard heading validation remains a coverage gap unless discovery confirms a stable heading locator. UI test generation remains prompt-only/disabled until its contract-first writer is ready.
+The LoginPage POM flow is stable enough for the golden demo slice. DashboardPage also participates when authenticated discovery confirms route, user-menu trigger, and logout evidence. Dashboard heading validation remains a coverage gap without a stable heading locator. The contract-first test layer now emits `ui-test-contract-bundle.v1`, validates page/method ownership and typed data, and generates deterministic TestNG source; live execution of those generated atomic tests is the next lifecycle checkpoint.
 
 ## 9. Main Packages Worth Knowing
 

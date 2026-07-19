@@ -27,6 +27,15 @@ public class SeleniumDiscoveryStabilityAggregatorTest {
         Assert.assertEquals(aggregated.discoveryRunCount(), 3);
     }
 
+    @Test
+    public void stableSemanticClassLocatorIsObservedAcrossRuns() {
+        SeleniumDiscoveryResult aggregated = new SeleniumDiscoveryStabilityAggregator().aggregate(List.of(
+                runWithUserMenuTrigger(), runWithUserMenuTrigger(), runWithUserMenuTrigger()));
+
+        String key = DiscoveryLocatorKey.key("dashboard", "css", "span.oxd-userdropdown-tab");
+        Assert.assertEquals(aggregated.locatorObservationCounts().get(key), Integer.valueOf(3));
+    }
+
     private SeleniumDiscoveryResult runWithSubmitButton() {
         RawElement submit = new RawElement(
                 "raw-submit",
@@ -63,6 +72,15 @@ public class SeleniumDiscoveryStabilityAggregatorTest {
                 null,
                 List.of(submit)
         );
+        return new SeleniumDiscoveryResult("https://example.test", List.of(page), List.of());
+    }
+
+    private SeleniumDiscoveryResult runWithUserMenuTrigger() {
+        RawElement trigger = new RawElement("raw-menu", "span", "", "User", "", "", "", "", "", "",
+                "", "oxd-userdropdown-tab", true, true, false, Map.of("class", "oxd-userdropdown-tab"));
+        DiscoveredPageSnapshot page = new DiscoveredPageSnapshot("dashboard", "https://example.test/dashboard",
+                "Dashboard", List.of(), List.of(), List.of(), List.of(), false, true, List.of(), List.of(),
+                "fingerprint", null, null, List.of(trigger));
         return new SeleniumDiscoveryResult("https://example.test", List.of(page), List.of());
     }
 }

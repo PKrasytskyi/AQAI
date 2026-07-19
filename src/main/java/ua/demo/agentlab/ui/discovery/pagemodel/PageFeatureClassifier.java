@@ -19,7 +19,8 @@ public class PageFeatureClassifier {
         if (containsAny(text, "cart", "basket", "bag")) {
             return "container";
         }
-        if (containsAny(text, "listing", "catalog", "collection", "/collections")) {
+        if (containsAny(text, "listing", "catalog", "collection", "/collections", "/recruitment", "/vacanc",
+                "candidates", "search results")) {
             return "catalog";
         }
         if (containsAny(text, "details", "detail", "record", "profile", "view")) {

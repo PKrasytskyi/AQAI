@@ -62,6 +62,7 @@ public class RuleBasedTestCaseExpectationEnrichmentClient implements TestCaseExp
 
         ExpectedResultCandidate ownCandidate = candidates.stream()
                 .filter(candidate -> testCase.requirementRefs().contains(candidate.requirementId()))
+                .filter(candidate -> conflictDetector.detect(testCase, candidate).isEmpty())
                 .findFirst()
                 .orElse(null);
         if (ownCandidate != null) {
@@ -69,12 +70,13 @@ public class RuleBasedTestCaseExpectationEnrichmentClient implements TestCaseExp
         }
 
         ExpectedResultCandidate semanticCandidate = semanticCandidate(testCase, candidates);
-        if (semanticCandidate != null) {
+        if (semanticCandidate != null && conflictDetector.detect(testCase, semanticCandidate).isEmpty()) {
             return resolved(testCase, semanticCandidate, 0.90d,
                     "Rule-based login flow semantic match against Assertion Requirements.");
         }
 
         ExpectedResultCandidate bestCandidate = candidates.stream()
+                .filter(candidate -> conflictDetector.detect(testCase, candidate).isEmpty())
                 .max(Comparator.comparingDouble(candidate -> similarity(testCase, candidate)))
                 .orElse(null);
         if (bestCandidate != null && similarity(testCase, bestCandidate) >= 0.80d) {

@@ -77,6 +77,106 @@ public class LlmOutputSchemaValidator {
         return report(LlmOutputSchemaVersion.AI_UI_TEST_SPEC, issues);
     }
 
+    public LlmOutputSchemaValidationReport validateUiTestContractBundle(JsonNode root) {
+        List<LlmOutputSchemaIssue> issues = new ArrayList<>();
+        requireSchemaVersion(root, LlmOutputSchemaVersion.UI_TEST_CONTRACT_BUNDLE, issues);
+        requireArray(root, "contracts", "$.contracts", issues);
+        JsonNode contracts = root.path("contracts");
+        if (contracts.isArray() && contracts.isEmpty()) {
+            issues.add(new LlmOutputSchemaIssue("$.contracts", "must contain at least one test contract"));
+        }
+        if (contracts.isArray()) {
+            for (int index = 0; index < contracts.size(); index++) {
+                validateUiTestContract(contracts.get(index), "$.contracts[" + index + "]", issues);
+            }
+        }
+        return report(LlmOutputSchemaVersion.UI_TEST_CONTRACT_BUNDLE, issues);
+    }
+
+    private void validateUiTestContract(JsonNode item, String path, List<LlmOutputSchemaIssue> issues) {
+        for (String field : List.of(
+                "scenarioId", "capability", "className", "testMethodName", "description",
+                "sourcePage", "targetPage"
+        )) {
+            requireText(item, field, path + "." + field, issues);
+        }
+        for (String field : List.of(
+                "preconditions", "actions", "assertions", "dataReferences", "requirementIds", "coverageGaps"
+        )) {
+            requireArray(item, field, path + "." + field, issues);
+        }
+        validateUiTestActions(item.path("preconditions"), path + ".preconditions", issues);
+        validateUiTestActions(item.path("actions"), path + ".actions", issues);
+        validateUiTestAssertions(item.path("assertions"), path + ".assertions", issues);
+        validateUiTestDataReferences(item.path("dataReferences"), path + ".dataReferences", issues);
+        if (item.path("assertions").isArray() && item.path("assertions").isEmpty()) {
+            issues.add(new LlmOutputSchemaIssue(path + ".assertions", "must contain at least one typed assertion"));
+        }
+        if (item.path("requirementIds").isArray() && item.path("requirementIds").isEmpty()) {
+            issues.add(new LlmOutputSchemaIssue(path + ".requirementIds", "must contain at least one requirement id"));
+        }
+    }
+
+    private void validateUiTestActions(JsonNode actions, String path, List<LlmOutputSchemaIssue> issues) {
+        if (!actions.isArray()) {
+            return;
+        }
+        for (int index = 0; index < actions.size(); index++) {
+            JsonNode action = actions.get(index);
+            String itemPath = path + "[" + index + "]";
+            requireNumber(action, "order", itemPath + ".order", issues);
+            requireText(action, "page", itemPath + ".page", issues);
+            requireText(action, "method", itemPath + ".method", issues);
+            requireArray(action, "arguments", itemPath + ".arguments", issues);
+            requireArray(action, "sourceOperations", itemPath + ".sourceOperations", issues);
+            if (action.path("sourceOperations").isArray() && action.path("sourceOperations").isEmpty()) {
+                issues.add(new LlmOutputSchemaIssue(itemPath + ".sourceOperations", "must not be empty"));
+            }
+            JsonNode arguments = action.path("arguments");
+            if (arguments.isArray()) {
+                for (int argumentIndex = 0; argumentIndex < arguments.size(); argumentIndex++) {
+                    JsonNode argument = arguments.get(argumentIndex);
+                    String argumentPath = itemPath + ".arguments[" + argumentIndex + "]";
+                    requireText(argument, "parameterName", argumentPath + ".parameterName", issues);
+                    requireText(argument, "source", argumentPath + ".source", issues);
+                    requireTextual(argument, "referenceId", argumentPath + ".referenceId", issues);
+                    requireTextual(argument, "field", argumentPath + ".field", issues);
+                    requireTextual(argument, "literalValue", argumentPath + ".literalValue", issues);
+                }
+            }
+        }
+    }
+
+    private void validateUiTestAssertions(JsonNode assertions, String path, List<LlmOutputSchemaIssue> issues) {
+        if (!assertions.isArray()) {
+            return;
+        }
+        for (int index = 0; index < assertions.size(); index++) {
+            JsonNode assertion = assertions.get(index);
+            String itemPath = path + "[" + index + "]";
+            requireNumber(assertion, "order", itemPath + ".order", issues);
+            requireText(assertion, "page", itemPath + ".page", issues);
+            requireText(assertion, "method", itemPath + ".method", issues);
+            requireText(assertion, "mode", itemPath + ".mode", issues);
+            requireText(assertion, "expectedValue", itemPath + ".expectedValue", issues);
+            requireText(assertion, "requirementId", itemPath + ".requirementId", issues);
+            requireText(assertion, "message", itemPath + ".message", issues);
+        }
+    }
+
+    private void validateUiTestDataReferences(JsonNode references, String path, List<LlmOutputSchemaIssue> issues) {
+        if (!references.isArray()) {
+            return;
+        }
+        for (int index = 0; index < references.size(); index++) {
+            JsonNode reference = references.get(index);
+            String itemPath = path + "[" + index + "]";
+            requireText(reference, "id", itemPath + ".id", issues);
+            requireText(reference, "type", itemPath + ".type", issues);
+            requireText(reference, "key", itemPath + ".key", issues);
+        }
+    }
+
     public LlmOutputSchemaValidationReport validatePomContract(JsonNode root) {
         List<LlmOutputSchemaIssue> issues = new ArrayList<>();
         requireSchemaVersion(root, LlmOutputSchemaVersion.POM_CONTRACT, issues);

@@ -16,6 +16,7 @@ import java.util.Set;
 public class ScopedLocatorValidationService {
 
     private final LocatorEvidenceClassifier evidenceClassifier = new LocatorEvidenceClassifier();
+    private final DynamicCssClassRiskClassifier dynamicCssClassRiskClassifier = new DynamicCssClassRiskClassifier();
 
     public List<ScopedLocatorCandidate> validate(
             PageModel page,
@@ -268,8 +269,7 @@ public class ScopedLocatorValidationService {
     }
 
     private boolean dynamicCssHash(String value) {
-        return value.matches(".*\\.(css|sc|jss|_)?-[a-z0-9]{5,}.*")
-                || value.matches(".*\\.[a-z]+-[a-z0-9]{6,}.*");
+        return dynamicCssClassRiskClassifier.isDynamic(value);
     }
 
     private boolean containsSharedToken(String left, String right) {

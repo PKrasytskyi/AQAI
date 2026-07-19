@@ -8,7 +8,6 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 public record KnowledgeRunMetadata(
@@ -53,8 +52,9 @@ public record KnowledgeRunMetadata(
                 .collect(Collectors.joining("|"));
         String baseUrlHash = sha256(baseUrl);
         String requirementSetHash = sha256(requirementText);
-        String runId = UUID.nameUUIDFromBytes((appId + "|" + baseUrlHash + "|" + requirementSetHash
-                + "|" + Instant.now()).getBytes(StandardCharsets.UTF_8)).toString();
+        String runId = state.runEnvelope() == null || state.runEnvelope().runMetadata() == null
+                ? ""
+                : state.runEnvelope().runMetadata().runId();
         return new KnowledgeRunMetadata(
                 runId,
                 appId,

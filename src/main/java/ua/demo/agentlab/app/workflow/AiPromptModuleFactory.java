@@ -1,6 +1,7 @@
 package ua.demo.agentlab.app.workflow;
 
 import ua.demo.agentlab.ai.assertions.agent.AssertionContractAgent;
+import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContractAgent;
 import ua.demo.agentlab.ai.context.AiContextAssembler;
 import ua.demo.agentlab.ai.context.DbStableLocatorEvidenceService;
 import ua.demo.agentlab.ai.context.UiKnowledgeRetrievalService;
@@ -33,6 +34,13 @@ import ua.demo.agentlab.ai.ui.generation.AiUiTestSpecGenerator;
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesKnowledgeVectorRuntimeConfig;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4jRuntimeConfig;
+import ua.demo.agentlab.ui.discovery.agent.UiEvidenceFunnelAgent;
+import ua.demo.agentlab.ui.testcontract.agent.DeterministicTestNgWriterAgent;
+import ua.demo.agentlab.ui.testcontract.agent.UiTestContractAgent;
+import ua.demo.agentlab.ui.testcontract.agent.UiTestContractValidationAgent;
+import ua.demo.agentlab.ui.testcontract.assembly.UiTestContractAssembler;
+import ua.demo.agentlab.ui.testcontract.validation.UiTestContractValidator;
+import ua.demo.agentlab.ui.testcontract.writer.DeterministicTestNgWriter;
 
 public class AiPromptModuleFactory {
 
@@ -54,18 +62,26 @@ public class AiPromptModuleFactory {
         );
         return new AiPromptModule(
                 flowScopedKnowledgeAgent(core, uiKnowledgeRetrievalService),
+                new StructuredBehaviorContractAgent(),
                 new TestCaseExpectationEnrichmentAgent(expectationEnrichmentClient(ragRuntimeConfig)),
                 new AssertionContractAgent(),
                 new PageKnowledgeCacheLookupAgent(new PageKnowledgeCacheQueryService(new PropertiesNeo4jRuntimeConfig())),
                 new PageModelEnrichmentAgent(pageModelEnrichmentClient(openAiRuntimeConfig)),
                 flowScopedKnowledgeRefreshAgent(core, uiKnowledgeRetrievalService),
                 new AiContextAssemblyAgent(aiContextAssembler),
+                new UiEvidenceFunnelAgent(),
                 new AiPageObjectSpecAgent(
                         new AiPageObjectSpecGenerator(openAiRuntimeConfig, core.seleniumWriter().pagePackage()),
                         currentState -> core.seleniumWriter().buildAiBaselinePageObjectSpecs(currentState.getUiTestPlan())
                 ),
                 new PomContractPageObjectWriterAgent(new DeterministicPomJavaWriter(
                         core.seleniumWriter().pagePackage()
+                )),
+                new UiTestContractAgent(new UiTestContractAssembler()),
+                new UiTestContractValidationAgent(new UiTestContractValidator()),
+                new DeterministicTestNgWriterAgent(new DeterministicTestNgWriter(
+                        core.seleniumWriter().pagePackage(),
+                        core.seleniumWriter().testPackage()
                 )),
                 new AiUiTestSpecAgent(new AiUiTestSpecGenerator(openAiRuntimeConfig))
         );

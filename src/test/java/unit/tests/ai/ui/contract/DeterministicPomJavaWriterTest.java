@@ -26,7 +26,7 @@ public class DeterministicPomJavaWriterTest {
         DeterministicPomJavaWriter writer = new DeterministicPomJavaWriter("ua.demo.agentlab.ui.generated.pages");
         PomContractSpec contract = loginContract();
 
-        AiPageObjectSpec spec = writer.toAiPageObjectSpec(contract);
+        AiPageObjectSpec spec = writer.toRenderingSpec(contract);
         List<GeneratedSourceFile> files = writer.write(List.of(contract));
 
         Assert.assertEquals(normalize(spec.methods().stream()
@@ -188,6 +188,45 @@ public class DeterministicPomJavaWriterTest {
         Assert.assertTrue(component.contains("WebElement element0 = child(usernameInput);"));
         Assert.assertTrue(component.contains("WebElement element1 = child(passwordInput);"));
         Assert.assertFalse(component.contains("WebElement element ="));
+    }
+
+    @Test
+    public void qualifiesLocatorFieldWhenMethodParameterUsesTheSameName() {
+        DeterministicPomJavaWriter writer = new DeterministicPomJavaWriter("ua.demo.agentlab.ui.generated.pages");
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("LoginPage", "/login", "AUTHENTICATION", "openLogin"),
+                List.of(new PomLocatorSpec("username", "username", "name", "username", "input", 0.90d)),
+                List.of(new PomActionSpec(
+                        "enterUsername",
+                        List.of(new AiMethodParameterSpec("String", "username")),
+                        List.of(new PomStepSpec(PomStepAction.CLEAR_AND_TYPE, "username", "username", "", ""))
+                )),
+                List.of(), List.of(), List.of());
+
+        String content = writer.write(List.of(contract)).get(0).content();
+
+        Assert.assertTrue(content.contains("private final By usernameInput = By.name(\"username\");"));
+        Assert.assertTrue(content.contains("elements.clearAndType(usernameInput, username);"));
+        Assert.assertFalse(content.contains("elements.clearAndType(username, username);"));
+    }
+
+    @Test
+    public void normalizesUpperSnakeCaseContractMethodNamesToJavaCamelCase() {
+        DeterministicPomJavaWriter writer = new DeterministicPomJavaWriter("ua.demo.agentlab.ui.generated.pages");
+        PomContractSpec contract = new PomContractSpec(
+                "pom-contract-v1",
+                new PomPageSpec("LoginPage", "/login", "AUTHENTICATION", "openLogin"),
+                List.of(new PomLocatorSpec("login", "login", "css", "button[type='submit']", "button", 0.90d)),
+                List.of(),
+                List.of(new PomAssertionSpec("ELEMENT_VISIBLE_login", "boolean",
+                        List.of(new PomCheckSpec(PomCheckType.VISIBLE, "login", "login", "", "", "")), "AND")),
+                List.of(), List.of());
+
+        String content = writer.write(List.of(contract)).get(0).content();
+
+        Assert.assertTrue(content.contains("public boolean elementVisibleLogin()"));
+        Assert.assertFalse(content.contains("eLEMENTVISIBLELogin"));
     }
 
     private PomContractSpec loginContract() {

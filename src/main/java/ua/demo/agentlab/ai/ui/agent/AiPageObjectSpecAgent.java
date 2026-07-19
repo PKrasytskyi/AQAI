@@ -13,6 +13,7 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowPipelineSnapshot;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
+import ua.demo.agentlab.ui.discovery.evidence.funnel.UiEvidenceFunnelReport;
 
 import java.util.List;
 import java.util.Set;
@@ -50,7 +51,12 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.UI_TEST_PLAN, WorkflowArtifact.AI_CONTEXT_PACKAGE);
+        return Set.of(
+                WorkflowArtifact.UI_TEST_PLAN,
+                WorkflowArtifact.AI_CONTEXT_PACKAGE,
+                WorkflowArtifact.UI_EVIDENCE_FUNNEL_REPORT,
+                WorkflowArtifact.CONFIRMED_UI_CATALOG
+        );
     }
 
     @Override
@@ -76,6 +82,7 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
         if (state == null) {
             throw new IllegalArgumentException("state cannot be null");
         }
+        UiEvidenceFunnelReport funnelReport = store.require(WorkflowArtifact.UI_EVIDENCE_FUNNEL_REPORT);
         List<AiPageObjectSpec> baselineSpecs = state.getAiPageObjectSpecs().isEmpty()
                 ? baselineProvider.apply(state)
                 : state.getAiPageObjectSpecs();
@@ -83,6 +90,7 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
                 WorkflowRunEnvelope.from(state),
                 state.getUiTestPlan(),
                 state.getAiContextPackage(),
+                funnelReport,
                 baselineSpecs,
                 new AiRunQualitySummaryInput(
                         state.getKnowledgeRunMetadata(),
@@ -92,17 +100,38 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
                         state.getArtifacts()
                 ),
                 WorkflowPipelineSnapshot.from(state),
-                state.getArtifacts()
+                state.getArtifacts(),
+                store.require(WorkflowArtifact.CONFIRMED_UI_CATALOG)
         );
     }
 
     @Override
     public boolean supports(AiPageObjectSpecInput input, WorkflowRunEnvelope run) {
-        return input != null && input.uiTestPlan() != null && input.aiContextPackage() != null;
+        return input != null && input.uiTestPlan() != null && input.aiContextPackage() != null
+                && input.evidenceFunnelReport() != null;
     }
 
     @Override
     public AiPageObjectGenerationResult execute(AiPageObjectSpecInput input, WorkflowRunEnvelope run) {
+        boolean catalogEligible = input.confirmedUiCatalog() != null
+                && input.confirmedUiCatalog().pages().stream()
+                .flatMap(page -> page.components().stream())
+                .anyMatch(component -> !component.primaryLocators().isEmpty());
+        if (!catalogEligible) {
+            return new AiPageObjectGenerationResult(
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    java.util.Map.of(
+                            "openai.page.object.status", "skipped-no-prompt-eligible-pages",
+                            "openai.page.object.scoped.requests", "0",
+                            "openai.page.object.llm.attempts", "0",
+                            "openai.page.object.llm.successes", "0",
+                            "pom.contract.spec.count", "0"
+                    ),
+                    List.of("Skipped POM prompt and LLM generation because ConfirmedUiCatalog has no primary confirmed locators")
+            );
+        }
         return generator.generate(new AiPageObjectGenerationRequest(
                 input.runEnvelope(),
                 input.aiContextPackage(),
@@ -110,7 +139,8 @@ public class AiPageObjectSpecAgent implements WorkflowAgent,
                 input.baselineSpecs(),
                 input.qualitySummaryInput(),
                 input.pipelineSnapshot(),
-                input.artifacts()
+                input.artifacts(),
+                input.confirmedUiCatalog()
         ));
     }
 
