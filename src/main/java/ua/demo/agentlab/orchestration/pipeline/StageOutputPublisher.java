@@ -846,6 +846,21 @@ public class StageOutputPublisher {
         addFinding(state, "Pure AI UI test files generated: " + generated.size());
     }
 
+    public void publishDeterministicUiTestFiles(List<GeneratedSourceFile> files, WorkflowState state) {
+        if (state == null) {
+            return;
+        }
+        List<GeneratedSourceFile> generated = files == null ? List.of() : files;
+        if (generated.isEmpty()) {
+            failRun(state, "Deterministic test writer did not produce any UI test files");
+            return;
+        }
+        state.setUiTestFiles(generated);
+        putArtifact(state, "ui.test.count", String.valueOf(generated.size()));
+        putArtifact(state, "ui.test.writer", "deterministic-testng-v1");
+        addFinding(state, "Deterministic TestNG files generated: " + generated.size());
+    }
+
     public void publishRepositoryIntelligenceEnrichment(
             RepositoryIntelligenceEnrichmentResult result,
             WorkflowState state

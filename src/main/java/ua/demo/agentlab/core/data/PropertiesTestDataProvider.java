@@ -1,5 +1,7 @@
 package ua.demo.agentlab.core.data;
 
+import ua.demo.agentlab.config.RuntimeProperties;
+
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -14,13 +16,18 @@ public class PropertiesTestDataProvider implements TestDataProvider {
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
 
     private final Properties properties = new Properties();
-    private final Properties frameworkProperties = new Properties();
+    private final RuntimeProperties runtimeProperties;
 
     public PropertiesTestDataProvider() {
-        this("test-data.properties");
+        this("test-data.properties", new RuntimeProperties());
     }
 
     public PropertiesTestDataProvider(String resourceName) {
+        this(resourceName, new RuntimeProperties());
+    }
+
+    public PropertiesTestDataProvider(String resourceName, RuntimeProperties runtimeProperties) {
+        this.runtimeProperties = runtimeProperties == null ? new RuntimeProperties() : runtimeProperties;
         try (InputStream input = Thread.currentThread()
                 .getContextClassLoader()
                 .getResourceAsStream(resourceName)) {
@@ -33,8 +40,6 @@ public class PropertiesTestDataProvider implements TestDataProvider {
         } catch (Exception exception) {
             throw new IllegalStateException("Failed to load test-data resource: " + resourceName, exception);
         }
-
-        loadOptionalFrameworkProperties();
     }
 
     @Override
@@ -135,23 +140,6 @@ public class PropertiesTestDataProvider implements TestDataProvider {
             return propertyValue.trim();
         }
 
-        String frameworkValue = frameworkProperties.getProperty(key);
-        if (frameworkValue != null && !frameworkValue.isBlank()) {
-            return frameworkValue.trim();
-        }
-
-        return null;
-    }
-
-    private void loadOptionalFrameworkProperties() {
-        try (InputStream input = Thread.currentThread()
-                .getContextClassLoader()
-                .getResourceAsStream("framework.properties")) {
-            if (input != null) {
-                frameworkProperties.load(input);
-            }
-        } catch (Exception exception) {
-            throw new IllegalStateException("Failed to load framework properties for test-data resolution", exception);
-        }
+        return runtimeProperties.readOptional(key, envKey);
     }
 }

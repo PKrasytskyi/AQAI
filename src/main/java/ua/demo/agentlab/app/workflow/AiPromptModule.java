@@ -14,6 +14,9 @@ public record AiPromptModule(
         WorkflowAgent uiEvidenceFunnelAgent,
         WorkflowAgent aiPageObjectSpecAgent,
         WorkflowAgent pomContractPageObjectWriterAgent,
+        WorkflowAgent uiTestContractAgent,
+        WorkflowAgent uiTestContractValidationAgent,
+        WorkflowAgent deterministicTestNgWriterAgent,
         WorkflowAgent aiUiTestSpecAgent
 ) {
 }

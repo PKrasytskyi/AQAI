@@ -48,7 +48,8 @@ The runtime now uses dependency-based orchestration: agents declare typed input/
 - `ua.demo.agentlab.ai.context` - target-aware prompt context assembly and retrieval filtering.
 - `ua.demo.agentlab.ai.pageenrichment` - page-scoped enrichment over mapper output.
 - `ua.demo.agentlab.ai.expectationenrichment` - deterministic/AI expected-result resolution.
-- `ua.demo.agentlab.ai.ui` - Page Object and UI test prompt/spec generation.
+- `ua.demo.agentlab.ai.ui` - structured POM contract planning and deterministic Page Object generation.
+- `ua.demo.agentlab.ui.testcontract` - typed atomic UI test contracts, schema/semantic validation, deterministic TestNG generation, and source maps.
 - `ua.demo.agentlab.ai.quality` - run quality summary and artifact diff.
 - `ua.demo.agentlab.core.ui` - Selenium base page/test helpers used by generated code.
 - `ua.demo.agentlab.core.api` - RestAssured API runtime helper used by generated API clients.

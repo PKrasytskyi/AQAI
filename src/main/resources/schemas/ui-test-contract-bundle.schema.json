@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ui-test-contract-bundle.v1",
+  "type": "object",
+  "required": ["schemaVersion", "contracts"],
+  "properties": {
+    "schemaVersion": { "const": "ui-test-contract-bundle.v1" },
+    "contracts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "scenarioId", "capability", "className", "testMethodName", "description",
+          "sourcePage", "targetPage", "preconditions", "actions", "assertions",
+          "dataReferences", "requirementIds", "coverageGaps"
+        ],
+        "properties": {
+          "scenarioId": { "type": "string", "minLength": 1 },
+          "capability": { "type": "string", "minLength": 1 },
+          "className": { "type": "string", "minLength": 1 },
+          "testMethodName": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "sourcePage": { "type": "string", "minLength": 1 },
+          "targetPage": { "type": "string", "minLength": 1 },
+          "preconditions": { "$ref": "#/$defs/actions" },
+          "actions": { "$ref": "#/$defs/actions" },
+          "assertions": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/assertion" }
+          },
+          "dataReferences": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/dataReference" }
+          },
+          "requirementIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "coverageGaps": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/action" }
+    },
+    "action": {
+      "type": "object",
+      "required": ["order", "page", "method", "arguments", "sourceOperations"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 1 },
+        "page": { "type": "string", "minLength": 1 },
+        "method": { "type": "string", "minLength": 1 },
+        "arguments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/argument" }
+        },
+        "sourceOperations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "argument": {
+      "type": "object",
+      "required": ["parameterName", "source", "referenceId", "field", "literalValue"],
+      "properties": {
+        "parameterName": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["DATA_REFERENCE", "LITERAL"] },
+        "referenceId": { "type": "string" },
+        "field": { "type": "string" },
+        "literalValue": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "assertion": {
+      "type": "object",
+      "required": ["order", "page", "method", "mode", "expectedValue", "requirementId", "message"],
+      "properties": {
+        "order": { "type": "integer", "minimum": 1 },
+        "page": { "type": "string", "minLength": 1 },
+        "method": { "type": "string", "minLength": 1 },
+        "mode": { "enum": ["TRUE", "FALSE", "EQUALS", "CONTAINS"] },
+        "expectedValue": { "type": "string", "minLength": 1 },
+        "requirementId": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "dataReference": {
+      "type": "object",
+      "required": ["id", "type", "key"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["CREDENTIALS", "SCENARIO_DATA"] },
+        "key": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

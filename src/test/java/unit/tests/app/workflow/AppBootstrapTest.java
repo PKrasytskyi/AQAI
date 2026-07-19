@@ -79,6 +79,15 @@ public class AppBootstrapTest {
                 .anyMatch("pom-contract-page-object-writer-agent"::equals));
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)
+                .anyMatch("ui-test-contract-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("ui-test-contract-validation-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
+                .anyMatch("deterministic-testng-writer-agent"::equals));
+        Assert.assertTrue(definition.agents().stream()
+                .map(WorkflowAgent::name)
                 .anyMatch("file-persistence-agent"::equals));
         Assert.assertTrue(definition.agents().stream()
                 .map(WorkflowAgent::name)

@@ -35,6 +35,12 @@ import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesKnowledgeVectorRuntimeConfig;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4jRuntimeConfig;
 import ua.demo.agentlab.ui.discovery.agent.UiEvidenceFunnelAgent;
+import ua.demo.agentlab.ui.testcontract.agent.DeterministicTestNgWriterAgent;
+import ua.demo.agentlab.ui.testcontract.agent.UiTestContractAgent;
+import ua.demo.agentlab.ui.testcontract.agent.UiTestContractValidationAgent;
+import ua.demo.agentlab.ui.testcontract.assembly.UiTestContractAssembler;
+import ua.demo.agentlab.ui.testcontract.validation.UiTestContractValidator;
+import ua.demo.agentlab.ui.testcontract.writer.DeterministicTestNgWriter;
 
 public class AiPromptModuleFactory {
 
@@ -70,6 +76,12 @@ public class AiPromptModuleFactory {
                 ),
                 new PomContractPageObjectWriterAgent(new DeterministicPomJavaWriter(
                         core.seleniumWriter().pagePackage()
+                )),
+                new UiTestContractAgent(new UiTestContractAssembler()),
+                new UiTestContractValidationAgent(new UiTestContractValidator()),
+                new DeterministicTestNgWriterAgent(new DeterministicTestNgWriter(
+                        core.seleniumWriter().pagePackage(),
+                        core.seleniumWriter().testPackage()
                 )),
                 new AiUiTestSpecAgent(new AiUiTestSpecGenerator(openAiRuntimeConfig))
         );

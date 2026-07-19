@@ -88,6 +88,10 @@ public class TemplateDrivenSeleniumWriter {
         return pagePackage;
     }
 
+    public String testPackage() {
+        return testPackage;
+    }
+
     public List<SharedPageObjectSpec> buildSharedPageObjectContracts(UiTestPlan uiTestPlan) {
         return pageObjectContractAggregator.aggregate(uiTestPlan);
     }

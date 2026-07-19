@@ -150,6 +150,17 @@ public class PipelineArtifactStore {
             putIfPresent(WorkflowArtifact.AI_UI_TEST_SPECS, result.specs());
             return;
         }
+        if (value instanceof ua.demo.agentlab.ui.testcontract.validation.UiTestContractValidationResult result) {
+            putIfPresent(WorkflowArtifact.UI_TEST_CONTRACT_SCHEMA_VALIDATION, result.schemaReport());
+            putIfPresent(WorkflowArtifact.UI_TEST_CONTRACT_QUALITY_REPORT, result.qualityReport());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.ui.testcontract.writer.DeterministicTestNgGenerationResult result) {
+            putIfPresent(WorkflowArtifact.GENERATED_UI_TEST_SOURCES, result.files());
+            putIfPresent(WorkflowArtifact.UI_TEST_FILES, result.files());
+            putIfPresent(WorkflowArtifact.UI_TEST_SOURCE_MAP, result.sourceMap());
+            return;
+        }
         if (value instanceof java.util.List list) {
             if (artifact == WorkflowArtifact.PAGE_OBJECT_FILES) {
                 putIfPresent(WorkflowArtifact.PAGE_OBJECT_FILES, list);

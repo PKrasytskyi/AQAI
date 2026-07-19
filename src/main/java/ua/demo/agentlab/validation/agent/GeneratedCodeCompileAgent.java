@@ -32,7 +32,10 @@ public class GeneratedCodeCompileAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.PERSISTED_GENERATED_SOURCES);
+        return Set.of(
+                WorkflowArtifact.PERSISTED_GENERATED_SOURCES,
+                WorkflowArtifact.GENERATED_UI_CONTRACT_VALIDATION
+        );
     }
 
     @Override

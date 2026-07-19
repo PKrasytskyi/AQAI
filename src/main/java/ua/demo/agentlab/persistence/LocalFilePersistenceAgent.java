@@ -41,7 +41,10 @@ public class LocalFilePersistenceAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES);
+        return Set.of(
+                WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES,
+                WorkflowArtifact.UI_TEST_FILES
+        );
     }
 
     @Override

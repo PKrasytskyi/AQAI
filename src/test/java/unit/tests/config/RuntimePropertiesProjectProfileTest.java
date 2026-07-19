@@ -5,6 +5,8 @@ import org.testng.annotations.Test;
 import ua.demo.agentlab.config.PropertiesProjectProfileLoader;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.config.RuntimeProperties;
+import ua.demo.agentlab.core.data.PropertiesTestDataProvider;
+import ua.demo.agentlab.core.data.UserCredentials;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -114,6 +116,44 @@ public class RuntimePropertiesProjectProfileTest {
         } finally {
             System.clearProperty("project.name");
             System.clearProperty("knowledge.db.status");
+        }
+    }
+
+    @Test
+    public void generatedTestCredentialsResolveFromEnvironmentNamesDeclaredByProfile() throws Exception {
+        Path profile = Files.createTempFile("credential-profile", ".yaml");
+        Files.writeString(profile, """
+                schemaVersion: project-profile.v1
+                project:
+                  id: credential-app
+                  name: Credential App
+                  baseUrl: https://credential.example
+                requirements:
+                  file: requirements/credential.md
+                auth:
+                  enabled: true
+                  usernameEnv: CUSTOM_DEMO_USERNAME
+                  passwordEnv: CUSTOM_DEMO_PASSWORD
+                """);
+
+        Properties framework = new Properties();
+        framework.setProperty("project.profile.file", profile.toString());
+        RuntimeProperties runtimeProperties = new RuntimeProperties(framework);
+
+        System.setProperty("CUSTOM_DEMO_USERNAME", "profile-user");
+        System.setProperty("CUSTOM_DEMO_PASSWORD", "profile-password");
+        try {
+            UserCredentials credentials = new PropertiesTestDataProvider(
+                    "test-data.properties",
+                    runtimeProperties
+            ).credentials("valid-user");
+
+            Assert.assertEquals(credentials.username(), "profile-user");
+            Assert.assertEquals(credentials.password(), "profile-password");
+        } finally {
+            System.clearProperty("CUSTOM_DEMO_USERNAME");
+            System.clearProperty("CUSTOM_DEMO_PASSWORD");
+            Files.deleteIfExists(profile);
         }
     }
 }

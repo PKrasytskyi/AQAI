@@ -172,6 +172,8 @@ public class RuntimeProperties {
         put(result, "discovery.auth.enabled", flattened.get("auth.enabled"));
         putEnvPlaceholder(result, "discovery.auth.username", flattened.get("auth.usernameEnv"));
         putEnvPlaceholder(result, "discovery.auth.password", flattened.get("auth.passwordEnv"));
+        putEnvPlaceholder(result, "test.credentials.valid.username", flattened.get("auth.usernameEnv"));
+        putEnvPlaceholder(result, "test.credentials.valid.password", flattened.get("auth.passwordEnv"));
         put(result, "discovery.auth.username-selector", flattened.get("auth.usernameSelector"));
         put(result, "discovery.auth.password-selector", flattened.get("auth.passwordSelector"));
         put(result, "discovery.auth.submit-selector", flattened.get("auth.submitSelector"));
