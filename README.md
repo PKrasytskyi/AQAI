@@ -247,6 +247,8 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.
 
 The command resolves the versioned demo manifest, generates namespaced Page Objects and TestNG tests, compiles and reviews them, runs source/live smoke, executes only current-run manifest-owned generated tests, and writes `target/ai-run/quality/build-week-demo-summary.{json,md}`. See [Build Week Demo](docs/BUILD_WEEK_DEMO.md).
 
+In GitHub Actions, the `with-db` option intentionally runs twice on the same clean runner: a knowledge seed run persists validated evidence, then a measured reuse run proves Neo4j/Qdrant, enrichment-cache, and stable-POM reuse. The workflow uploads separate without-DB, seed, and reuse summaries.
+
 Deterministic run:
 
 ```powershell

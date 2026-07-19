@@ -77,4 +77,15 @@ TEST_VALID_PASSWORD
 KNOWLEDGE_GRAPH_NEO4J_PASSWORD   # with-db only
 ```
 
-The workflow uploads the complete `target/ai-run`, discovery evidence, Surefire reports, and namespaced generated sources even when a gate fails.
+`without-db` performs one cold baseline run. It uploads `without-db-summary.md` and `.json` beside the regular runtime evidence.
+
+`with-db` is intentionally a two-run workflow on the same clean GitHub runner:
+
+```text
+Neo4j + Qdrant start empty
+  -> Run 1: knowledge seed
+  -> persistence, promotion, and stable artifact write
+  -> Run 2: measured knowledge reuse
+```
+
+The services and `target/ai-run-history/stable` are preserved between those two runs. The measured reuse summary is therefore expected to show cache/registry hits and avoided LLM calls only when the seed evidence passed the normal promotion, compile, review, smoke, and runtime-feedback gates. The uploads include separate `with-db-seed-summary.md` and `with-db-reuse-summary.md` artifacts, plus the seed evidence snapshot, final reuse evidence, stable artifact store, discovery evidence, Surefire reports, and namespaced generated sources even when a gate fails.
