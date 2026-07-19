@@ -12,7 +12,7 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContract;
 import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorContract;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBindingBundle;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
@@ -50,7 +50,7 @@ public final class UiEvidenceFunnelAgent implements WorkflowAgent,
     public Set<WorkflowArtifact> requires() {
         return Set.of(
                 WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS,
-                WorkflowArtifact.SPA_EFFECTIVE_PAGE_INVENTORY,
+                WorkflowArtifact.UI_EFFECTIVE_INTERACTION_INVENTORY,
                 WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS,
                 WorkflowArtifact.SPA_LIVE_TRANSITION_DISCOVERY,
                 WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS,
@@ -82,7 +82,7 @@ public final class UiEvidenceFunnelAgent implements WorkflowAgent,
     @SuppressWarnings("unchecked")
     public UiEvidenceFunnelInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
         List<StructuredBehaviorContract> requirements = store.require(WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS);
-        SpaInventoryBundle inventory = store.require(WorkflowArtifact.SPA_EFFECTIVE_PAGE_INVENTORY);
+        UiInteractionInventory inventory = store.require(WorkflowArtifact.UI_EFFECTIVE_INTERACTION_INVENTORY);
         SourceStateBindingBundle sourceStateBindings = store.require(WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS);
         LiveTransitionDiscovery liveTransitionDiscovery = store.require(WorkflowArtifact.SPA_LIVE_TRANSITION_DISCOVERY);
         List<BoundSpaBehaviorContract> bindings = store.require(WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS);

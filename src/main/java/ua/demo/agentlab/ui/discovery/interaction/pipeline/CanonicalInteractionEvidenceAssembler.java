@@ -2,7 +2,7 @@ package ua.demo.agentlab.ui.discovery.interaction.pipeline;
 
 import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContract;
 import ua.demo.agentlab.ui.discovery.interaction.model.*;
-import ua.demo.agentlab.ui.discovery.interaction.mapping.SpaInventorySemanticInteractionMapper;
+import ua.demo.agentlab.ui.discovery.interaction.mapping.UiInventorySemanticInteractionMapper;
 import ua.demo.agentlab.ui.discovery.interaction.scope.RequirementEvidenceSelection;
 import ua.demo.agentlab.ui.discovery.interaction.scope.RequirementEvidenceSelector;
 import ua.demo.agentlab.ui.discovery.interaction.scoring.InteractionScoringService;
@@ -10,7 +10,7 @@ import ua.demo.agentlab.ui.discovery.interaction.promotion.PromotionPolicy;
 import ua.demo.agentlab.ui.discovery.interaction.selection.TopKInteractionSelection;
 import ua.demo.agentlab.ui.discovery.interaction.selection.TopKInteractionSelector;
 import ua.demo.agentlab.ui.discovery.interaction.verification.UiLiveVerificationFacade;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
 
 import java.util.ArrayList;
@@ -21,7 +21,7 @@ import java.util.Map;
 
 public final class CanonicalInteractionEvidenceAssembler {
 
-    private final SpaInventorySemanticInteractionMapper semanticMapper = new SpaInventorySemanticInteractionMapper();
+    private final UiInventorySemanticInteractionMapper semanticMapper = new UiInventorySemanticInteractionMapper();
     private final RequirementEvidenceSelector requirementSelector = new RequirementEvidenceSelector();
     private final TopKInteractionSelector topKSelector = new TopKInteractionSelector();
     private final InteractionScoringService scoringService = new InteractionScoringService();
@@ -30,7 +30,7 @@ public final class CanonicalInteractionEvidenceAssembler {
     private final InteractionInvariantGate invariantGate = new InteractionInvariantGate();
 
     public CanonicalInteractionEvidenceBundle assemble(
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             SpaLiveTargetedVerificationResult live,
             List<StructuredBehaviorContract> requirements
     ) {

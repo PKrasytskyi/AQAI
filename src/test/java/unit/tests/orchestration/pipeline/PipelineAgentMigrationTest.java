@@ -11,6 +11,8 @@ import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.persistence.GeneratedUiSources;
+import ua.demo.agentlab.persistence.GeneratedSourceManifest;
+import ua.demo.agentlab.persistence.GeneratedSourcePersistenceInput;
 import ua.demo.agentlab.persistence.LocalFilePersistenceAgent;
 import ua.demo.agentlab.policy.PolicyLoadingAgent;
 import ua.demo.agentlab.policy.PolicyResolver;
@@ -251,15 +253,23 @@ public class PipelineAgentMigrationTest {
                 sourceFile -> written.add(sourceFile.relativePath())
         );
 
-        List<String> output = agent.execute(
-                new GeneratedUiSources(List.of(file), List.of()),
-                new WorkflowRunEnvelope("objective", null, null, null, null, false, "")
+        WorkflowRunEnvelope run = new WorkflowRunEnvelope("objective", null, null, null, null, false, "");
+        GeneratedSourceManifest output = agent.execute(
+                new GeneratedSourcePersistenceInput(
+                        new ua.demo.agentlab.config.ProjectProfile(
+                                "migration", "Migration", "https://migration.test",
+                                "/login", "/login", "", "/secure", "", "", "", "", "", "", "",
+                                new ua.demo.agentlab.config.OutputProfile("pages", "tests")
+                        ),
+                        new GeneratedUiSources(List.of(file), List.of())
+                ),
+                run
         );
 
         Assert.assertEquals(agent.input(), WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES);
-        Assert.assertEquals(agent.output(), WorkflowArtifact.PERSISTED_GENERATED_SOURCES);
-        Assert.assertEquals(output, List.of("target/generated/LoginPage.java"));
-        Assert.assertEquals(written, output);
+        Assert.assertEquals(agent.output(), WorkflowArtifact.GENERATED_SOURCE_MANIFEST);
+        Assert.assertEquals(output.persistedPaths(), List.of("target/generated/LoginPage.java"));
+        Assert.assertEquals(written, output.persistedPaths());
     }
 
     @Test

@@ -331,7 +331,10 @@ public class AiPageObjectSpecGenerator {
             findings.add("OpenAI page object generation failed: " + exception.getMessage());
             addQualityArtifacts(request, artifacts, artifactFiles);
             if (runtimeConfig.strict()) {
-                throw new IllegalStateException("OpenAI strict mode rejected page object spec generation", exception);
+                throw new IllegalStateException(
+                        "OpenAI strict mode rejected page object spec generation: " + exception.getMessage(),
+                        exception
+                );
             }
             return new AiPageObjectGenerationResult(specs, contracts, artifactFiles, artifacts, findings);
         }

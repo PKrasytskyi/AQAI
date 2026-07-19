@@ -35,7 +35,7 @@ public class UiSpaSmokeEvidenceFeedbackAgent implements WorkflowAgent,
     }
     @Override public String name() { return "ui-spa-smoke-evidence-feedback-agent"; }
     @Override public Set<WorkflowArtifact> requires() { return Set.of(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES,
-            WorkflowArtifact.PERSISTED_GENERATED_SOURCES, WorkflowArtifact.SPA_PAGE_INVENTORY,
+            WorkflowArtifact.GENERATED_SOURCE_MANIFEST, WorkflowArtifact.UI_INTERACTION_INVENTORY,
             WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION, WorkflowArtifact.COMPILE_RESULT,
             WorkflowArtifact.REVIEW_RESULT, WorkflowArtifact.GENERATED_UI_SMOKE_RESULT); }
     @Override public Set<WorkflowArtifact> produces() { return Set.of(WorkflowArtifact.SPA_SMOKE_EVIDENCE_FEEDBACK); }
@@ -43,7 +43,7 @@ public class UiSpaSmokeEvidenceFeedbackAgent implements WorkflowAgent,
     @Override public WorkflowArtifact output() { return WorkflowArtifact.SPA_SMOKE_EVIDENCE_FEEDBACK; }
     @Override @SuppressWarnings("unchecked") public SpaSmokeEvidenceFeedbackInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
         return new SpaSmokeEvidenceFeedbackInput((List<GeneratedSourceFile>) store.require(WorkflowArtifact.GENERATED_PAGE_OBJECT_SOURCES),
-                store.require(WorkflowArtifact.SPA_PAGE_INVENTORY), store.require(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION),
+                store.require(WorkflowArtifact.UI_INTERACTION_INVENTORY), store.require(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION),
                 store.require(WorkflowArtifact.COMPILE_RESULT), store.require(WorkflowArtifact.REVIEW_RESULT),
                 store.require(WorkflowArtifact.GENERATED_UI_SMOKE_RESULT), readLiveSmoke());
     }

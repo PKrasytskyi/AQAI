@@ -154,6 +154,8 @@ public class RuntimeProperties {
         put(result, "project.name", flattened.get("project.name"));
         put(result, "project.base-url", flattened.get("project.baseUrl"));
         put(result, "project.requirements.file", flattened.get("requirements.file"));
+        put(result, "project.output.generated-pages-package", flattened.get("output.generatedPagesPackage"));
+        put(result, "project.output.generated-tests-package", flattened.get("output.generatedTestsPackage"));
         put(result, "project.route.home", flattened.get("routes.home"));
         put(result, "project.route.login", flattened.get("routes.login"));
         put(result, "project.route.registration", flattened.get("routes.registration"));

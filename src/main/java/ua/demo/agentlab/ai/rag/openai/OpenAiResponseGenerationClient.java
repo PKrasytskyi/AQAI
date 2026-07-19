@@ -44,7 +44,7 @@ public class OpenAiResponseGenerationClient {
                         "model", config.generationModel(),
                         "input", prompt,
                         "max_output_tokens", config.maxOutputTokens(),
-                        "reasoning", Map.of("effort", "minimal"),
+                        "reasoning", Map.of("effort", "medium"),
                         "text", Map.of("format", Map.of("type", "text"), "verbosity", "low"),
                         "truncation", "auto"
                 ),

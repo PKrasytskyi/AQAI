@@ -27,7 +27,7 @@ public class CanonicalGraphHardCutTest {
 
         Assert.assertTrue(query.contains("UiState"));
         Assert.assertTrue(query.contains("UiLocatorEvidence"));
-        Assert.assertFalse(query.contains("SpaPageInventory"));
+        Assert.assertFalse(query.contains("UiInteractionPage"));
         Assert.assertFalse(query.contains("SpaCandidateLocator"));
     }
 

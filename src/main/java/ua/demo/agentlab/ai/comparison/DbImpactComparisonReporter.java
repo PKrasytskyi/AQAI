@@ -856,7 +856,7 @@ public class DbImpactComparisonReporter {
         if (env != null && !env.isBlank()) {
             return env.trim();
         }
-        return "gpt-5-mini";
+        return ua.demo.agentlab.ai.openai.PropertiesOpenAiRuntimeConfig.DEFAULT_MODEL;
     }
 
     private record PomContractCount(

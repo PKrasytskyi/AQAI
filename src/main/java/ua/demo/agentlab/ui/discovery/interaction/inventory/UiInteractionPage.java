@@ -1,10 +1,11 @@
-package ua.demo.agentlab.ui.discovery.spa.model;
+package ua.demo.agentlab.ui.discovery.interaction.inventory;
 
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
+import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
 
 import java.util.List;
 
-public record SpaPageInventory(
+public record UiInteractionPage(
         String pageId,
         String pageName,
         String route,
@@ -14,7 +15,7 @@ public record SpaPageInventory(
         List<SemanticComponentInventory> components,
         List<String> sourceTrace
 ) {
-    public SpaPageInventory {
+    public UiInteractionPage {
         pageId = safe(pageId);
         pageName = safe(pageName);
         route = safe(route);

@@ -22,9 +22,9 @@ import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.ComponentActionDependency;
 import ua.demo.agentlab.ui.discovery.spa.model.ComponentInteractionGraph;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaStateGraph;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaTargetedVerificationResult;
 import ua.demo.agentlab.ui.discovery.spa.model.LiveTargetPageSnapshot;
@@ -114,7 +114,7 @@ public class LiveTargetedVerificationRunner {
     }
 
     public SpaLiveTargetedVerificationResult verify(ProjectProfile profile,
-                                                     SpaInventoryBundle inventory,
+                                                     UiInteractionInventory inventory,
                                                      SpaTargetedVerificationResult planned,
                                                      ComponentInteractionGraph graph,
                                                      SpaInventoryConfig config) {
@@ -134,9 +134,9 @@ public class LiveTargetedVerificationRunner {
         LiveAuthenticationState authenticationState = new LiveAuthenticationState();
         try (BrowserVerificationSession session = new BrowserVerificationSession(driverFactory)) {
             WebDriver driver = session.open();
-            Map<String, SpaPageInventory> pages = inventory.pages().stream()
-                    .collect(java.util.stream.Collectors.toMap(SpaPageInventory::pageId, page -> page, (left, right) -> left, LinkedHashMap::new));
-            for (SpaPageInventory page : pages.values()) {
+            Map<String, UiInteractionPage> pages = inventory.pages().stream()
+                    .collect(java.util.stream.Collectors.toMap(UiInteractionPage::pageId, page -> page, (left, right) -> left, LinkedHashMap::new));
+            for (UiInteractionPage page : pages.values()) {
                 List<TargetedLocatorVerification> pageLocators = planned.locatorVerifications().stream()
                         .filter(item -> page.pageId().equals(item.pageId())).toList();
                 List<TargetedActionVerification> pageActions = planned.actionVerifications().stream()
@@ -159,7 +159,7 @@ public class LiveTargetedVerificationRunner {
                     continue;
                 }
                 if (precondition.authenticatedNow()) {
-                    for (SpaPageInventory candidatePage : pages.values()) {
+                    for (UiInteractionPage candidatePage : pages.values()) {
                         if (!RouteCanonicalizer.routeEqualsOrSuffix(candidatePage.route(), profile.authenticatedRoute())) continue;
                         UiStateSnapshot authenticatedState = snapshotCollector.capture(driver, profile, candidatePage);
                         snapshotCollector.addDistinct(states, authenticatedState);
@@ -241,7 +241,7 @@ public class LiveTargetedVerificationRunner {
         return pageReadiness.routeMatches(driver, route);
     }
 
-    private LiveTargetPageSnapshot captureTargetPage(WebDriver driver, ProjectProfile profile, SpaPageInventory sourcePage,
+    private LiveTargetPageSnapshot captureTargetPage(WebDriver driver, ProjectProfile profile, UiInteractionPage sourcePage,
                                                      TargetedActionVerification action,
                                                      SpaTargetedVerificationResult planned, List<String> trace) {
         String actualRoute = RouteCanonicalizer.canonicalize(driver.getCurrentUrl());
@@ -286,7 +286,7 @@ public class LiveTargetedVerificationRunner {
                 .contains(intent == null ? "" : intent.toUpperCase(Locale.ROOT));
     }
 
-    private boolean isAuthenticationPage(ProjectProfile profile, SpaPageInventory page) {
+    private boolean isAuthenticationPage(ProjectProfile profile, UiInteractionPage page) {
         return profile != null && page != null
                 && RouteCanonicalizer.routeEqualsOrSuffix(page.route(), profile.loginRoute())
                 && !profile.authenticatedRoute().isBlank();
@@ -313,14 +313,14 @@ public class LiveTargetedVerificationRunner {
                                                     TargetedActionVerification planned, CandidateActionEvidence candidate,
                                                     Map<String, TargetedLocatorVerification> locators,
                                                     Map<String, Boolean> outcomes, ComponentInteractionGraph graph,
-                                                    SpaInventoryConfig config, SpaPageInventory page,
-                                                    Map<String, SpaPageInventory> inventoryPages) {
+                                                    SpaInventoryConfig config, UiInteractionPage page,
+                                                    Map<String, UiInteractionPage> inventoryPages) {
         if (!dependenciesSatisfied(planned, outcomes, graph)) return withActionResult(planned, false, "required component action has not passed");
         return actionExecutor.execute(new SafeActionExecutor.ActionExecutionInput(driver, profile, planned, candidate,
                 locators, config, page, inventoryPages));
     }
 
-    private CandidateActionEvidence findAction(SpaPageInventory page, String actionId) {
+    private CandidateActionEvidence findAction(UiInteractionPage page, String actionId) {
         return page.components().stream().flatMap(component -> component.actions().stream())
                 .filter(action -> actionId.equals(action.actionId())).findFirst().orElse(null);
     }

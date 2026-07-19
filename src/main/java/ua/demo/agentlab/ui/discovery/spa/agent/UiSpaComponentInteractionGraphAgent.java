@@ -28,12 +28,12 @@ public class UiSpaComponentInteractionGraphAgent implements WorkflowAgent,
     }
 
     @Override public String name() { return "ui-spa-component-interaction-graph-agent"; }
-    @Override public Set<WorkflowArtifact> requires() { return Set.of(WorkflowArtifact.SPA_PAGE_INVENTORY); }
+    @Override public Set<WorkflowArtifact> requires() { return Set.of(WorkflowArtifact.UI_INTERACTION_INVENTORY); }
     @Override public Set<WorkflowArtifact> produces() { return Set.of(WorkflowArtifact.SPA_COMPONENT_INTERACTION_GRAPH); }
-    @Override public WorkflowArtifact input() { return WorkflowArtifact.SPA_PAGE_INVENTORY; }
+    @Override public WorkflowArtifact input() { return WorkflowArtifact.UI_INTERACTION_INVENTORY; }
     @Override public WorkflowArtifact output() { return WorkflowArtifact.SPA_COMPONENT_INTERACTION_GRAPH; }
     @Override public SpaComponentInteractionGraphInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
-        return new SpaComponentInteractionGraphInput(store.require(WorkflowArtifact.SPA_PAGE_INVENTORY));
+        return new SpaComponentInteractionGraphInput(store.require(WorkflowArtifact.UI_INTERACTION_INVENTORY));
     }
     @Override public boolean supports(SpaComponentInteractionGraphInput input, WorkflowRunEnvelope run) {
         return input != null && input.inventory() != null;

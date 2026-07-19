@@ -175,13 +175,38 @@ public final class DemoManifestPreflightService {
             issues.add(issue("EXPECTED_POMS_INVALID",
                     "Authentication demo must declare exactly two distinct Page Object names."));
         }
+        Set<String> generatedTests = new LinkedHashSet<>(manifest.expectedGeneratedTests());
+        if (generatedTests.size() != manifest.expectedScenarioIds().size()
+                || generatedTests.stream().anyMatch(name -> !name.endsWith("Test"))) {
+            issues.add(issue("EXPECTED_TESTS_INVALID",
+                    "Demo must declare one distinct generated TestNG class per expected scenario."));
+        }
+        Set<String> requiredStages = Set.of(
+                "REQUIREMENTS", "NORMALIZED_REQUIREMENTS", "CANONICAL_TEST_CASES", "CONFIRMED_UI_CATALOG",
+                "POM_CONTRACTS", "PAGE_OBJECTS", "UI_TEST_CONTRACTS", "GENERATED_TESTNG_TESTS",
+                "COMPILE", "EXECUTION", "QUALITY_REPORT"
+        );
+        Set<String> declaredStages = manifest.expectedPipelineStages().stream()
+                .map(value -> value.toUpperCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toSet());
+        if (!declaredStages.containsAll(requiredStages)) {
+            issues.add(issue("EXPECTED_PIPELINE_INCOMPLETE",
+                    "Demo manifest must declare the complete requirements-to-execution pipeline."));
+        }
+        if (!manifest.generatedTestExecutionRequired()) {
+            issues.add(issue("GENERATED_TEST_EXECUTION_NOT_REQUIRED",
+                    "Build Week demo must require execution of manifest-owned generated tests."));
+        }
         for (String requiredSchema : List.of(
                 "requirements",
                 "structuredBehaviorContracts",
                 "requirementGovernance",
                 "canonicalTestCase",
                 "goldenRequirementSnapshot",
-                "pomContract"
+                "pomContract",
+                "uiTestContract",
+                "generatedSourceManifest",
+                "generatedTestExecution"
         )) {
             if (manifest.schemaVersions().getOrDefault(requiredSchema, "").isBlank()) {
                 issues.add(issue("SCHEMA_VERSION_MISSING", "Missing schema version for " + requiredSchema + "."));
@@ -263,7 +288,8 @@ public final class DemoManifestPreflightService {
                 manifest.expectedLogoutAccessMode(),
                 manifest.expectedLifecycle(),
                 manifest.expectedPomNames(),
-                manifest.expectedScenarioIds()
+                manifest.expectedScenarioIds(),
+                manifest.expectedGeneratedTests()
         );
     }
 

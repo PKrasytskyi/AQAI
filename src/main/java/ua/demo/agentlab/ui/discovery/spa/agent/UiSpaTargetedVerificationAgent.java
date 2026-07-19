@@ -38,7 +38,7 @@ public class UiSpaTargetedVerificationAgent implements WorkflowAgent,
 
     @Override
     public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.SPA_PAGE_INVENTORY, WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE,
+        return Set.of(WorkflowArtifact.UI_INTERACTION_INVENTORY, WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE,
                 WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS, WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS);
     }
 
@@ -48,7 +48,7 @@ public class UiSpaTargetedVerificationAgent implements WorkflowAgent,
     }
 
     @Override
-    public WorkflowArtifact input() { return WorkflowArtifact.SPA_PAGE_INVENTORY; }
+    public WorkflowArtifact input() { return WorkflowArtifact.UI_INTERACTION_INVENTORY; }
 
     @Override
     public WorkflowArtifact output() { return WorkflowArtifact.SPA_TARGETED_VERIFICATION; }
@@ -56,7 +56,7 @@ public class UiSpaTargetedVerificationAgent implements WorkflowAgent,
     @Override
     public SpaTargetedVerificationInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
         return new SpaTargetedVerificationInput(
-                store.require(WorkflowArtifact.SPA_PAGE_INVENTORY),
+                store.require(WorkflowArtifact.UI_INTERACTION_INVENTORY),
                 store.require(WorkflowArtifact.CANONICAL_TEST_CASE_BUNDLE),
                 store.require(WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS),
                 store.require(WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS)

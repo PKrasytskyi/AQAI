@@ -18,8 +18,8 @@ import ua.demo.agentlab.ui.discovery.spa.model.CandidateActionEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaEvidenceStatus;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 
 import java.util.List;
 import java.util.Map;
@@ -67,8 +67,8 @@ public class SpaTargetedVerificationPlannerTest {
         SemanticComponentInventory navigation = new SemanticComponentInventory(
                 "dashboard:navigation", "Navigation", ComponentType.NAVIGATION, "css", "nav", "", List.of("recruitment"), 0.9d,
                 List.of(recruitment), List.of(click), List.of(), List.of("test"));
-        SpaInventoryBundle dashboardInventory = new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
-                List.of(new SpaPageInventory("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA", "fp", metadata(),
+        UiInteractionInventory dashboardInventory = new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+                List.of(new UiInteractionPage("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA", "fp", metadata(),
                         List.of(navigation), List.of("test"))), List.of("test"));
         StructuredBehaviorContract contract = new StructuredBehaviorContract("REQ-001", "module-navigation", List.of("Open Recruitment module."),
                 List.of(), Map.of(),
@@ -96,9 +96,9 @@ public class SpaTargetedVerificationPlannerTest {
         SemanticComponentInventory header = new SemanticComponentInventory(
                 "dashboard:header", "Header", ComponentType.HEADER, "css", "header", "", List.of(), 0.9d,
                 List.of(opener, about), List.of(openMenu, falseOpenMenu), List.of(), List.of("test"));
-        SpaInventoryBundle dashboard = new SpaInventoryBundle(
-                SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
-                List.of(new SpaPageInventory("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA",
+        UiInteractionInventory dashboard = new UiInteractionInventory(
+                UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+                List.of(new UiInteractionPage("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA",
                         "fp", metadata(), List.of(header), List.of("test"))), List.of("test"));
         CanonicalTestCase openMenuCase = new CanonicalTestCase(
                 "REQ-MENU", "Open user menu", List.of("REQ-MENU"), List.of(),
@@ -115,7 +115,7 @@ public class SpaTargetedVerificationPlannerTest {
         Assert.assertEquals(result.actionVerifications().get(0).actionId(), openMenu.actionId());
     }
 
-    private SpaInventoryBundle inventory() {
+    private UiInteractionInventory inventory() {
         CandidateLocatorEvidence username = new CandidateLocatorEvidence(
                 "login:form:username", "login:form", "username", "name", "username", 0.92d, true,
                 1, 1, true, true, true, LocatorEvidenceType.CANDIDATE_LOCATOR, SpaEvidenceStatus.CANDIDATE, List.of()
@@ -128,9 +128,9 @@ public class SpaTargetedVerificationPlannerTest {
                 "login:form", "LoginForm", ComponentType.FORM, "css", "form", "", List.of("username"), 0.9d,
                 List.of(username), List.of(type), List.of(), List.of("test")
         );
-        return new SpaInventoryBundle(
-                SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.INVENTORY,
-                List.of(new SpaPageInventory("login", "LoginPage", "/login", "AUTHENTICATION", "fp", metadata(),
+        return new UiInteractionInventory(
+                UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.INVENTORY,
+                List.of(new UiInteractionPage("login", "LoginPage", "/login", "AUTHENTICATION", "fp", metadata(),
                         List.of(form), List.of("test"))), List.of("test")
         );
     }

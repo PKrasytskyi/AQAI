@@ -38,6 +38,34 @@ public class StateTransitionVerifierTest {
         Assert.assertTrue(result.reason().contains("missing"));
     }
 
+    @Test
+    public void confirmsDocumentNavigationForDirectLogout() {
+        RequirementScopedInteraction scoped = scoped(SemanticAction.LOGOUT, "logout-action");
+        UiStateTransition transition = new UiStateTransition("t2", "secure", "login", "logout-action",
+                "LOGOUT", "route changed", true, false, 0.96d, null, List.of());
+        SpaLiveTargetedVerificationResult live = new SpaLiveTargetedVerificationResult(
+                SpaLiveTargetedVerificationResult.SCHEMA_VERSION, null, true, true, List.of(), List.of(),
+                new SpaStateGraph(SpaStateGraph.SCHEMA_VERSION, null, List.of(), List.of(transition), List.of()), List.of());
+
+        var result = new StateTransitionVerifier().verify(scoped, live);
+
+        Assert.assertTrue(result.passed());
+        Assert.assertTrue(result.provenance().contains("strategy:DOCUMENT_NAVIGATION"));
+    }
+
+    @Test
+    public void doesNotAcceptSameRouteStateChangeAsDocumentLogout() {
+        RequirementScopedInteraction scoped = scoped(SemanticAction.LOGOUT, "logout-action");
+        UiStateTransition transition = new UiStateTransition("t3", "secure", "menu-closed", "logout-action",
+                "LOGOUT", "overlay changed", false, true, 0.90d, null, List.of());
+        SpaLiveTargetedVerificationResult live = new SpaLiveTargetedVerificationResult(
+                SpaLiveTargetedVerificationResult.SCHEMA_VERSION, null, true, true, List.of(), List.of(),
+                new SpaStateGraph(SpaStateGraph.SCHEMA_VERSION, null, List.of(), List.of(transition), List.of()), List.of());
+
+        Assert.assertFalse(new StateTransitionVerifier().verify(scoped, live).passed(),
+                "Logout requires document navigation and must not be confirmed by a same-route UI change");
+    }
+
     private RequirementScopedInteraction scoped(SemanticAction action, String sourceActionId) {
         SemanticElementKey element = SemanticElementKey.of("dashboard", "/dashboard", "header", "control");
         InteractionCandidate candidate = new InteractionCandidate(element, new SemanticActionKey(element, action.name()),

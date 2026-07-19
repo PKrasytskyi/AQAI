@@ -10,6 +10,9 @@ import ua.demo.agentlab.orchestration.pipeline.PipelineAgent;
 import ua.demo.agentlab.orchestration.pipeline.PipelineArtifactStore;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeResult;
+import ua.demo.agentlab.validation.execution.GeneratedTestExecutionResult;
+import ua.demo.agentlab.validation.execution.GeneratedTestExecutionStatus;
+import ua.demo.agentlab.config.RuntimeProperties;
 
 import java.time.Instant;
 import java.util.Set;
@@ -39,7 +42,7 @@ public class FlowRuntimeFeedbackAgent implements WorkflowAgent,
     }
 
     @Override public String name() { return "flow-runtime-feedback-agent"; }
-    @Override public Set<WorkflowArtifact> requires() { return Set.of(WorkflowArtifact.FLOW_CONTRACT_BUNDLE, WorkflowArtifact.GENERATED_UI_SMOKE_RESULT, WorkflowArtifact.ARTIFACT_LIFECYCLE_RESULT); }
+    @Override public Set<WorkflowArtifact> requires() { return Set.of(WorkflowArtifact.FLOW_CONTRACT_BUNDLE, WorkflowArtifact.GENERATED_UI_SMOKE_RESULT, WorkflowArtifact.GENERATED_TEST_EXECUTION_RESULT, WorkflowArtifact.ARTIFACT_LIFECYCLE_RESULT); }
     @Override public Set<WorkflowArtifact> produces() { return Set.of(WorkflowArtifact.FLOW_CONTRACT_RUNTIME_FEEDBACK); }
     @Override public WorkflowArtifact input() { return WorkflowArtifact.GENERATED_UI_SMOKE_RESULT; }
     @Override public WorkflowArtifact output() { return WorkflowArtifact.FLOW_CONTRACT_RUNTIME_FEEDBACK; }
@@ -51,7 +54,9 @@ public class FlowRuntimeFeedbackAgent implements WorkflowAgent,
         GeneratedUiSmokeResult smoke = (GeneratedUiSmokeResult) store.get(WorkflowArtifact.GENERATED_UI_SMOKE_RESULT).orElse(null);
         boolean liveEnabled = Boolean.parseBoolean(state.getArtifacts().getOrDefault("generated.ui.live.smoke.enabled", "false"));
         String liveStatus = state.getArtifacts().getOrDefault("generated.ui.live.smoke.status", "SKIPPED");
-        return new Input(flows, smoke, liveEnabled, liveStatus);
+        GeneratedTestExecutionResult execution = (GeneratedTestExecutionResult) store
+                .get(WorkflowArtifact.GENERATED_TEST_EXECUTION_RESULT).orElse(null);
+        return new Input(flows, smoke, execution, liveEnabled, liveStatus);
     }
 
     @Override public boolean supports(Input input, WorkflowRunEnvelope run) { return input != null && input.smokeResult() != null && !input.flows().contracts().isEmpty(); }
@@ -64,7 +69,12 @@ public class FlowRuntimeFeedbackAgent implements WorkflowAgent,
         if (!input.liveSmokeEnabled()) {
             return FlowRuntimeFeedbackResult.skipped("neo4j", "live smoke is disabled; generated source smoke is not runtime flow evidence");
         }
-        boolean passed = input.smokeResult().passed() && "PASSED".equalsIgnoreCase(input.liveStatus());
+        boolean executionAccepted = input.testExecution() != null
+                && (input.testExecution().status() == GeneratedTestExecutionStatus.PASSED
+                || input.testExecution().status() == GeneratedTestExecutionStatus.SKIPPED);
+        boolean passed = input.smokeResult().passed()
+                && "PASSED".equalsIgnoreCase(input.liveStatus())
+                && executionAccepted;
         String occurredAt = Instant.now().toString();
         FlowContractBundle feedbackBundle = passed ? runtimeVerifiedBundle(input.flows(), occurredAt) : input.flows();
         if (passed && !feedbackBundle.contracts().isEmpty()) {
@@ -86,6 +96,9 @@ public class FlowRuntimeFeedbackAgent implements WorkflowAgent,
         state.addArtifact("artifact.reuse.flow.feedback.updated", String.valueOf(output.contractsUpdated()));
         state.addArtifact("artifact.reuse.flow.feedback.message", output.message());
         artifactPublisher.writeJson(state, "flow-contracts", "flow-runtime-feedback.json", output);
+        if (new RuntimeProperties().readBoolean("demo.execution.active", "false")) {
+            return;
+        }
         String generatedSmokeStatus = state.getArtifacts().getOrDefault("generated.ui.smoke.status", "SKIPPED");
         String liveSmokeStatus = state.getArtifacts().getOrDefault("generated.ui.live.smoke.status", "SKIPPED");
         if (!"PASSED".equalsIgnoreCase(generatedSmokeStatus)) {
@@ -95,7 +108,8 @@ public class FlowRuntimeFeedbackAgent implements WorkflowAgent,
         }
     }
 
-    public record Input(FlowContractBundle flows, GeneratedUiSmokeResult smokeResult, boolean liveSmokeEnabled, String liveStatus) {
+    public record Input(FlowContractBundle flows, GeneratedUiSmokeResult smokeResult,
+                        GeneratedTestExecutionResult testExecution, boolean liveSmokeEnabled, String liveStatus) {
         public Input {
             flows = flows == null ? new FlowContractBundle("flow-contract-bundle.v1", null, java.util.List.of()) : flows;
             liveStatus = liveStatus == null ? "SKIPPED" : liveStatus.trim();

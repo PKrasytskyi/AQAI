@@ -5,7 +5,7 @@ import ua.demo.agentlab.ai.rag.http.JsonHttpClient;
 import ua.demo.agentlab.ui.generated.PomSourceMap;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.Neo4jRuntimeConfig;
 import ua.demo.agentlab.ui.discovery.spa.SpaInventoryConfig;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaSmokeEvidenceFeedbackResult;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaTargetedVerificationResult;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedLocatorVerification;
@@ -36,7 +36,7 @@ public final class CanonicalInteractionSmokeFeedbackWriter {
     public SpaSmokeEvidenceFeedbackResult write(
             boolean liveSmokePassed,
             PomSourceMap sourceMap,
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             SpaTargetedVerificationResult verification,
             SpaInventoryConfig policy
     ) {

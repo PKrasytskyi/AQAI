@@ -35,12 +35,15 @@ public final class DemoManifestLoader {
                     strings(expected.get("pageCapabilities")),
                     strings(expected.get("scenarioIds")),
                     strings(expected.get("pomNames")),
+                    strings(expected.get("generatedTests")),
+                    strings(expected.get("pipeline")),
                     LogoutAccessMode.from(text(expected.get("logoutAccessMode"))),
                     strings(expected.get("lifecycle")),
                     text(expected.get("finalRoute")),
                     text(expected.get("finalState")),
                     DemoDatabaseMode.from(text(runtime.get("databaseMode"))),
                     text(runtime.get("aiMode")),
+                    Boolean.parseBoolean(text(runtime.get("generatedTestExecutionRequired"))),
                     stringMap(root.get("schemas"))
             );
         } catch (IOException exception) {

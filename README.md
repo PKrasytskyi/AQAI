@@ -106,6 +106,7 @@ src/main/resources/profiles/orangehrm.project-profile.yaml
 
 ```powershell
 $env:OPENAI_API_KEY="..."
+$env:OPENAI_MODEL="gpt-5.6-luna"
 $env:RAG_OPENAI_API_KEY="..."
 $env:KNOWLEDGE_GRAPH_NEO4J_PASSWORD="..."
 $env:API_AUTH_TOKEN="..."
@@ -126,6 +127,19 @@ JVM system property > environment variable > project profile YAML > framework.pr
 ```
 
 If the CLI does not pass a requirement file, the runner uses `requirements.file` from the active project profile.
+
+Generated UI sources are isolated per project. Unless a profile explicitly declares output packages, the platform derives them from `profileId + baseUrlHash`:
+
+```text
+ua.demo.agentlab.ui.generated.<generationNamespace>.pages
+ua.demo.agentlab.ui.generated.<generationNamespace>.tests
+```
+
+The checked-in OpenAI generation default is `gpt-5.6-luna`. `OPENAI_MODEL` remains the runtime override
+for accounts or environments that expose a different model identifier; RAG generation inherits the same
+value unless `RAG_OPENAI_GENERATION_MODEL` is set explicitly.
+
+Persistence writes `target/ai-run/validation/generated-source-manifest.json`. Compile, review, and generated-source smoke accept only files whose package, path, class name, and content hash belong to that current-run manifest. Maven compile is scoped to the manifest namespace, so equal names such as `LoginPage` or `REQ001...Test` from another project cannot collide with the active run.
 
 Important runtime switches:
 
@@ -218,6 +232,20 @@ mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" compile
 ```
 
 ## Run The Workflow
+
+Build Week OrangeHRM requirements-to-execution demo:
+
+```powershell
+$env:OPENAI_API_KEY="..."
+$env:OPENAI_MODEL="gpt-5.6-luna"
+$env:TEST_VALID_USERNAME="..."
+$env:TEST_VALID_PASSWORD="..."
+$env:KNOWLEDGE_DB_STATUS="false"
+
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--demo orangehrm"
+```
+
+The command resolves the versioned demo manifest, generates namespaced Page Objects and TestNG tests, compiles and reviews them, runs source/live smoke, executes only current-run manifest-owned generated tests, and writes `target/ai-run/quality/build-week-demo-summary.{json,md}`. See [Build Week Demo](docs/BUILD_WEEK_DEMO.md).
 
 Deterministic run:
 

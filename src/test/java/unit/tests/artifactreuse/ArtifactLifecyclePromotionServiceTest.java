@@ -129,6 +129,24 @@ public class ArtifactLifecyclePromotionServiceTest {
         Assert.assertTrue(result.entries().get(0).reason().contains("live smoke is enabled"));
     }
 
+    @Test
+    public void doesNotPromoteWhenManifestOwnedGeneratedTestsFail() {
+        CapturingRegistry registry = new CapturingRegistry();
+        ArtifactLifecycleResult result = service(registry).promote(input(
+                passingCompile(),
+                passingSmoke(),
+                Map.of(
+                        "artifact.reuse.LoginPage.fingerprint", "fingerprint-1",
+                        "artifact.reuse.LoginPage.stableWrite.path", "target/stable/LoginPage.fingerprint-1.json",
+                        "generated.tests.execution.status", "FAILED"
+                )
+        ));
+
+        Assert.assertEquals(result.entries().get(0).status(), ArtifactStatus.NEEDS_REVIEW);
+        Assert.assertFalse(result.entries().get(0).reusable());
+        Assert.assertTrue(result.entries().get(0).reason().contains("generated TestNG execution status is FAILED"));
+    }
+
     private ArtifactLifecyclePromotionService service(CapturingRegistry registry) {
         return new ArtifactLifecyclePromotionService(new EnabledConfig(), registry);
     }
@@ -138,13 +156,15 @@ public class ArtifactLifecyclePromotionServiceTest {
             GeneratedUiSmokeResult smoke,
             Map<String, String> artifacts
     ) {
+        Map<String, String> runtimeArtifacts = new java.util.LinkedHashMap<>(artifacts);
+        runtimeArtifacts.putIfAbsent("generated.tests.execution.status", "SKIPPED");
         return new ArtifactLifecyclePromotionService.ArtifactLifecycleInput(
                 List.of(contract()),
                 List.of(new GeneratedSourceFile("generated.pages", "LoginPage", "LoginPage.java", "class LoginPage {}")),
                 compile,
                 new GeneratedCodeReviewReport("review ok", 1, 0, List.of()),
                 smoke,
-                artifacts,
+                runtimeArtifacts,
                 new RunRecord("run-1", "app", "base", "requirements", "discovery", "knowledge-v1",
                         "2026-07-11T00:00:00Z", "test")
         );

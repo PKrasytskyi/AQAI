@@ -2,7 +2,7 @@ package ua.demo.agentlab.ui.discovery.spa;
 
 import org.openqa.selenium.WebDriver;
 import ua.demo.agentlab.config.ProjectProfile;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.UiStateSnapshot;
 
 import java.util.List;
@@ -17,7 +17,7 @@ public final class UiStateSnapshotCollector {
         this.captureService = Objects.requireNonNull(captureService, "captureService");
     }
 
-    public UiStateSnapshot capture(WebDriver driver, ProjectProfile profile, SpaPageInventory page) {
+    public UiStateSnapshot capture(WebDriver driver, ProjectProfile profile, UiInteractionPage page) {
         return captureService.capture(driver, profile, page);
     }
 

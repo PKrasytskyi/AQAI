@@ -10,8 +10,8 @@ import ua.demo.agentlab.ui.discovery.spa.model.CandidateActionEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.ComponentFlowType;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaTargetedVerificationResult;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBinding;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
@@ -56,7 +56,7 @@ public final class StructuredSpaBehaviorBindingService {
 
     public List<BoundSpaBehaviorContract> bind(
             List<StructuredBehaviorContract> contracts,
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             SpaTargetedVerificationResult verification
     ) {
         return bind(contracts, inventory, verification, null);
@@ -64,7 +64,7 @@ public final class StructuredSpaBehaviorBindingService {
 
     public List<BoundSpaBehaviorContract> bind(
             List<StructuredBehaviorContract> contracts,
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             SpaTargetedVerificationResult verification,
             SourceStateBindingBundle sourceBindings
     ) {
@@ -94,7 +94,7 @@ public final class StructuredSpaBehaviorBindingService {
         var data = dataBinding.resolve(contract.dataRequirements());
         Map<String, String> values = data.values();
         review.addAll(data.reviewReasons());
-        SpaPageInventory page = targetStateResolver.resolve(contract, evidence.pages(), sourceBinding).orElse(null);
+        UiInteractionPage page = targetStateResolver.resolve(contract, evidence.pages(), sourceBinding).orElse(null);
         if (page == null) {
             review.add("No current-run page matches target capability/context '" + contract.targetContext() + "'.");
             return resultAssembler.empty(contract, values, review);
@@ -114,7 +114,7 @@ public final class StructuredSpaBehaviorBindingService {
         return resultAssembler.assemble(contract, page, flowId, components, steps, assertions, values, decision);
     }
 
-    private List<SemanticComponentInventory> componentsFor(StructuredBehaviorContract contract, SpaPageInventory page,
+    private List<SemanticComponentInventory> componentsFor(StructuredBehaviorContract contract, UiInteractionPage page,
                                                             EvidenceIndex evidence,
                                                             SourceStateBinding sourceBinding) {
         Set<ComponentType> requested = requestedComponentTypes(contract.targetContext(), contract.capability());
@@ -127,7 +127,7 @@ public final class StructuredSpaBehaviorBindingService {
 
     private List<BoundSpaBehaviorStep> bindSteps(
             StructuredBehaviorContract contract,
-            SpaPageInventory page,
+            UiInteractionPage page,
             List<SemanticComponentInventory> components,
             Map<String, String> values,
             EvidenceIndex evidence,
@@ -139,7 +139,7 @@ public final class StructuredSpaBehaviorBindingService {
 
     private ActionSequenceBinder.StepResolution bindStep(
             String rawAction,
-            SpaPageInventory page,
+            UiInteractionPage page,
             List<SemanticComponentInventory> components,
             Map<String, String> values,
             EvidenceIndex evidence
@@ -176,7 +176,7 @@ public final class StructuredSpaBehaviorBindingService {
 
     private List<BoundSpaBehaviorAssertion> bindAssertions(
             StructuredBehaviorContract contract,
-            SpaPageInventory page,
+            UiInteractionPage page,
             List<SemanticComponentInventory> components,
             EvidenceIndex evidence,
             List<String> review
@@ -317,7 +317,7 @@ public final class StructuredSpaBehaviorBindingService {
         };
     }
 
-    private Optional<TypedComponentFlow> flowFor(StructuredBehaviorContract contract, SpaPageInventory page,
+    private Optional<TypedComponentFlow> flowFor(StructuredBehaviorContract contract, UiInteractionPage page,
                                                   List<TypedComponentFlow> flows) {
         Optional<ComponentFlowType> requiredType = requiredFlowType(contract);
         if (requiredType.isEmpty()) return Optional.empty();
@@ -435,8 +435,8 @@ public final class StructuredSpaBehaviorBindingService {
     private record ScoredAction(SemanticComponentInventory component, CandidateActionEvidence action, int score) {
     }
 
-    private record EvidenceIndex(List<SpaPageInventory> pages, Set<String> confirmedLocatorIds, Set<String> confirmedActionIds) {
-        static EvidenceIndex from(SpaInventoryBundle inventory, SpaTargetedVerificationResult verification) {
+    private record EvidenceIndex(List<UiInteractionPage> pages, Set<String> confirmedLocatorIds, Set<String> confirmedActionIds) {
+        static EvidenceIndex from(UiInteractionInventory inventory, SpaTargetedVerificationResult verification) {
             Set<String> confirmed = verification.locatorVerifications().stream().filter(TargetedLocatorVerification::verified)
                     .map(TargetedLocatorVerification::locatorId).collect(java.util.stream.Collectors.toSet());
             Set<String> actions = verification.actionVerifications().stream()

@@ -8,7 +8,7 @@ import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.ui.discovery.component.model.ComponentType;
 import ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.UiStateSnapshot;
 
 import java.nio.charset.StandardCharsets;
@@ -26,7 +26,7 @@ public class SpaStateSnapshotCaptureService {
             return [...document.querySelectorAll('[aria-busy="true"],[role="progressbar"],[class*=loading i],[class*=spinner i]')].filter(visible).length > 0;
             """;
 
-    public UiStateSnapshot capture(WebDriver driver, ProjectProfile profile, SpaPageInventory page) {
+    public UiStateSnapshot capture(WebDriver driver, ProjectProfile profile, UiInteractionPage page) {
         return capture(driver, profile, page == null ? "" : page.pageId(),
                 page == null ? null : page.runMetadata(), page == null ? List.of() : page.components());
     }

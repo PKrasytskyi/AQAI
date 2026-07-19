@@ -1,14 +1,14 @@
 package ua.demo.agentlab.ui.discovery.spa.binding;
 
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBinding;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 
 import java.util.List;
 import java.util.Optional;
 
 /** Resolves only a previously confirmed source-state binding. */
 public final class BehaviorSourceStateResolver {
-    public Optional<SpaPageInventory> resolve(List<SpaPageInventory> pages, SourceStateBinding source) {
+    public Optional<UiInteractionPage> resolve(List<UiInteractionPage> pages, SourceStateBinding source) {
         if (pages == null || source == null || source.sourcePageId().isBlank()) return Optional.empty();
         return pages.stream().filter(page -> page.pageId().equalsIgnoreCase(source.sourcePageId())
                 || routeMatches(page.route(), source.sourceRoute())).findFirst();

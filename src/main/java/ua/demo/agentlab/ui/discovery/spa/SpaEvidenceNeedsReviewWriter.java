@@ -3,6 +3,7 @@ package ua.demo.agentlab.ui.discovery.spa;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import ua.demo.agentlab.ui.discovery.spa.model.*;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,7 +12,7 @@ import java.util.List;
 
 /** Actionable review queue for rejected SPA locator/action/postcondition evidence. */
 public final class SpaEvidenceNeedsReviewWriter {
-    public String write(SpaInventoryBundle inventory, SpaTargetedVerificationResult verification) {
+    public String write(UiInteractionInventory inventory, SpaTargetedVerificationResult verification) {
         try {
             List<ReviewItem> items = new ArrayList<>();
             if (verification != null) {

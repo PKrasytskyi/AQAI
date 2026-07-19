@@ -1,15 +1,17 @@
 package ua.demo.agentlab.ui.discovery.spa;
 
 import ua.demo.agentlab.ui.discovery.component.model.ComponentType;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.*;
 import java.util.*;
 
 /** Converts inventory action evidence into small, typed, non-business-specific component flow candidates. */
 public final class TypedComponentFlowBuilder {
-    public TypedComponentFlowBundle build(SpaInventoryBundle inventory) {
-        if (inventory == null || inventory.pages().isEmpty()) return new TypedComponentFlowBundle(null, List.of(), List.of("no SPA inventory"));
+    public TypedComponentFlowBundle build(UiInteractionInventory inventory) {
+        if (inventory == null || inventory.pages().isEmpty()) return new TypedComponentFlowBundle(null, List.of(), List.of("no interaction inventory"));
         List<TypedComponentFlow> flows = new ArrayList<>();
-        for (SpaPageInventory page : inventory.pages()) {
+        for (UiInteractionPage page : inventory.pages()) {
             Map<ComponentType, List<SemanticComponentInventory>> byType = new EnumMap<>(ComponentType.class);
             page.components().forEach(component -> byType.computeIfAbsent(component.type(), ignored -> new ArrayList<>()).add(component));
             flows.addAll(navigation(page, byType.getOrDefault(ComponentType.NAVIGATION, List.of())));
@@ -20,15 +22,15 @@ public final class TypedComponentFlowBuilder {
         return new TypedComponentFlowBundle(inventory.pages().get(0).runMetadata(), List.copyOf(flows),
                 List.of("typed component flows are candidates until live verification and smoke feedback"));
     }
-    private List<TypedComponentFlow> navigation(SpaPageInventory page, List<SemanticComponentInventory> components) {
+    private List<TypedComponentFlow> navigation(UiInteractionPage page, List<SemanticComponentInventory> components) {
         return components.stream().flatMap(c -> c.actions().stream()).filter(a -> "CLICK".equals(a.intent()) || "OPEN_RECORD".equals(a.intent()))
                 .map(a -> flow(page, ComponentFlowType.MODULE_NAVIGATION, List.of(a.componentId()), List.of(a), "")).toList();
     }
-    private List<TypedComponentFlow> filter(SpaPageInventory page, Map<ComponentType,List<SemanticComponentInventory>> byType) {
+    private List<TypedComponentFlow> filter(UiInteractionPage page, Map<ComponentType,List<SemanticComponentInventory>> byType) {
         List<CandidateActionEvidence> actions = actions(byType.getOrDefault(ComponentType.FILTER_PANEL,List.of()), Set.of("FILTER","SELECT","CLICK"));
         return actions.isEmpty() || results(byType).isEmpty()?List.of():List.of(flow(page, ComponentFlowType.FILTER_RESULTS, ids(byType.get(ComponentType.FILTER_PANEL), results(byType)), actions, ""));
     }
-    private List<TypedComponentFlow> table(SpaPageInventory page, Map<ComponentType,List<SemanticComponentInventory>> byType) {
+    private List<TypedComponentFlow> table(UiInteractionPage page, Map<ComponentType,List<SemanticComponentInventory>> byType) {
         List<SemanticComponentInventory> tables = results(byType);
         List<TypedComponentFlow> out = new ArrayList<>();
         List<CandidateActionEvidence> sort=actions(tables, Set.of("SORT_COLLECTION","CLICK"));
@@ -37,17 +39,17 @@ public final class TypedComponentFlowBuilder {
         if(!paginate.isEmpty()) out.add(flow(page, ComponentFlowType.TABLE_PAGINATION, ids(tables), paginate, ""));
         return out;
     }
-    private List<TypedComponentFlow> modal(SpaPageInventory page, List<SemanticComponentInventory> components) {
+    private List<TypedComponentFlow> modal(UiInteractionPage page, List<SemanticComponentInventory> components) {
         List<TypedComponentFlow> out=new ArrayList<>();
         List<CandidateActionEvidence> confirm=actions(components, Set.of("CONFIRM_ACTION","CLICK"));
         if(!confirm.isEmpty()) out.add(flow(page, ComponentFlowType.MODAL_CONFIRMATION, ids(components), confirm, ""));
         return out;
     }
-    private TypedComponentFlow flow(SpaPageInventory page, ComponentFlowType type,List<String> components,List<CandidateActionEvidence> actions,String targetRoute){
+    private TypedComponentFlow flow(UiInteractionPage page, ComponentFlowType type,List<String> components,List<CandidateActionEvidence> actions,String targetRoute){
         List<String> ids=actions.stream().map(CandidateActionEvidence::actionId).distinct().toList();
         List<String> locators=actions.stream().flatMap(a->a.requiredLocatorIds().stream()).distinct().toList();
         double confidence=actions.stream().mapToDouble(CandidateActionEvidence::confidence).average().orElse(0d);
-        return new TypedComponentFlow(page.pageId()+":flow:"+type.name().toLowerCase(Locale.ROOT)+":"+String.join("-",ids),page.pageId(),page.route(),type,components,ids,locators,targetRoute,postconditions(type, locators),confidence,SpaEvidenceStatus.CANDIDATE,List.of("spa-inventory:typed-component-flow"));
+        return new TypedComponentFlow(page.pageId()+":flow:"+type.name().toLowerCase(Locale.ROOT)+":"+String.join("-",ids),page.pageId(),page.route(),type,components,ids,locators,targetRoute,postconditions(type, locators),confidence,SpaEvidenceStatus.CANDIDATE,List.of("spa-extension:typed-component-flow"));
     }
     private List<FlowPostconditionContract> postconditions(ComponentFlowType type, List<String> locatorIds) {
         if (type == ComponentFlowType.MODULE_NAVIGATION) {

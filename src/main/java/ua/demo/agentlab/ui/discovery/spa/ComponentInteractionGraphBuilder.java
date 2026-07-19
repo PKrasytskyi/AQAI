@@ -4,8 +4,8 @@ import ua.demo.agentlab.ui.discovery.spa.model.CandidateActionEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.ComponentActionDependency;
 import ua.demo.agentlab.ui.discovery.spa.model.ComponentInteractionGraph;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,12 +18,12 @@ import java.util.Locale;
  */
 public class ComponentInteractionGraphBuilder {
 
-    public ComponentInteractionGraph build(SpaInventoryBundle inventory) {
+    public ComponentInteractionGraph build(UiInteractionInventory inventory) {
         if (inventory == null || inventory.pages().isEmpty()) {
             return ComponentInteractionGraph.empty(null, "spa-component-graph:no-inventory");
         }
         List<ComponentActionDependency> dependencies = new ArrayList<>();
-        for (SpaPageInventory page : inventory.pages()) {
+        for (UiInteractionPage page : inventory.pages()) {
             List<ActionRef> actions = page.components().stream()
                     .flatMap(component -> component.actions().stream().map(action -> new ActionRef(component, action)))
                     .toList();

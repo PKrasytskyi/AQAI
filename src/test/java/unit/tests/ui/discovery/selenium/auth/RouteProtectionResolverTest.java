@@ -5,7 +5,7 @@ import org.testng.annotations.Test;
 import ua.demo.agentlab.config.OutputProfile;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.ui.discovery.selenium.auth.RouteProtectionResolver;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 
 import java.util.List;
 
@@ -34,7 +34,7 @@ public class RouteProtectionResolverTest {
         Assert.assertFalse(resolver.redirectedToLogin(profile, "/checkboxes", "https://the-internet.herokuapp.com/checkboxes"));
     }
 
-    private SpaPageInventory page(String id, String route, String capability) {
-        return new SpaPageInventory(id, id + "Page", route, capability, "fp", null, List.of(), List.of());
+    private UiInteractionPage page(String id, String route, String capability) {
+        return new UiInteractionPage(id, id + "Page", route, capability, "fp", null, List.of(), List.of());
     }
 }

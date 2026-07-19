@@ -3,7 +3,7 @@ package ua.demo.agentlab.ui.discovery.spa.binding;
 import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContract;
 import ua.demo.agentlab.ui.discovery.spa.BehaviorTargetContext;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBinding;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 
 import java.util.Comparator;
 import java.util.List;
@@ -19,11 +19,11 @@ public final class BehaviorTargetStateResolver {
         this.sourceResolver = sourceResolver;
     }
 
-    public Optional<SpaPageInventory> resolve(StructuredBehaviorContract contract,
-                                              List<SpaPageInventory> pages,
+    public Optional<UiInteractionPage> resolve(StructuredBehaviorContract contract,
+                                              List<UiInteractionPage> pages,
                                               SourceStateBinding sourceBinding) {
         if (contract == null || pages == null || pages.isEmpty()) return Optional.empty();
-        Optional<SpaPageInventory> confirmedSource = sourceResolver.resolve(pages, sourceBinding);
+        Optional<UiInteractionPage> confirmedSource = sourceResolver.resolve(pages, sourceBinding);
         if (confirmedSource.isPresent()) return confirmedSource;
 
         BehaviorTargetContext context = BehaviorTargetContext.parse(contract.targetContext());
@@ -35,25 +35,25 @@ public final class BehaviorTargetStateResolver {
         if (!route.isBlank()) {
             return pages.stream().filter(page -> routeMatches(page.route(), route))
                     .filter(page -> capability.isBlank() || supports(page, capability))
-                    .sorted(Comparator.comparing(SpaPageInventory::route)).findFirst();
+                    .sorted(Comparator.comparing(UiInteractionPage::route)).findFirst();
         }
         if (!pageName.isBlank()) {
             return pages.stream().filter(page -> pageMatches(page, pageName))
                     .filter(page -> capability.isBlank() || supports(page, capability))
-                    .sorted(Comparator.comparing(SpaPageInventory::route)).findFirst();
+                    .sorted(Comparator.comparing(UiInteractionPage::route)).findFirst();
         }
-        List<SpaPageInventory> matches = pages.stream()
+        List<UiInteractionPage> matches = pages.stream()
                 .filter(page -> !capability.isBlank() && supports(page, capability))
-                .sorted(Comparator.comparing(SpaPageInventory::route)).toList();
+                .sorted(Comparator.comparing(UiInteractionPage::route)).toList();
         return matches.size() == 1 ? Optional.of(matches.get(0)) : Optional.empty();
     }
 
-    private boolean supports(SpaPageInventory page, String capability) {
+    private boolean supports(UiInteractionPage page, String capability) {
         return java.util.Arrays.stream(page.capability().split("\\|"))
                 .map(this::normalize).anyMatch(capability::equals);
     }
 
-    private boolean pageMatches(SpaPageInventory page, String expected) {
+    private boolean pageMatches(UiInteractionPage page, String expected) {
         String target = normalize(expected);
         String evidence = normalize(page.pageName() + " " + page.pageId() + " " + page.route());
         return !target.isBlank() && (evidence.contains(target) || target.contains(normalize(page.pageName())));

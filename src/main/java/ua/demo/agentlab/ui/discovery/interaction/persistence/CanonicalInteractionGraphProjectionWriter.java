@@ -7,7 +7,7 @@ import ua.demo.agentlab.ui.discovery.interaction.model.LocatorPromotionDecision;
 import ua.demo.agentlab.ui.discovery.interaction.pipeline.CanonicalInteractionEvidenceBundle;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.Neo4jRuntimeConfig;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -34,7 +34,7 @@ public final class CanonicalInteractionGraphProjectionWriter {
 
     public InteractionGraphProjectionResult persist(
             CanonicalInteractionEvidenceBundle canonical,
-            SpaInventoryBundle inventory
+            UiInteractionInventory inventory
     ) {
         if (canonical == null || canonical.promotionDecisions().isEmpty()) {
             return InteractionGraphProjectionResult.skipped("canonical interaction evidence is empty");
@@ -44,7 +44,7 @@ public final class CanonicalInteractionGraphProjectionWriter {
             return InteractionGraphProjectionResult.skipped("Neo4j password is not configured");
         }
         KnowledgeRunMetadata metadata = inventory == null ? null : inventory.pages().stream()
-                .map(ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory::runMetadata)
+                .map(ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage::runMetadata)
                 .filter(java.util.Objects::nonNull)
                 .findFirst()
                 .orElse(null);

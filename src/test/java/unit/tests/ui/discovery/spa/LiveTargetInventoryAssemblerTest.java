@@ -19,8 +19,8 @@ import ua.demo.agentlab.ui.discovery.spa.SourceStateBindingService;
 import ua.demo.agentlab.ui.discovery.spa.SpaDiscoveryMode;
 import ua.demo.agentlab.ui.discovery.spa.SpaInventoryConfig;
 import ua.demo.agentlab.ui.discovery.spa.model.LiveTargetPageSnapshot;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 
 import java.util.List;
 import java.util.Map;
@@ -29,36 +29,36 @@ public class LiveTargetInventoryAssemblerTest {
 
     @Test
     public void mergesRenderedTargetStateAsDistinctCurrentRunPage() {
-        SpaPageInventory source = new SpaPageInventory("recruitment", "RecruitmentPage",
+        UiInteractionPage source = new UiInteractionPage("recruitment", "RecruitmentPage",
                 "/recruitment/viewCandidates", "MODULE_NAVIGATION", "source-fp", metadata(), List.of(), List.of());
         DiscoveredPageSnapshot target = targetSnapshot();
         LiveTargetPageSnapshot liveTarget = new LiveTargetPageSnapshot("recruitment", source.route(), "openVacancies",
                 target.pageId(), "/recruitment/viewJobVacancy", List.of("REQ-002"), target);
 
-        SpaInventoryBundle result = new LiveTargetInventoryAssembler().merge(profile(),
-                new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+        UiInteractionInventory result = new LiveTargetInventoryAssembler().merge(profile(),
+                new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
                         List.of(source), List.of("base")), List.of(liveTarget), metadata(), config());
 
         Assert.assertEquals(result.pages().size(), 2);
-        SpaPageInventory vacancies = result.pages().stream()
+        UiInteractionPage vacancies = result.pages().stream()
                 .filter(page -> page.route().equals("/recruitment/viewJobVacancy"))
                 .findFirst().orElseThrow();
         Assert.assertEquals(vacancies.pageId(), "web-index-php-recruitment-viewjobvacancy");
         Assert.assertTrue(vacancies.capability().contains("FILTER"),
                 vacancies.capability() + " components=" + vacancies.components());
         Assert.assertTrue(vacancies.capability().contains("RECORD_LIST"), vacancies.capability());
-        Assert.assertTrue(result.sourceTrace().contains("spa-inventory:live-target-merge"));
+        Assert.assertTrue(result.sourceTrace().contains("interaction-inventory:live-target-merge"));
     }
 
     @Test
     public void rebindsDependentFilterRequirementToLiveMappedTargetState() {
-        SpaPageInventory source = new SpaPageInventory("recruitment", "RecruitmentPage",
+        UiInteractionPage source = new UiInteractionPage("recruitment", "RecruitmentPage",
                 "/recruitment/viewCandidates", "MODULE_NAVIGATION", "source-fp", metadata(), List.of(), List.of());
         DiscoveredPageSnapshot target = targetSnapshot();
         LiveTargetPageSnapshot liveTarget = new LiveTargetPageSnapshot("recruitment", source.route(), "openVacancies",
                 target.pageId(), "/recruitment/viewJobVacancy", List.of("REQ-NAV"), target);
-        SpaInventoryBundle inventory = new LiveTargetInventoryAssembler().merge(profile(),
-                new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+        UiInteractionInventory inventory = new LiveTargetInventoryAssembler().merge(profile(),
+                new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
                         List.of(source), List.of("base")), List.of(liveTarget), metadata(), config());
         StructuredBehaviorContract filter = new StructuredBehaviorContract(
                 "REQ-FILTER", "FILTER", List.of("Inspect vacancy filters"), List.of(), Map.of(),
@@ -75,17 +75,17 @@ public class LiveTargetInventoryAssemblerTest {
 
     @Test
     public void mapsCustomSpaFiltersAndDivResultsAsRecordList() {
-        SpaPageInventory source = new SpaPageInventory("recruitment", "RecruitmentPage",
+        UiInteractionPage source = new UiInteractionPage("recruitment", "RecruitmentPage",
                 "/recruitment/viewCandidates", "MODULE_NAVIGATION", "source-fp", metadata(), List.of(), List.of());
         DiscoveredPageSnapshot target = customControlTargetSnapshot();
         LiveTargetPageSnapshot liveTarget = new LiveTargetPageSnapshot("recruitment", source.route(), "openVacancies",
                 target.pageId(), "/recruitment/viewJobVacancy", List.of("REQ-FILTER"), target);
 
-        SpaInventoryBundle result = new LiveTargetInventoryAssembler().merge(profile(),
-                new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+        UiInteractionInventory result = new LiveTargetInventoryAssembler().merge(profile(),
+                new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
                         List.of(source), List.of("base")), List.of(liveTarget), metadata(), config());
 
-        SpaPageInventory vacancies = result.pages().stream()
+        UiInteractionPage vacancies = result.pages().stream()
                 .filter(page -> page.route().equals("/recruitment/viewJobVacancy"))
                 .findFirst().orElseThrow();
         Assert.assertTrue(vacancies.capability().contains("FILTER"),
@@ -97,17 +97,17 @@ public class LiveTargetInventoryAssemblerTest {
 
     @Test
     public void preservesUserMenuTriggerAndLogoutFromLiveOverlaySnapshot() {
-        SpaPageInventory dashboard = new SpaPageInventory("dashboard", "DashboardPage", "/dashboard/index",
+        UiInteractionPage dashboard = new UiInteractionPage("dashboard", "DashboardPage", "/dashboard/index",
                 "AUTHENTICATED_AREA", "dashboard-fp", metadata(), List.of(), List.of());
         DiscoveredPageSnapshot target = dashboardMenuSnapshot();
         LiveTargetPageSnapshot liveTarget = new LiveTargetPageSnapshot("dashboard", dashboard.route(),
                 "openUserMenu", target.pageId(), dashboard.route(), List.of("REQ-LOGOUT"), target);
 
-        SpaInventoryBundle result = new LiveTargetInventoryAssembler().merge(profile(),
-                new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+        UiInteractionInventory result = new LiveTargetInventoryAssembler().merge(profile(),
+                new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
                         List.of(dashboard), List.of("base")), List.of(liveTarget), metadata(), config());
 
-        SpaPageInventory mapped = result.pages().stream()
+        UiInteractionPage mapped = result.pages().stream()
                 .filter(page -> page.route().equals("/dashboard/index"))
                 .findFirst().orElseThrow();
         var userMenu = mapped.components().stream()

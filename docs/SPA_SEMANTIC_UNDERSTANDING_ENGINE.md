@@ -102,7 +102,7 @@ Each entry includes requirement IDs, page/component/evidence IDs, selector and s
 
 Supporting artifacts:
 
-* `target/discovery/spa-inventory.json`
+* `target/discovery/ui-interaction-inventory.json`
 * `target/discovery/component-model.json`
 * `target/discovery/component-interaction-graph.json`
 * `target/discovery/typed-component-flows.json`

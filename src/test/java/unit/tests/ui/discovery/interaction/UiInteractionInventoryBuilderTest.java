@@ -1,4 +1,4 @@
-package unit.tests.ui.discovery.spa;
+package unit.tests.ui.discovery.interaction;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -16,7 +16,8 @@ import ua.demo.agentlab.testcase.model.CanonicalTestCase;
 import ua.demo.agentlab.testcase.model.CanonicalTestCaseBundle;
 import ua.demo.agentlab.ui.UiAssertionProfile;
 import ua.demo.agentlab.ui.discovery.spa.SpaDiscoveryMode;
-import ua.demo.agentlab.ui.discovery.spa.SpaInventoryBuilder;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventoryBuilder;
+import ua.demo.agentlab.ui.discovery.interaction.mapping.UiInventorySemanticInteractionMapper;
 import ua.demo.agentlab.ui.discovery.spa.SpaInventoryConfig;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaEvidenceStatus;
 import ua.demo.agentlab.ui.discovery.component.model.ComponentType;
@@ -24,11 +25,11 @@ import ua.demo.agentlab.ui.discovery.component.model.ComponentType;
 import java.util.List;
 import java.util.Map;
 
-public class SpaInventoryBuilderTest {
+public class UiInteractionInventoryBuilderTest {
 
     @Test
     public void buildsCandidateOnlyInventoryForDiscoveredForm() {
-        var inventory = new SpaInventoryBuilder().build(
+        var inventory = new UiInteractionInventoryBuilder().build(
                 new PageModelBundle(List.of(loginPage())),
                 MappedUiKnowledge.empty(),
                 metadata(),
@@ -44,16 +45,69 @@ public class SpaInventoryBuilderTest {
     }
 
     @Test
-    public void disablesInventoryWithoutChangingMappedKnowledge() {
-        var inventory = new SpaInventoryBuilder().build(
+    public void buildsGenericInteractionInventoryWhenSpaExtensionsAreDisabled() {
+        var inventory = new UiInteractionInventoryBuilder().build(
                 new PageModelBundle(List.of(loginPage())),
                 MappedUiKnowledge.empty(),
                 metadata(),
                 new SpaInventoryConfig(false, SpaDiscoveryMode.INVENTORY, 30, true, 0.80d, 2, 2)
         );
 
-        Assert.assertTrue(inventory.pages().isEmpty());
-        Assert.assertTrue(inventory.sourceTrace().contains("spa-inventory:disabled"));
+        Assert.assertEquals(inventory.pages().size(), 1);
+        Assert.assertTrue(inventory.sourceTrace().contains("interaction-inventory:generic-core"));
+        Assert.assertTrue(inventory.sourceTrace().contains("interaction-inventory:spa-extensions-disabled"));
+        Assert.assertTrue(inventory.pages().get(0).components().stream()
+                .flatMap(component -> component.locators().stream())
+                .allMatch(locator -> locator.status() == SpaEvidenceStatus.CANDIDATE));
+    }
+
+    @Test
+    public void keepsSemanticIdentityStableWhenSpaExtensionsToggle() {
+        PageModelBundle pages = new PageModelBundle(List.of(loginPage()));
+        UiInteractionInventoryBuilder builder = new UiInteractionInventoryBuilder();
+        var withSpaExtensions = builder.build(pages, MappedUiKnowledge.empty(), metadata(),
+                new SpaInventoryConfig(true, SpaDiscoveryMode.INVENTORY, 30, true, 0.80d, 2, 2));
+        var withoutSpaExtensions = builder.build(pages, MappedUiKnowledge.empty(), metadata(),
+                new SpaInventoryConfig(false, SpaDiscoveryMode.INVENTORY, 30, true, 0.80d, 2, 2));
+        UiInventorySemanticInteractionMapper mapper = new UiInventorySemanticInteractionMapper();
+
+        Assert.assertEquals(
+                mapper.map(withSpaExtensions).stream()
+                        .map(item -> item.actionKey().value() + "|" + item.locatorEvidenceId().value())
+                        .sorted().toList(),
+                mapper.map(withoutSpaExtensions).stream()
+                        .map(item -> item.actionKey().value() + "|" + item.locatorEvidenceId().value())
+                        .sorted().toList(),
+                "SPA extensions must not alter generic semantic identity"
+        );
+    }
+
+    @Test
+    public void buildsDocumentNavigationInventoryWhenSpaExtensionsAreDisabled() {
+        StructuredBehaviorContract login = new StructuredBehaviorContract(
+                "REQ-001", "AUTHENTICATION", List.of("Enter username", "Submit authentication form"),
+                List.of(), Map.of(), "targetRoute: /login; componentCapability: FORM", true, List.of());
+        StructuredBehaviorContract logout = new StructuredBehaviorContract(
+                "REQ-004", "LOGOUT", List.of("Click the direct logout action"),
+                List.of(), Map.of(),
+                "sourceRoute: /secure; targetRoute: /login; componentCapability: NAVIGATION; "
+                        + "logoutAccessMode: DIRECT_CONTROL",
+                true, List.of());
+
+        var inventory = new UiInteractionInventoryBuilder().build(
+                new PageModelBundle(List.of(theInternetLoginPage(), theInternetSecurePage())),
+                MappedUiKnowledge.empty(), metadata(),
+                new SpaInventoryConfig(false, SpaDiscoveryMode.TARGETED, 30, true, 0.80d, 2, 2),
+                null, List.of(login, logout));
+        var candidates = new UiInventorySemanticInteractionMapper().map(inventory);
+
+        Assert.assertEquals(inventory.pages().stream().map(page -> page.pageId()).toList(),
+                List.of("login", "secure"));
+        Assert.assertTrue(candidates.stream().anyMatch(item -> item.pageId().equals("login")
+                && item.action().name().equals("TYPE")));
+        Assert.assertTrue(candidates.stream().anyMatch(item -> item.pageId().equals("secure")
+                && item.action().name().equals("LOGOUT")));
+        Assert.assertTrue(inventory.sourceTrace().contains("interaction-inventory:spa-extensions-disabled"));
     }
 
     @Test
@@ -69,7 +123,7 @@ public class SpaInventoryBuilderTest {
         StructuredBehaviorContract contract = new StructuredBehaviorContract("REQ-001", "module-navigation", List.of("Open the Recruitment module."),
                 List.of(), Map.of(), "targetPage: discovery-confirmed Recruitment page", true, List.of());
 
-        var inventory = new SpaInventoryBuilder().build(new PageModelBundle(List.of(dashboard, recruitment)), MappedUiKnowledge.empty(), metadata(),
+        var inventory = new UiInteractionInventoryBuilder().build(new PageModelBundle(List.of(dashboard, recruitment)), MappedUiKnowledge.empty(), metadata(),
                 new SpaInventoryConfig(true, SpaDiscoveryMode.TARGETED, 30, true, 0.80d, 2, 2),
                 new CanonicalTestCaseBundle("test", "DashboardPage", List.of("DashboardPage"), List.of(source)), List.of(contract));
 
@@ -89,7 +143,7 @@ public class SpaInventoryBuilderTest {
         PageModel vacancies = new PageModel("vacancies", "https://example.test/vacancies", "/vacancies", "Vacancies", "Vacancies", "detail",
                 new PageEvidenceModel("", ""), List.of(filter, table), List.of(), List.of(), List.of());
 
-        var inventory = new SpaInventoryBuilder().build(new PageModelBundle(List.of(vacancies)), MappedUiKnowledge.empty(), metadata(),
+        var inventory = new UiInteractionInventoryBuilder().build(new PageModelBundle(List.of(vacancies)), MappedUiKnowledge.empty(), metadata(),
                 new SpaInventoryConfig(true, SpaDiscoveryMode.INVENTORY, 30, true, 0.80d, 2, 2));
 
         Assert.assertTrue(inventory.pages().get(0).capability().contains("RECORD_LIST"));
@@ -107,7 +161,7 @@ public class SpaInventoryBuilderTest {
                 "Recruitment", "Vacancies", "MODULE_NAVIGATION", new PageEvidenceModel("", ""),
                 List.of(vacancy), List.of(), List.of(), List.of());
 
-        var inventory = new SpaInventoryBuilder().build(new PageModelBundle(List.of(recruitment)),
+        var inventory = new UiInteractionInventoryBuilder().build(new PageModelBundle(List.of(recruitment)),
                 MappedUiKnowledge.empty(), metadata(),
                 new SpaInventoryConfig(true, SpaDiscoveryMode.INVENTORY, 30, true, 0.80d, 2, 2));
 
@@ -143,8 +197,43 @@ public class SpaInventoryBuilderTest {
         );
     }
 
+    private PageModel theInternetLoginPage() {
+        return loginPageWithRoute("login", "/login", "https://the-internet.herokuapp.com/login");
+    }
+
+    private PageModel loginPageWithRoute(String pageId, String route, String url) {
+        PageLocatorModel username = new PageLocatorModel("id", "username", 0.95d, "stable id", true,
+                2, 2, true, 1, 1, "document");
+        PageLocatorModel submit = new PageLocatorModel("css", "button[type='submit']", 0.86d,
+                "submit control", true, 2, 2, true, 1, 1, "form");
+        PageElementModel usernameInput = new PageElementModel(
+                "username", "INPUT", "INPUT", "input", "text", "", "username", "username",
+                "", "", "", "", "", true, true, true, Map.of("id", "username"),
+                List.of(username), username, List.of(), 0.95d);
+        PageElementModel loginButton = new PageElementModel(
+                "loginButton", "BUTTON", "BUTTON", "button", "submit", "Login", "", "", "",
+                "", "button", "", "", true, true, false, Map.of("type", "submit"),
+                List.of(submit), submit, List.of(), 0.86d);
+        return new PageModel(pageId, url, route, "Login", "Login", "AUTHENTICATION",
+                new PageEvidenceModel("", ""), List.of(usernameInput, loginButton),
+                List.of(new PageFormModel("login", "login", "", List.of("username"), List.of("loginButton"))),
+                List.of(), List.of());
+    }
+
+    private PageModel theInternetSecurePage() {
+        PageLocatorModel logout = new PageLocatorModel("css", "a[href='/logout']", 0.92d,
+                "same-origin direct logout", true, 2, 2, true, 1, 1, "document");
+        PageElementModel logoutAction = new PageElementModel(
+                "logoutAction", "LINK", "LINK", "a", "", "Logout", "", "", "", "",
+                "link", "/logout", "button secondary radius2", true, true, false,
+                Map.of("href", "/logout"), List.of(logout), logout, List.of(), 0.92d);
+        return new PageModel("secure", "https://the-internet.herokuapp.com/secure", "/secure",
+                "Secure Area", "Secure Area Logout", "AUTHENTICATED_AREA",
+                new PageEvidenceModel("", ""), List.of(logoutAction), List.of(), List.of(), List.of());
+    }
+
     private KnowledgeRunMetadata metadata() {
-        return new KnowledgeRunMetadata("run", "app", "base", "requirements", "session", "spa-page-inventory.v1",
+        return new KnowledgeRunMetadata("run", "app", "base", "requirements", "session", "ui-knowledge-v2",
                 "2026-07-14T00:00:00Z", "test", 1.0d);
     }
 }

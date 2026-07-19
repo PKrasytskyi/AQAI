@@ -10,7 +10,7 @@ import ua.demo.agentlab.ui.discovery.interaction.scoring.InteractionScoringServi
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateActionEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -20,19 +20,19 @@ import java.util.Locale;
 import java.util.Map;
 
 /** Canonical semantic boundary from discovered component inventory to interaction candidates. */
-public final class SpaInventorySemanticInteractionMapper {
+public final class UiInventorySemanticInteractionMapper {
 
     private final InteractionScoringService scoringService;
 
-    public SpaInventorySemanticInteractionMapper() {
+    public UiInventorySemanticInteractionMapper() {
         this(new InteractionScoringService());
     }
 
-    public SpaInventorySemanticInteractionMapper(InteractionScoringService scoringService) {
+    public UiInventorySemanticInteractionMapper(InteractionScoringService scoringService) {
         this.scoringService = scoringService == null ? new InteractionScoringService() : scoringService;
     }
 
-    public List<InteractionCandidate> map(SpaInventoryBundle inventory) {
+    public List<InteractionCandidate> map(UiInteractionInventory inventory) {
         if (inventory == null) return List.of();
         List<InteractionCandidate> result = new ArrayList<>();
         inventory.pages().forEach(page -> page.components().forEach(component ->
@@ -66,7 +66,7 @@ public final class SpaInventorySemanticInteractionMapper {
             List<String> risks = new ArrayList<>(component.risks());
             risks.addAll(locator.risks());
             List<String> provenance = new ArrayList<>(List.of(
-                    "semantic-mapper:spa-inventory",
+                    "semantic-mapper:interaction-inventory",
                     "discovery-action-id:" + action.actionId(),
                     "discovery-locator-id:" + locator.locatorId(),
                     "page-name:" + pageName,

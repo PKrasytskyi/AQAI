@@ -1,4 +1,4 @@
-package ua.demo.agentlab.ui.discovery.spa.agent;
+package ua.demo.agentlab.ui.discovery.interaction.inventory.agent;
 
 import ua.demo.agentlab.orchestration.WorkflowAgent;
 import ua.demo.agentlab.orchestration.WorkflowArtifact;
@@ -9,8 +9,8 @@ import ua.demo.agentlab.orchestration.pipeline.StageOutputPublisher;
 import ua.demo.agentlab.orchestration.pipeline.WorkflowRunEnvelope;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata;
 import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
-import ua.demo.agentlab.ui.discovery.spa.SpaInventoryArtifactWriter;
-import ua.demo.agentlab.ui.discovery.spa.SpaInventoryBuilder;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventoryArtifactWriter;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventoryBuilder;
 import ua.demo.agentlab.ui.discovery.spa.TypedComponentFlowArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.TypedComponentFlowBuilder;
 import ua.demo.agentlab.ui.discovery.spa.TypedComponentFlowGraphWriter;
@@ -19,26 +19,26 @@ import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4
 import java.util.List;
 import java.util.Set;
 
-public class UiSpaInventoryAgent implements WorkflowAgent, PipelineAgent<SpaInventoryInput, SpaInventoryOutput> {
+public class UiInteractionInventoryAgent implements WorkflowAgent, PipelineAgent<UiInteractionInventoryInput, UiInteractionInventoryOutput> {
 
     private final PropertiesSpaInventoryConfig config;
-    private final SpaInventoryBuilder inventoryBuilder;
-    private final SpaInventoryArtifactWriter artifactWriter;
+    private final UiInteractionInventoryBuilder inventoryBuilder;
+    private final UiInteractionInventoryArtifactWriter artifactWriter;
     private final StageOutputPublisher outputPublisher = new StageOutputPublisher();
 
-    public UiSpaInventoryAgent(
+    public UiInteractionInventoryAgent(
             PropertiesSpaInventoryConfig config,
-            SpaInventoryBuilder inventoryBuilder,
-            SpaInventoryArtifactWriter artifactWriter
+            UiInteractionInventoryBuilder inventoryBuilder,
+            UiInteractionInventoryArtifactWriter artifactWriter
     ) {
         this.config = config == null ? new PropertiesSpaInventoryConfig() : config;
-        this.inventoryBuilder = inventoryBuilder == null ? new SpaInventoryBuilder() : inventoryBuilder;
-        this.artifactWriter = artifactWriter == null ? new SpaInventoryArtifactWriter() : artifactWriter;
+        this.inventoryBuilder = inventoryBuilder == null ? new UiInteractionInventoryBuilder() : inventoryBuilder;
+        this.artifactWriter = artifactWriter == null ? new UiInteractionInventoryArtifactWriter() : artifactWriter;
     }
 
     @Override
     public String name() {
-        return "ui-spa-inventory-agent";
+        return "ui-interaction-inventory-agent";
     }
 
     @Override
@@ -53,7 +53,7 @@ public class UiSpaInventoryAgent implements WorkflowAgent, PipelineAgent<SpaInve
 
     @Override
     public Set<WorkflowArtifact> produces() {
-        return Set.of(WorkflowArtifact.SPA_PAGE_INVENTORY, WorkflowArtifact.SPA_INVENTORY_PERSISTENCE);
+        return Set.of(WorkflowArtifact.UI_INTERACTION_INVENTORY, WorkflowArtifact.UI_INTERACTION_INVENTORY_PERSISTENCE);
     }
 
     @Override
@@ -63,12 +63,12 @@ public class UiSpaInventoryAgent implements WorkflowAgent, PipelineAgent<SpaInve
 
     @Override
     public WorkflowArtifact output() {
-        return WorkflowArtifact.SPA_PAGE_INVENTORY;
+        return WorkflowArtifact.UI_INTERACTION_INVENTORY;
     }
 
     @Override
-    public SpaInventoryInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
-        return new SpaInventoryInput(
+    public UiInteractionInventoryInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
+        return new UiInteractionInventoryInput(
                 store.require(WorkflowArtifact.PAGE_MODEL_BUNDLE),
                 store.require(WorkflowArtifact.MAPPED_UI_KNOWLEDGE),
                 KnowledgeRunMetadata.from(state, name()),
@@ -78,13 +78,13 @@ public class UiSpaInventoryAgent implements WorkflowAgent, PipelineAgent<SpaInve
     }
 
     @Override
-    public boolean supports(SpaInventoryInput input, WorkflowRunEnvelope run) {
+    public boolean supports(UiInteractionInventoryInput input, WorkflowRunEnvelope run) {
         return input != null && input.pageModels() != null && input.mappedKnowledge() != null
                 && input.canonicalTestCases() != null;
     }
 
     @Override
-    public SpaInventoryOutput execute(SpaInventoryInput input, WorkflowRunEnvelope run) {
+    public UiInteractionInventoryOutput execute(UiInteractionInventoryInput input, WorkflowRunEnvelope run) {
         var inventory = inventoryBuilder.build(
                 input.pageModels(), input.mappedKnowledge(), input.metadata(), config.load(),
                 input.canonicalTestCases(), input.structuredContracts());
@@ -92,13 +92,13 @@ public class UiSpaInventoryAgent implements WorkflowAgent, PipelineAgent<SpaInve
         var typedFlows = new TypedComponentFlowBuilder().build(inventory);
         String flowArtifact = new TypedComponentFlowArtifactWriter().write(typedFlows);
         new TypedComponentFlowGraphWriter(new PropertiesNeo4jRuntimeConfig()).persist(typedFlows);
-        var persistence = ua.demo.agentlab.ui.discovery.spa.SpaInventoryPersistenceResult.skipped(
+        var persistence = ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventoryPersistenceResult.skipped(
                 "Canonical interaction projection owns locator/action persistence");
-        return new SpaInventoryOutput(inventory, persistence, List.of(artifact, flowArtifact));
+        return new UiInteractionInventoryOutput(inventory, persistence, List.of(artifact, flowArtifact));
     }
 
     @Override
-    public void applyOutput(SpaInventoryOutput output, WorkflowState state) {
-        outputPublisher.publishSpaInventory(output, state);
+    public void applyOutput(UiInteractionInventoryOutput output, WorkflowState state) {
+        outputPublisher.publishUiInteractionInventory(output, state);
     }
 }

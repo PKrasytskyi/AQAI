@@ -9,8 +9,8 @@ import ua.demo.agentlab.ui.discovery.spa.SpaDiscoveryMode;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateActionEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaEvidenceStatus;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 
 import java.util.List;
 
@@ -24,8 +24,8 @@ public class ComponentInteractionGraphBuilderTest {
                 action("open-user-menu", "OPEN_MENU", "userMenu"),
                 action("logout", "LOGOUT", "logout")
         ), List.of(), List.of("test"));
-        SpaInventoryBundle inventory = new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
-                List.of(new SpaPageInventory("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA", "fp", metadata(),
+        UiInteractionInventory inventory = new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+                List.of(new UiInteractionPage("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA", "fp", metadata(),
                         List.of(userMenu), List.of("test"))), List.of("test"));
 
         var graph = new ComponentInteractionGraphBuilder().build(inventory);

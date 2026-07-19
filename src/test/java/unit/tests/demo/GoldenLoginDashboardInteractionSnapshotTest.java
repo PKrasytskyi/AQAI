@@ -9,6 +9,8 @@ import ua.demo.agentlab.ui.discovery.component.model.ComponentType;
 import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 import ua.demo.agentlab.ui.discovery.interaction.pipeline.CanonicalInteractionEvidenceAssembler;
 import ua.demo.agentlab.ui.discovery.interaction.pipeline.CanonicalInteractionEvidenceBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.SpaDiscoveryMode;
 import ua.demo.agentlab.ui.discovery.spa.model.*;
 
@@ -52,7 +54,7 @@ public class GoldenLoginDashboardInteractionSnapshotTest {
         Assert.assertTrue(bundle.requirementSelection().unresolvedRequirements().isEmpty());
     }
 
-    private SpaInventoryBundle inventory() {
+    private UiInteractionInventory inventory() {
         SemanticComponentInventory form = component("login:form", "LoginForm", ComponentType.FORM,
                 List.of(
                         locator("username-locator", "login:form", "username", "name", "username"),
@@ -68,11 +70,11 @@ public class GoldenLoginDashboardInteractionSnapshotTest {
         SemanticComponentInventory menu = component("dashboard:menu", "UserMenu", ComponentType.USER_MENU,
                 List.of(locator("logout-locator", "dashboard:menu", "logout", "css", "a[href='/logout']")),
                 List.of(action("logout-action", "dashboard:menu", "LOGOUT", "logout", "logout-locator")));
-        return new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+        return new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
                 List.of(
-                        new SpaPageInventory("login", "LoginPage", "/login", "AUTHENTICATION", "fp-login", null,
+                        new UiInteractionPage("login", "LoginPage", "/login", "AUTHENTICATION", "fp-login", null,
                                 List.of(form), List.of("golden")),
-                        new SpaPageInventory("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA", "fp-dashboard", null,
+                        new UiInteractionPage("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA", "fp-dashboard", null,
                                 List.of(header, menu), List.of("golden"))), List.of("golden"));
     }
 

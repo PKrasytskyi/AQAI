@@ -23,7 +23,7 @@ public class DeterministicWorkflowFactory {
                 core.uiRuntimeEvidenceAgent(),
                 core.uiPageModelAgent(),
                 core.uiPageMappingAgent(),
-                core.uiSpaInventoryAgent(),
+                core.uiInteractionInventoryAgent(),
                 core.uiSpaComponentInteractionGraphAgent(),
                 core.uiPageKnowledgePersistenceAgent(),
                 core.uiDiscoveryArtifactPersistenceAgent(),

@@ -12,6 +12,7 @@ import ua.demo.agentlab.ui.discovery.browser.BrowserCapabilityAdapterRegistry;
 import ua.demo.agentlab.ui.discovery.browser.BrowserCapabilityRequest;
 import ua.demo.agentlab.ui.discovery.evidence.LocatorEvidenceType;
 import ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.selenium.auth.DiscoveryAuthenticationConfig;
 import ua.demo.agentlab.ui.discovery.selenium.auth.DiscoveryAuthenticationService;
 import ua.demo.agentlab.ui.discovery.spa.model.*;
@@ -133,7 +134,7 @@ public final class SafeActionExecutor {
         String actualRoute = RouteCanonicalizer.canonicalize(input.driver().getCurrentUrl());
         String targetPageId = input.inventoryPages().values().stream()
                 .filter(target -> RouteCanonicalizer.routeEqualsOrSuffix(target.route(), actualRoute))
-                .map(SpaPageInventory::pageId).findFirst().orElse("");
+                .map(UiInteractionPage::pageId).findFirst().orElse("");
         String mapping = targetPageId.isBlank() ? "target route confirmed; targeted mapping is pending"
                 : "target route confirmed and mapped to inventory page=" + targetPageId;
         String routeEvidence = expectedRoute.isBlank() ? "js-router route=" + actualRoute
@@ -167,7 +168,7 @@ public final class SafeActionExecutor {
 
     private BrowserCapabilityRequest browserRequest(BrowserCapabilityAction action, CandidateLocatorEvidence locator,
                                                      CandidateActionEvidence candidate, ProjectProfile profile,
-                                                     SpaPageInventory page) {
+                                                     UiInteractionPage page) {
         return new BrowserCapabilityRequest(action, locator == null ? "" : locator.strategy(),
                 locator == null ? "" : locator.value(), boundDataValue(candidate), authenticationConfig.username(),
                 authenticationConfig.password(), join(profile.baseUrl(), page.route()));
@@ -213,12 +214,12 @@ public final class SafeActionExecutor {
         return false;
     }
 
-    private boolean isAuthenticationPage(ProjectProfile profile, SpaPageInventory page) {
+    private boolean isAuthenticationPage(ProjectProfile profile, UiInteractionPage page) {
         return RouteCanonicalizer.routeEqualsOrSuffix(page.route(), profile.loginRoute())
                 && !profile.authenticatedRoute().isBlank();
     }
 
-    private boolean isNavigationAction(SpaPageInventory page, CandidateActionEvidence action) {
+    private boolean isNavigationAction(UiInteractionPage page, CandidateActionEvidence action) {
         return page.components().stream().anyMatch(component -> component.componentId().equals(action.componentId())
                 && component.type() == ua.demo.agentlab.ui.discovery.component.model.ComponentType.NAVIGATION);
     }
@@ -293,8 +294,8 @@ public final class SafeActionExecutor {
             CandidateActionEvidence candidate,
             Map<String, TargetedLocatorVerification> locators,
             SpaInventoryConfig config,
-            SpaPageInventory page,
-            Map<String, SpaPageInventory> inventoryPages
+            UiInteractionPage page,
+            Map<String, UiInteractionPage> inventoryPages
     ) {
         public ActionExecutionInput {
             locators = locators == null ? Map.of() : Map.copyOf(locators);

@@ -57,12 +57,11 @@ public final class GeneratedPomRuntimeInvoker {
     }
 
     public boolean routeMatches(Object page, String route) {
-        String routeToken = normalized(route);
         Method method = methods(page)
                 .filter(candidate -> candidate.getParameterCount() == 0
                         && candidate.getReturnType() == boolean.class
-                        && normalized(candidate.getName()).startsWith("urlcontains"))
-                .max(Comparator.comparingInt(candidate -> routeScore(candidate, routeToken)))
+                        && isRouteAssertion(candidate))
+                .max(Comparator.comparingInt(candidate -> routeScore(candidate, route)))
                 .orElseThrow(() -> missing(page, "URL route assertion"));
         return (Boolean) invoke(method, page);
     }
@@ -98,9 +97,24 @@ public final class GeneratedPomRuntimeInvoker {
         return Arrays.stream(method.getParameterTypes()).allMatch(type -> type == String.class);
     }
 
-    private int routeScore(Method method, String routeToken) {
+    private boolean isRouteAssertion(Method method) {
         String name = normalized(method.getName());
-        return !routeToken.isBlank() && name.contains(routeToken) ? routeToken.length() : 0;
+        return name.contains("url") || name.contains("route") || name.startsWith("ison");
+    }
+
+    private int routeScore(Method method, String route) {
+        String name = normalized(method.getName());
+        int score = name.startsWith("urlcontains") || name.startsWith("urlequals") ? 100 : 0;
+        if (route == null || route.isBlank()) {
+            return score;
+        }
+        for (String token : route.split("[^A-Za-z0-9]+")) {
+            String normalizedToken = normalized(token);
+            if (normalizedToken.length() > 1 && name.contains(normalizedToken)) {
+                score += normalizedToken.length();
+            }
+        }
+        return score;
     }
 
     private Object invoke(Method method, Object target, Object... arguments) {

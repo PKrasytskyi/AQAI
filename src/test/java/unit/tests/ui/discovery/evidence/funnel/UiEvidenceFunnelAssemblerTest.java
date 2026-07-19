@@ -19,9 +19,9 @@ import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorStep;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaEvidenceStatus;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedLocatorVerification;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBindingBundle;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBinding;
@@ -43,7 +43,7 @@ public class UiEvidenceFunnelAssemblerTest {
             );
             UiEvidenceFunnelReport report = new UiEvidenceFunnelAssembler().assemble(new UiEvidenceFunnelInput(
                     "run-universal", List.of(requirement),
-                    SpaInventoryBundle.empty(SpaDiscoveryMode.TARGETED, "test:no-pages"),
+                    UiInteractionInventory.empty(SpaDiscoveryMode.TARGETED, "test:no-pages"),
                     List.of(), SpaLiveTargetedVerificationResult.skipped(null, "not-run"),
                     emptyTargets(), emptyContext()
             ));
@@ -67,7 +67,7 @@ public class UiEvidenceFunnelAssemblerTest {
         UiEvidenceFunnelInput input = new UiEvidenceFunnelInput(
                 "run-without-db",
                 List.of(requirement),
-                SpaInventoryBundle.empty(SpaDiscoveryMode.TARGETED, "test:no-pages"),
+                UiInteractionInventory.empty(SpaDiscoveryMode.TARGETED, "test:no-pages"),
                 List.of(),
                 SpaLiveTargetedVerificationResult.skipped(null, "test:no-live-evidence"),
                 emptyTargets(),
@@ -102,7 +102,7 @@ public class UiEvidenceFunnelAssemblerTest {
 
         UiEvidenceFunnelReport report = new UiEvidenceFunnelAssembler().assemble(new UiEvidenceFunnelInput(
                 "run-missing", List.of(requirement),
-                SpaInventoryBundle.empty(SpaDiscoveryMode.TARGETED, "test:no-pages"),
+                UiInteractionInventory.empty(SpaDiscoveryMode.TARGETED, "test:no-pages"),
                 List.of(binding), SpaLiveTargetedVerificationResult.skipped(null, "not-run"), emptyTargets(), context
         ));
 
@@ -122,7 +122,7 @@ public class UiEvidenceFunnelAssemblerTest {
                 "filter-panel", "FilterPanel", ComponentType.FILTER_PANEL, "css", "[data-test='filters']",
                 "", List.of("search"), 0.95, List.of(locator), List.of(), List.of(), List.of()
         );
-        SpaPageInventory page = new SpaPageInventory(
+        UiInteractionPage page = new UiInteractionPage(
                 "record-list", "RecordListPage", "/records", "RECORD_LIST|FILTER", "fingerprint", null,
                 List.of(component), List.of()
         );
@@ -153,7 +153,7 @@ public class UiEvidenceFunnelAssemblerTest {
         );
         UiEvidenceFunnelInput input = new UiEvidenceFunnelInput(
                 "run-1", List.of(requirement),
-                new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+                new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
                         List.of(page), List.of()),
                 List.of(binding),
                 new SpaLiveTargetedVerificationResult(
@@ -188,7 +188,7 @@ public class UiEvidenceFunnelAssemblerTest {
                 List.of(new BoundSpaBehaviorStep("TYPE", "enter username", "runtime-locator", "username", "")),
                 List.of(), Map.of(), true, List.of()
         );
-        SpaPageInventory page = new SpaPageInventory(
+        UiInteractionPage page = new UiInteractionPage(
                 "login", "LoginPage", "/login", "AUTHENTICATION", "fp", null, List.of(), List.of()
         );
         EvidenceProjectionTrace trace = new EvidenceProjectionTrace(
@@ -201,7 +201,7 @@ public class UiEvidenceFunnelAssemblerTest {
         );
         UiEvidenceFunnelInput input = new UiEvidenceFunnelInput(
                 "run", List.of(requirement),
-                new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+                new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
                         List.of(page), List.of()),
                 null, null, List.of(binding),
                 SpaLiveTargetedVerificationResult.skipped(null, "projection-trace-is-authoritative"),
@@ -227,7 +227,7 @@ public class UiEvidenceFunnelAssemblerTest {
                 "filter-panel", "FilterPanel", ComponentType.FILTER_PANEL, "css", "#filters", "",
                 List.of("search"), 0.95, List.of(locator), List.of(), List.of(), List.of()
         );
-        SpaPageInventory page = new SpaPageInventory(
+        UiInteractionPage page = new UiInteractionPage(
                 "records", "RecordsPage", "/records", "FILTER", "fp", null, List.of(component), List.of()
         );
         StructuredBehaviorContract requirement = new StructuredBehaviorContract(
@@ -251,7 +251,7 @@ public class UiEvidenceFunnelAssemblerTest {
         );
 
         UiEvidenceFunnelReport report = new UiEvidenceFunnelAssembler().assemble(new UiEvidenceFunnelInput(
-                "run", List.of(requirement), new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION,
+                "run", List.of(requirement), new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION,
                 SpaDiscoveryMode.TARGETED, List.of(page), List.of()), List.of(binding),
                 new SpaLiveTargetedVerificationResult(SpaLiveTargetedVerificationResult.SCHEMA_VERSION,
                         null, true, true, List.of(new TargetedLocatorVerification(
@@ -274,7 +274,7 @@ public class UiEvidenceFunnelAssemblerTest {
                 List.of("Missing data value for 'JOB_TITLE'.", "Scenario dataset 'vacancy-filter' is unavailable"));
 
         UiEvidenceFunnelReport report = new UiEvidenceFunnelAssembler().assemble(new UiEvidenceFunnelInput(
-                "run-data", List.of(requirement), SpaInventoryBundle.empty(SpaDiscoveryMode.TARGETED, "none"),
+                "run-data", List.of(requirement), UiInteractionInventory.empty(SpaDiscoveryMode.TARGETED, "none"),
                 List.of(binding), SpaLiveTargetedVerificationResult.skipped(null, "not-run"), emptyTargets(), emptyContext()));
 
         Assert.assertEquals(report.requirements().get(0).stoppedAt(), "DATA_READINESS");
@@ -293,7 +293,7 @@ public class UiEvidenceFunnelAssemblerTest {
                 null, List.of(target), List.of(), List.of());
 
         UiEvidenceFunnelReport report = new UiEvidenceFunnelAssembler().assemble(new UiEvidenceFunnelInput(
-                "run-target", List.of(requirement), SpaInventoryBundle.empty(SpaDiscoveryMode.TARGETED, "none"),
+                "run-target", List.of(requirement), UiInteractionInventory.empty(SpaDiscoveryMode.TARGETED, "none"),
                 List.of(), SpaLiveTargetedVerificationResult.skipped(null, "not-run"), targets, emptyContext()));
 
         Assert.assertEquals(report.requirements().get(0).stoppedAt(), "DISCOVERY");
@@ -302,7 +302,7 @@ public class UiEvidenceFunnelAssemblerTest {
 
     @Test
     public void classifiesMissingTargetAssertionsAfterConfirmedNavigationAsTargetMapping() {
-        SpaPageInventory sourcePage = new SpaPageInventory("recruitment", "RecruitmentPage",
+        UiInteractionPage sourcePage = new UiInteractionPage("recruitment", "RecruitmentPage",
                 "/recruitment/viewCandidates", "MODULE_NAVIGATION", "fp", null, List.of(), List.of());
         StructuredBehaviorContract requirement = new StructuredBehaviorContract(
                 "REQ-NAV", "MODULE_NAVIGATION", List.of("Open Vacancies"), List.of(), Map.of(),
@@ -316,7 +316,7 @@ public class UiEvidenceFunnelAssemblerTest {
                 "open-vacancies", "vacancies-link", true, List.of());
 
         UiEvidenceFunnelReport report = new UiEvidenceFunnelAssembler().assemble(new UiEvidenceFunnelInput(
-                "run-nav", List.of(requirement), new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION,
+                "run-nav", List.of(requirement), new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION,
                 SpaDiscoveryMode.TARGETED, List.of(sourcePage), List.of()), List.of(binding),
                 SpaLiveTargetedVerificationResult.skipped(null, "not-run"),
                 new TargetStateBindingBundle(TargetStateBindingBundle.SCHEMA_VERSION, null, List.of(target), List.of(), List.of()),

@@ -45,7 +45,7 @@ public class UiLiveSpaTargetedVerificationAgent implements WorkflowAgent,
 
     @Override public String name() { return "ui-live-spa-targeted-verification-agent"; }
     @Override public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.PROJECT_PROFILE, WorkflowArtifact.SPA_PAGE_INVENTORY,
+        return Set.of(WorkflowArtifact.PROJECT_PROFILE, WorkflowArtifact.UI_INTERACTION_INVENTORY,
                 WorkflowArtifact.SPA_TARGETED_VERIFICATION, WorkflowArtifact.SPA_COMPONENT_INTERACTION_GRAPH,
                 WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS);
     }
@@ -56,7 +56,7 @@ public class UiLiveSpaTargetedVerificationAgent implements WorkflowAgent,
     @Override public WorkflowArtifact output() { return WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION; }
     @Override public SpaLiveTargetedVerificationInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
         return new SpaLiveTargetedVerificationInput(store.require(WorkflowArtifact.PROJECT_PROFILE),
-                store.require(WorkflowArtifact.SPA_PAGE_INVENTORY), store.require(WorkflowArtifact.SPA_TARGETED_VERIFICATION),
+                store.require(WorkflowArtifact.UI_INTERACTION_INVENTORY), store.require(WorkflowArtifact.SPA_TARGETED_VERIFICATION),
                 store.require(WorkflowArtifact.SPA_COMPONENT_INTERACTION_GRAPH),
                 store.require(WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS));
     }

@@ -3,7 +3,7 @@ package ua.demo.agentlab.ui.discovery.evidence.funnel;
 import ua.demo.agentlab.ai.context.AiContextPackage;
 import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContract;
 import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorContract;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBindingBundle;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
@@ -15,7 +15,7 @@ import java.util.List;
 public record UiEvidenceFunnelInput(
         String runId,
         List<StructuredBehaviorContract> requirements,
-        SpaInventoryBundle inventory,
+        UiInteractionInventory inventory,
         SourceStateBindingBundle sourceStateBindings,
         LiveTransitionDiscovery liveTransitionDiscovery,
         List<BoundSpaBehaviorContract> bindings,
@@ -45,7 +45,7 @@ public record UiEvidenceFunnelInput(
     public UiEvidenceFunnelInput(
             String runId,
             List<StructuredBehaviorContract> requirements,
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             SourceStateBindingBundle sourceStateBindings,
             LiveTransitionDiscovery liveTransitionDiscovery,
             List<BoundSpaBehaviorContract> bindings,
@@ -60,7 +60,7 @@ public record UiEvidenceFunnelInput(
     public UiEvidenceFunnelInput(
             String runId,
             List<StructuredBehaviorContract> requirements,
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             List<BoundSpaBehaviorContract> bindings,
             SpaLiveTargetedVerificationResult liveVerification,
             TargetStateBindingBundle targetStateBindings,

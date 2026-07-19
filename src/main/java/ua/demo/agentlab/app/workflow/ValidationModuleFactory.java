@@ -15,12 +15,15 @@ import ua.demo.agentlab.validation.SimpleGeneratedUiContractValidator;
 import ua.demo.agentlab.validation.agent.GeneratedCodeCompileAgent;
 import ua.demo.agentlab.validation.agent.GeneratedUiContractValidationAgent;
 import ua.demo.agentlab.validation.agent.GeneratedUiSmokeAgent;
+import ua.demo.agentlab.validation.agent.GeneratedTestExecutionAgent;
 import ua.demo.agentlab.validation.agent.RuntimeFeedbackDbUpdateAgent;
 import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaSmokeEvidenceFeedbackAgent;
 import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
 import ua.demo.agentlab.ui.discovery.interaction.persistence.CanonicalInteractionSmokeFeedbackWriter;
 import ua.demo.agentlab.validation.feedback.GeneratedUiRuntimeFeedbackWriter;
 import ua.demo.agentlab.validation.smoke.GeneratedUiSmokeService;
+import ua.demo.agentlab.validation.execution.GeneratedTestExecutionService;
+import ua.demo.agentlab.config.RuntimeProperties;
 
 import java.nio.file.Path;
 
@@ -35,6 +38,10 @@ public class ValidationModuleFactory {
                 new GeneratedCodeCompileAgent(generatedCodeValidator),
                 new GeneratedCodeReviewAgent(new RuleBasedGeneratedCodeReviewer()),
                 new GeneratedUiSmokeAgent(new GeneratedUiSmokeService()),
+                new GeneratedTestExecutionAgent(
+                        new GeneratedTestExecutionService(Path.of("")),
+                        new RuntimeProperties()
+                ),
                 new UiSpaSmokeEvidenceFeedbackAgent(new PropertiesSpaInventoryConfig(),
                         new CanonicalInteractionSmokeFeedbackWriter(new PropertiesNeo4jRuntimeConfig())),
                 new ArtifactLifecyclePromotionAgent(new ArtifactLifecyclePromotionService(

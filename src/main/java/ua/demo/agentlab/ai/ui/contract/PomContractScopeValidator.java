@@ -93,13 +93,19 @@ public class PomContractScopeValidator {
         String type = required.type().toUpperCase(Locale.ROOT);
         String expected = required.expectedValue();
         if ("FORM_VISIBLE".equals(type)) {
-            return contract.assertions().stream().anyMatch(assertion -> assertion.checks().stream()
+            return allAssertions(contract).stream().anyMatch(assertion -> assertion.checks().stream()
                     .filter(check -> check.check() == PomCheckType.VISIBLE)
                     .map(check -> check.locator().toLowerCase(Locale.ROOT))
                     .collect(java.util.stream.Collectors.toSet()).size() >= 2);
         }
-        return contract.assertions().stream().flatMap(assertion -> assertion.checks().stream())
+        return allAssertions(contract).stream().flatMap(assertion -> assertion.checks().stream())
                 .anyMatch(check -> matches(required, check, expected));
+    }
+
+    private List<PomAssertionSpec> allAssertions(PomContractSpec contract) {
+        List<PomAssertionSpec> assertions = new ArrayList<>(contract.assertions());
+        contract.components().forEach(component -> assertions.addAll(component.assertions()));
+        return assertions;
     }
 
     private boolean matches(PromptReadyAssertion required, PomCheckSpec check, String expected) {

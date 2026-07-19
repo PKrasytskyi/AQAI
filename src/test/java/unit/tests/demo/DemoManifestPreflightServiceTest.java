@@ -39,6 +39,8 @@ public class DemoManifestPreflightServiceTest {
         Assert.assertEquals(report.resolution().logoutAccessMode().name(), "USER_MENU");
         Assert.assertEquals(report.resolution().lifecycle(),
                 java.util.List.of("AUTHENTICATION", "AUTHENTICATED_AREA", "USER_MENU", "LOGOUT"));
+        Assert.assertEquals(report.resolution().expectedGeneratedTests().size(), 4);
+        Assert.assertTrue(manifest.generatedTestExecutionRequired());
     }
 
     @Test
@@ -138,12 +140,15 @@ public class DemoManifestPreflightServiceTest {
                 manifest.expectedPageCapabilities(),
                 manifest.expectedScenarioIds(),
                 manifest.expectedPomNames(),
+                manifest.expectedGeneratedTests(),
+                manifest.expectedPipelineStages(),
                 manifest.expectedLogoutAccessMode(),
                 manifest.expectedLifecycle(),
                 manifest.expectedFinalRoute(),
                 manifest.expectedFinalState(),
                 databaseMode,
                 manifest.aiMode(),
+                manifest.generatedTestExecutionRequired(),
                 manifest.schemaVersions()
         );
     }

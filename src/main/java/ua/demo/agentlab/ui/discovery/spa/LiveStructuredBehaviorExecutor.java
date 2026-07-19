@@ -14,7 +14,7 @@ import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorContract;
 import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorStep;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaBehaviorExecutionResult;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -27,7 +27,7 @@ import java.util.Map;
 public final class LiveStructuredBehaviorExecutor {
 
     public SpaBehaviorExecutionResult execute(WebDriver driver, ProjectProfile profile, BoundSpaBehaviorContract contract,
-                                              SpaInventoryBundle inventory, SpaInventoryConfig config) {
+                                              UiInteractionInventory inventory, SpaInventoryConfig config) {
         List<String> locatorIds = contract.steps().stream().map(BoundSpaBehaviorStep::locatorId)
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new)).stream().toList();
         List<String> actionIds = contract.steps().stream().map(BoundSpaBehaviorStep::actionId).distinct().toList();
@@ -68,7 +68,7 @@ public final class LiveStructuredBehaviorExecutor {
     }
 
     private void executeStep(WebDriver driver, BoundSpaBehaviorStep step,
-                             Map<String, CandidateLocatorEvidence> locators, SpaInventoryBundle inventory) {
+                             Map<String, CandidateLocatorEvidence> locators, UiInteractionInventory inventory) {
         CandidateLocatorEvidence locator = locators.get(step.locatorId());
         if (locator == null) throw new IllegalStateException("Bound locator is missing: " + step.locatorId());
         WebElement element = resolveElement(driver, locator, inventory);
@@ -124,7 +124,7 @@ public final class LiveStructuredBehaviorExecutor {
     }
 
     private List<AssertionSnapshot> snapshot(WebDriver driver, List<BoundSpaBehaviorAssertion> assertions,
-                                              Map<String, CandidateLocatorEvidence> locators, SpaInventoryBundle inventory) {
+                                              Map<String, CandidateLocatorEvidence> locators, UiInteractionInventory inventory) {
         List<AssertionSnapshot> snapshots = new ArrayList<>();
         for (BoundSpaBehaviorAssertion assertion : assertions) {
             if (assertion.locatorId().isBlank()) continue;
@@ -144,20 +144,20 @@ public final class LiveStructuredBehaviorExecutor {
         return result;
     }
 
-    private Map<String, CandidateLocatorEvidence> locatorIndex(SpaInventoryBundle inventory) {
+    private Map<String, CandidateLocatorEvidence> locatorIndex(UiInteractionInventory inventory) {
         Map<String, CandidateLocatorEvidence> result = new LinkedHashMap<>();
         inventory.pages().forEach(page -> page.components().forEach(component ->
                 component.locators().forEach(locator -> result.putIfAbsent(locator.locatorId(), locator))));
         return result;
     }
 
-    private WebElement resolveElement(WebDriver driver, CandidateLocatorEvidence locator, SpaInventoryBundle inventory) {
+    private WebElement resolveElement(WebDriver driver, CandidateLocatorEvidence locator, UiInteractionInventory inventory) {
         List<WebElement> elements = resolveElements(driver, locator, inventory);
         return elements.stream().filter(WebElement::isDisplayed).findFirst()
                 .orElseThrow(() -> new IllegalStateException("No visible element for locator " + locator.locatorId()));
     }
 
-    private List<WebElement> resolveElements(WebDriver driver, CandidateLocatorEvidence locator, SpaInventoryBundle inventory) {
+    private List<WebElement> resolveElements(WebDriver driver, CandidateLocatorEvidence locator, UiInteractionInventory inventory) {
         By by = by(locator.strategy(), locator.value());
         List<WebElement> global = driver.findElements(by);
         if (global.size() == 1 || inventory == null || locator.componentMatchCount() != 1) return global;

@@ -1,4 +1,4 @@
-schemaVersion: demo-manifest.v2
+schemaVersion: demo-manifest.v3
 
 demo:
   id: orangehrm-login-user-menu-logout-v1
@@ -26,6 +26,23 @@ expected:
   pomNames:
     - LoginPage
     - DashboardPage
+  generatedTests:
+    - REQ001AuthenticationFormIsReadyTest
+    - REQ002AuthenticateWithValidCredentialsTest
+    - REQ003OpenUserMenuAndDisplayLogoutActionTest
+    - REQ004LogoutAndReturnToAuthenticationPageTest
+  pipeline:
+    - REQUIREMENTS
+    - NORMALIZED_REQUIREMENTS
+    - CANONICAL_TEST_CASES
+    - CONFIRMED_UI_CATALOG
+    - POM_CONTRACTS
+    - PAGE_OBJECTS
+    - UI_TEST_CONTRACTS
+    - GENERATED_TESTNG_TESTS
+    - COMPILE
+    - EXECUTION
+    - QUALITY_REPORT
   logoutAccessMode: USER_MENU
   lifecycle:
     - AUTHENTICATION
@@ -37,7 +54,8 @@ expected:
 
 runtime:
   databaseMode: environment-controlled
-  aiMode: pom-contract-only
+  aiMode: semantic-and-pom-contract
+  generatedTestExecutionRequired: true
 
 schemas:
   requirements: normalized-requirement-bundle.v1
@@ -46,5 +64,11 @@ schemas:
   canonicalTestCase: canonical-test-case-bundle.v1
   goldenRequirementSnapshot: golden-requirement-snapshot.v1
   pomContract: pom-contract-v1
+  uiTestContract: ui-test-contract-bundle.v1
+  generationNamespace: generation-namespace.v1
+  generatedSourceManifest: generated-source-manifest.v1
+  generatedTestExecution: generated-tests-execution-result.v1
   pageEnrichment: page-model-enrichment-record.v1
+  interactionInventory: ui-interaction-inventory.v1
+  evidenceFunnel: ui-evidence-funnel.v4
   qualityReport: ai-run-quality-summary.v1

@@ -17,7 +17,8 @@ public record DemoInputResolution(
         LogoutAccessMode logoutAccessMode,
         List<String> lifecycle,
         List<String> expectedPomNames,
-        List<String> expectedScenarioIds
+        List<String> expectedScenarioIds,
+        List<String> expectedGeneratedTests
 ) {
     public DemoInputResolution {
         projectProfilePath = safe(projectProfilePath);
@@ -32,11 +33,12 @@ public record DemoInputResolution(
         lifecycle = lifecycle == null ? List.of() : List.copyOf(lifecycle);
         expectedPomNames = expectedPomNames == null ? List.of() : List.copyOf(expectedPomNames);
         expectedScenarioIds = expectedScenarioIds == null ? List.of() : List.copyOf(expectedScenarioIds);
+        expectedGeneratedTests = expectedGeneratedTests == null ? List.of() : List.copyOf(expectedGeneratedTests);
     }
 
     public static DemoInputResolution empty() {
         return new DemoInputResolution("", "", "", "", "", "", "", "",
-                LogoutAccessMode.UNKNOWN, List.of(), List.of(), List.of());
+                LogoutAccessMode.UNKNOWN, List.of(), List.of(), List.of(), List.of());
     }
 
     private static String safe(String value) {

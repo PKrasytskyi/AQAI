@@ -4,7 +4,7 @@ import org.openqa.selenium.WebDriver;
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.ui.discovery.selenium.auth.DiscoveryAuthenticationService;
 import ua.demo.agentlab.ui.discovery.selenium.auth.RouteProtectionResolver;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedActionVerification;
 
 import java.util.List;
@@ -27,7 +27,7 @@ public final class AuthenticationPreconditionExecutor {
     public AuthenticationPreconditionResult satisfy(
             WebDriver driver,
             ProjectProfile profile,
-            SpaPageInventory page,
+            UiInteractionPage page,
             List<TargetedActionVerification> actions,
             LiveAuthenticationState state
     ) {

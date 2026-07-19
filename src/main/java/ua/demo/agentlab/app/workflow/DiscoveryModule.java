@@ -8,7 +8,7 @@ public record DiscoveryModule(
         WorkflowAgent uiDiscoveryArtifactPersistenceAgent,
         WorkflowAgent uiPageModelAgent,
         WorkflowAgent uiPageMappingAgent,
-        WorkflowAgent uiSpaInventoryAgent,
+        WorkflowAgent uiInteractionInventoryAgent,
         WorkflowAgent uiSpaComponentInteractionGraphAgent,
         WorkflowAgent uiSpaTargetedVerificationAgent,
         WorkflowAgent uiLiveSpaTargetedVerificationAgent,

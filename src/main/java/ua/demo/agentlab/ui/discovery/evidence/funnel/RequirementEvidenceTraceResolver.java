@@ -6,7 +6,7 @@ import ua.demo.agentlab.ui.discovery.spa.model.CandidateActionEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.RequirementStateTransition;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBinding;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBinding;
 import ua.demo.agentlab.ui.discovery.spa.model.UiStateSnapshot;
 import ua.demo.agentlab.ui.discovery.spa.model.UiStateTransition;
@@ -31,8 +31,8 @@ public final class RequirementEvidenceTraceResolver {
         RequirementStateTransition transition = transition(input, requirement.requirementId());
         TargetStateBinding targetBinding = targetBinding(input, requirement.requirementId());
 
-        SpaPageInventory sourcePage = sourcePage(input, sourceBinding, behaviorBinding, transition);
-        SpaPageInventory targetPage = targetPage(input, targetBinding, transition, behaviorBinding);
+        UiInteractionPage sourcePage = sourcePage(input, sourceBinding, behaviorBinding, transition);
+        UiInteractionPage targetPage = targetPage(input, targetBinding, transition, behaviorBinding);
         String sourceStateId = sourceStateId(input, sourceBinding, transition, sourcePage);
         String targetStateId = targetStateId(targetBinding, transition, targetPage);
 
@@ -89,7 +89,7 @@ public final class RequirementEvidenceTraceResolver {
                 .findFirst().orElse(null);
     }
 
-    private SpaPageInventory sourcePage(
+    private UiInteractionPage sourcePage(
             UiEvidenceFunnelInput input,
             SourceStateBinding source,
             BoundSpaBehaviorContract behavior,
@@ -104,21 +104,21 @@ public final class RequirementEvidenceTraceResolver {
                 behavior == null ? "" : behavior.route()));
     }
 
-    private SpaPageInventory targetPage(
+    private UiInteractionPage targetPage(
             UiEvidenceFunnelInput input,
             TargetStateBinding target,
             RequirementStateTransition transition,
             BoundSpaBehaviorContract behavior
     ) {
         String targetRoute = targetRoute(target, transition);
-        SpaPageInventory page = findPage(input, "", targetRoute);
+        UiInteractionPage page = findPage(input, "", targetRoute);
         if (page != null) {
             return page;
         }
         return behavior == null ? null : findPage(input, behavior.pageId(), behavior.route());
     }
 
-    private SpaPageInventory findPage(UiEvidenceFunnelInput input, String pageId, String route) {
+    private UiInteractionPage findPage(UiEvidenceFunnelInput input, String pageId, String route) {
         if (input.inventory() == null) {
             return null;
         }
@@ -129,7 +129,7 @@ public final class RequirementEvidenceTraceResolver {
     }
 
     private String pageIdForRoute(UiEvidenceFunnelInput input, String route) {
-        SpaPageInventory page = findPage(input, "", route);
+        UiInteractionPage page = findPage(input, "", route);
         return page == null ? "" : page.pageId();
     }
 
@@ -137,7 +137,7 @@ public final class RequirementEvidenceTraceResolver {
             UiEvidenceFunnelInput input,
             SourceStateBinding source,
             RequirementStateTransition requirementTransition,
-            SpaPageInventory page
+            UiInteractionPage page
     ) {
         String actionId = requirementTransition == null ? "" : requirementTransition.actionId();
         if (input.liveVerification() != null) {
@@ -162,7 +162,7 @@ public final class RequirementEvidenceTraceResolver {
     private String targetStateId(
             TargetStateBinding target,
             RequirementStateTransition transition,
-            SpaPageInventory page
+            UiInteractionPage page
     ) {
         return firstNonBlank(value(target, TargetStateBinding::targetStateId),
                 value(transition, RequirementStateTransition::targetStateId),
@@ -268,7 +268,7 @@ public final class RequirementEvidenceTraceResolver {
             StructuredBehaviorContract requirement,
             SourceStateBinding source,
             RequirementStateTransition transition,
-            SpaPageInventory page
+            UiInteractionPage page
     ) {
         if (transition != null && transition.confirmed()) return "LIVE_TRANSITION_DISCOVERY";
         if (usesProjectProfileRoute(requirement.targetContext(), "sourceRoute")) return "PROJECT_PROFILE";
@@ -281,7 +281,7 @@ public final class RequirementEvidenceTraceResolver {
             StructuredBehaviorContract requirement,
             TargetStateBinding target,
             RequirementStateTransition transition,
-            SpaPageInventory page
+            UiInteractionPage page
     ) {
         if (target != null && target.transitionConfirmed() || transition != null && transition.confirmed()) {
             return "LIVE_TRANSITION_DISCOVERY";
@@ -323,9 +323,9 @@ public final class RequirementEvidenceTraceResolver {
                 value(transition, RequirementStateTransition::targetRoute));
     }
 
-    private String pageId(SpaPageInventory page) { return page == null ? "" : page.pageId(); }
-    private String pageName(SpaPageInventory page) { return page == null ? "" : page.pageName(); }
-    private String route(SpaPageInventory page) { return page == null ? "" : page.route(); }
+    private String pageId(UiInteractionPage page) { return page == null ? "" : page.pageId(); }
+    private String pageName(UiInteractionPage page) { return page == null ? "" : page.pageName(); }
+    private String route(UiInteractionPage page) { return page == null ? "" : page.route(); }
 
     private String normalizeRoute(String value) {
         String route = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);

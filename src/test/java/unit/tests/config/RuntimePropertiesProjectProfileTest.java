@@ -29,6 +29,12 @@ public class RuntimePropertiesProjectProfileTest {
         Assert.assertTrue(runtimeProperties.readBoolean("demo.preflight.enabled", "false"));
         Assert.assertEquals(runtimeProperties.readValue("demo.manifest.file", ""),
                 "demo/orangehrm-login-logout/demo-manifest.yaml");
+        Assert.assertTrue(profile.outputProfile().generatedPagesPackage()
+                .startsWith("ua.demo.agentlab.ui.generated.orangehrm_"));
+        Assert.assertTrue(profile.outputProfile().generatedPagesPackage().endsWith(".pages"));
+        Assert.assertTrue(profile.outputProfile().generatedTestsPackage()
+                .startsWith("ua.demo.agentlab.ui.generated.orangehrm_"));
+        Assert.assertTrue(profile.outputProfile().generatedTestsPackage().endsWith(".tests"));
     }
 
     @Test

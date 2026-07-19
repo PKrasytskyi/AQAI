@@ -1,4 +1,4 @@
-package ua.demo.agentlab.ui.discovery.spa;
+package ua.demo.agentlab.ui.discovery.interaction.inventory;
 
 import ua.demo.agentlab.ui.discovery.component.ComponentBoundaryDetector;
 import ua.demo.agentlab.ui.discovery.component.model.ComponentDiscoveryModel;
@@ -10,8 +10,8 @@ import ua.demo.agentlab.ui.discovery.spa.model.CandidateActionEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaEvidenceStatus;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.spa.SpaDiscoveryMode;
+import ua.demo.agentlab.ui.discovery.spa.SpaInventoryConfig;
 import ua.demo.agentlab.ui.discovery.semantic.SemanticActionModelBuilder;
 import ua.demo.agentlab.ui.discovery.semantic.model.ActionCandidate;
 import ua.demo.agentlab.ui.discovery.semantic.model.SemanticActionModel;
@@ -36,29 +36,40 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Builds a candidate-only inventory. Promotion to POM evidence belongs to targeted verification,
- * not to broad SPA discovery.
+ * Builds the single candidate-only interaction inventory for both document-navigation and SPA sites.
+ * Promotion to POM evidence belongs to targeted live verification, never inventory construction.
  */
-public class SpaInventoryBuilder {
+public class UiInteractionInventoryBuilder {
 
     private final ComponentBoundaryDetector componentBoundaryDetector;
     private final SemanticActionModelBuilder semanticActionModelBuilder;
+    private final UiInteractionInventoryInvariantGate invariantGate;
 
-    public SpaInventoryBuilder() {
-        this(new ComponentBoundaryDetector(), new SemanticActionModelBuilder());
+    public UiInteractionInventoryBuilder() {
+        this(new ComponentBoundaryDetector(), new SemanticActionModelBuilder(),
+                new UiInteractionInventoryInvariantGate());
     }
 
-    public SpaInventoryBuilder(
+    public UiInteractionInventoryBuilder(
             ComponentBoundaryDetector componentBoundaryDetector,
             SemanticActionModelBuilder semanticActionModelBuilder
+    ) {
+        this(componentBoundaryDetector, semanticActionModelBuilder, new UiInteractionInventoryInvariantGate());
+    }
+
+    UiInteractionInventoryBuilder(
+            ComponentBoundaryDetector componentBoundaryDetector,
+            SemanticActionModelBuilder semanticActionModelBuilder,
+            UiInteractionInventoryInvariantGate invariantGate
     ) {
         this.componentBoundaryDetector = componentBoundaryDetector == null
                 ? new ComponentBoundaryDetector() : componentBoundaryDetector;
         this.semanticActionModelBuilder = semanticActionModelBuilder == null
                 ? new SemanticActionModelBuilder() : semanticActionModelBuilder;
+        this.invariantGate = invariantGate == null ? new UiInteractionInventoryInvariantGate() : invariantGate;
     }
 
-    public SpaInventoryBundle build(
+    public UiInteractionInventory build(
             PageModelBundle pageModels,
             MappedUiKnowledge mappedKnowledge,
             KnowledgeRunMetadata metadata,
@@ -67,7 +78,7 @@ public class SpaInventoryBuilder {
         return build(pageModels, mappedKnowledge, metadata, config, null, List.of());
     }
 
-    public SpaInventoryBundle build(
+    public UiInteractionInventory build(
             PageModelBundle pageModels,
             MappedUiKnowledge mappedKnowledge,
             KnowledgeRunMetadata metadata,
@@ -77,7 +88,7 @@ public class SpaInventoryBuilder {
         return build(pageModels, mappedKnowledge, metadata, config, canonicalTestCases, List.of());
     }
 
-    public SpaInventoryBundle build(
+    public UiInteractionInventory build(
             PageModelBundle pageModels,
             MappedUiKnowledge mappedKnowledge,
             KnowledgeRunMetadata metadata,
@@ -89,11 +100,8 @@ public class SpaInventoryBuilder {
                 ? new SpaInventoryConfig(false, SpaDiscoveryMode.INVENTORY, 30, true, 0.80d, 2, 2,
                 false, false, false, 14, 30, false)
                 : config;
-        if (!effectiveConfig.inventoryEnabled()) {
-            return SpaInventoryBundle.empty(effectiveConfig.mode(), "spa-inventory:disabled");
-        }
         if (pageModels == null || pageModels.pages().isEmpty()) {
-            return SpaInventoryBundle.empty(effectiveConfig.mode(), "spa-inventory:no-page-models");
+            return UiInteractionInventory.empty(effectiveConfig.mode(), "interaction-inventory:no-page-models");
         }
 
         ComponentDiscoveryModel componentModel = componentBoundaryDetector.detect(pageModels);
@@ -103,7 +111,7 @@ public class SpaInventoryBuilder {
 
         List<PageModel> scopedPageModels = scopedPages(
                 pageModels.pages(), effectiveConfig.mode(), canonicalTestCases, structuredContracts);
-        List<SpaPageInventory> pages = scopedPageModels.stream()
+        List<UiInteractionPage> pages = scopedPageModels.stream()
                 .sorted(Comparator.comparing(PageModel::pageId))
                 .map(page -> inventoryForPage(
                         page,
@@ -113,13 +121,17 @@ public class SpaInventoryBuilder {
                         effectiveConfig
                 ))
                 .toList();
-        return new SpaInventoryBundle(
-                SpaInventoryBundle.SCHEMA_VERSION,
+        UiInteractionInventory inventory = new UiInteractionInventory(
+                UiInteractionInventory.SCHEMA_VERSION,
                 effectiveConfig.mode(),
                 pages,
                 List.of(
+                        "interaction-inventory:generic-core",
+                        effectiveConfig.spaExtensionsEnabled()
+                                ? "interaction-inventory:spa-extensions-enabled"
+                                : "interaction-inventory:spa-extensions-disabled",
                         effectiveConfig.mode() == SpaDiscoveryMode.INVENTORY || effectiveConfig.mode() == SpaDiscoveryMode.FORCE
-                                ? "spa-inventory:full-discovery" : "spa-inventory:requirement-scoped",
+                                ? "interaction-inventory:full-discovery" : "interaction-inventory:requirement-scoped",
                         "mode=" + effectiveConfig.mode().name().toLowerCase(Locale.ROOT),
                         "candidate-only-no-pom-promotion",
                         "component-pages=" + componentModel.pages().size(),
@@ -127,6 +139,8 @@ public class SpaInventoryBuilder {
                         "inventory-pages=" + scopedPageModels.size()
                 )
         );
+        invariantGate.enforce(inventory);
+        return inventory;
     }
 
     private List<PageModel> scopedPages(
@@ -216,7 +230,7 @@ public class SpaInventoryBuilder {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
-    private SpaPageInventory inventoryForPage(
+    private UiInteractionPage inventoryForPage(
             PageModel page,
             SemanticComponentPageModel componentPage,
             SemanticPageModel semanticPage,
@@ -235,9 +249,9 @@ public class SpaInventoryBuilder {
         String capability = derivedCapabilities(page, semanticPage, components);
         String pageName = resolvedPageName(page, semanticPage);
         String fingerprint = fingerprint(page, components);
-        return new SpaPageInventory(
+        return new UiInteractionPage(
                 page.pageId(), pageName, page.route(), capability, fingerprint, metadata, components,
-                List.of("spa-inventory:page-model", "page-url=" + page.url(), "candidate-status-only")
+                List.of("interaction-inventory:page-model", "page-url=" + page.url(), "candidate-status-only")
         );
     }
 
@@ -338,7 +352,7 @@ public class SpaInventoryBuilder {
             List<String> requiredLocatorIds
     ) {
         List<String> sourceTrace = new ArrayList<>(action.evidence());
-        sourceTrace.add("spa-inventory:semantic-action");
+        sourceTrace.add("interaction-inventory:semantic-action");
         return new CandidateActionEvidence(
                 componentId + ":action:" + sanitize(action.action() + "-" + action.targetElementId()),
                 componentId, action.action(), action.targetElementId(), action.confidence(), requiredLocatorIds,
@@ -368,7 +382,7 @@ public class SpaInventoryBuilder {
         if (page == null) {
             return result;
         }
-        // pageActionCandidates is a compact summary capped for reporting. SPA inventory must keep
+        // pageActionCandidates is a compact summary capped for reporting. Interaction inventory must keep
         // every component-owned action; requirement scoping happens later in SourceStateBinding.
         page.elements().forEach(element -> element.actionCandidates().forEach(action ->
                 result.computeIfAbsent(action.targetElementId(), ignored -> new ArrayList<>()).add(action)));

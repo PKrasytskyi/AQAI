@@ -6,7 +6,7 @@ import ua.demo.agentlab.ui.discovery.spa.model.LiveTransitionDiscovery;
 import ua.demo.agentlab.ui.discovery.spa.model.RequirementStateTransition;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBinding;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaTargetedVerificationResult;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBinding;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBindingBundle;
@@ -30,7 +30,7 @@ public final class TargetStateBindingService {
         this.behaviorBindingService = behaviorBindingService;
     }
 
-    public TargetStateBindingBundle bind(List<StructuredBehaviorContract> contracts, SpaInventoryBundle inventory,
+    public TargetStateBindingBundle bind(List<StructuredBehaviorContract> contracts, UiInteractionInventory inventory,
                                          SourceStateBindingBundle sources, LiveTransitionDiscovery discovery) {
         if (inventory == null || sources == null || discovery == null || discovery.verification() == null) {
             return new TargetStateBindingBundle(TargetStateBindingBundle.SCHEMA_VERSION, null, List.of(), List.of(),
@@ -110,7 +110,7 @@ public final class TargetStateBindingService {
     private BoundSpaBehaviorContract targetBinding(
             StructuredBehaviorContract contract,
             RequirementStateTransition transition,
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             SpaTargetedVerificationResult evidence
     ) {
         String componentCapabilities = targetComponentCapabilities(contract);
@@ -145,10 +145,13 @@ public final class TargetStateBindingService {
     private String targetComponentCapabilities(StructuredBehaviorContract contract) {
         String capability = normalize(contract.capability());
         String actions = normalize(String.join(" ", contract.actions()));
+        String logoutAccessMode = normalize(contextValue(contract.targetContext(), "logoutAccessMode"));
         List<String> sourceOwned = capability.equals("module_navigation") ? List.of("NAVIGATION")
                 : capability.equals("authentication") ? List.of("FORM")
                 : capability.equals("logout") && (actions.contains("logout") || actions.contains("sign out"))
-                ? List.of("USER_MENU", "HEADER")
+                ? logoutAccessMode.equals("direct_control")
+                    ? List.of("NAVIGATION")
+                    : List.of("USER_MENU", "HEADER")
                 : capability.equals("logout") ? List.of("HEADER")
                 : List.of();
         return java.util.Arrays.stream(contextValue(contract.targetContext(), "componentCapability").split(","))
@@ -179,7 +182,7 @@ public final class TargetStateBindingService {
     }
 
     private List<TargetedLocatorVerification> runtimeVerifiedTargetLocators(
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             LiveTransitionDiscovery discovery
     ) {
         List<TargetedLocatorVerification> result = new ArrayList<>();

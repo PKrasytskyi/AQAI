@@ -20,8 +20,8 @@ import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiDiscoveryConfig;
 import ua.demo.agentlab.ui.discovery.runtime.bidi.BiDiEventBuffer;
 import ua.demo.agentlab.ui.discovery.persistence.knowledge.config.PropertiesNeo4jRuntimeConfig;
 import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
-import ua.demo.agentlab.ui.discovery.spa.SpaInventoryArtifactWriter;
-import ua.demo.agentlab.ui.discovery.spa.SpaInventoryBuilder;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventoryArtifactWriter;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventoryBuilder;
 import ua.demo.agentlab.ui.discovery.spa.ComponentInteractionGraphArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.ComponentInteractionGraphBuilder;
 import ua.demo.agentlab.ui.discovery.spa.ComponentInteractionGraphWriter;
@@ -30,7 +30,7 @@ import ua.demo.agentlab.ui.discovery.spa.LiveTargetedVerificationRunner;
 import ua.demo.agentlab.ui.discovery.spa.SpaEvidenceRetentionGraphWriter;
 import ua.demo.agentlab.ui.discovery.spa.SpaTargetedVerificationArtifactWriter;
 import ua.demo.agentlab.ui.discovery.spa.SpaTargetedVerificationPlanner;
-import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaInventoryAgent;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.agent.UiInteractionInventoryAgent;
 import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaComponentInteractionGraphAgent;
 import ua.demo.agentlab.ui.discovery.spa.agent.UiLiveSpaTargetedVerificationAgent;
 import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaEvidenceRetentionAgent;
@@ -74,10 +74,10 @@ public class DiscoveryModuleFactory {
                 new UiDiscoveryArtifactPersistenceAgent(new LocalDiscoveryArtifactWriter()),
                 new UiPageModelAgent(new PageModelBuilder(), new PageModelArtifactWriter()),
                 new UiPageMappingAgent(new RuleBasedPageMapper()),
-                new UiSpaInventoryAgent(
+                new UiInteractionInventoryAgent(
                         new PropertiesSpaInventoryConfig(),
-                        new SpaInventoryBuilder(),
-                        new SpaInventoryArtifactWriter()
+                        new UiInteractionInventoryBuilder(),
+                        new UiInteractionInventoryArtifactWriter()
                 ),
                 new UiSpaComponentInteractionGraphAgent(
                         new ComponentInteractionGraphBuilder(),

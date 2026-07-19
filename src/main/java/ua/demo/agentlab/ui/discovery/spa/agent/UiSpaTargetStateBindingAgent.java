@@ -31,12 +31,12 @@ public final class UiSpaTargetStateBindingAgent implements WorkflowAgent,
     @Override public String name() { return "ui-spa-target-state-binding-agent"; }
     @Override public Set<WorkflowArtifact> requires() {
         return Set.of(WorkflowArtifact.PROJECT_PROFILE, WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS,
-                WorkflowArtifact.SPA_PAGE_INVENTORY, WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS,
+                WorkflowArtifact.UI_INTERACTION_INVENTORY, WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS,
                 WorkflowArtifact.SPA_LIVE_TRANSITION_DISCOVERY, WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION);
     }
     @Override public Set<WorkflowArtifact> produces() {
         return Set.of(WorkflowArtifact.SPA_TARGET_STATE_BINDINGS, WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS,
-                WorkflowArtifact.SPA_EFFECTIVE_PAGE_INVENTORY, WorkflowArtifact.SPA_REBOUND_SOURCE_STATE_BINDINGS);
+                WorkflowArtifact.UI_EFFECTIVE_INTERACTION_INVENTORY, WorkflowArtifact.SPA_REBOUND_SOURCE_STATE_BINDINGS);
     }
     @Override public WorkflowArtifact input() { return WorkflowArtifact.SPA_LIVE_TRANSITION_DISCOVERY; }
     @Override public WorkflowArtifact output() { return WorkflowArtifact.SPA_TARGET_STATE_BINDINGS; }
@@ -44,7 +44,7 @@ public final class UiSpaTargetStateBindingAgent implements WorkflowAgent,
     @Override public SpaTargetStateBindingInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
         return new SpaTargetStateBindingInput(store.require(WorkflowArtifact.PROJECT_PROFILE),
                 store.require(WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS),
-                store.require(WorkflowArtifact.SPA_PAGE_INVENTORY),
+                store.require(WorkflowArtifact.UI_INTERACTION_INVENTORY),
                 store.require(WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS),
                 store.require(WorkflowArtifact.SPA_LIVE_TRANSITION_DISCOVERY),
                 store.require(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION));

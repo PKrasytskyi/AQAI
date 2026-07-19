@@ -32,6 +32,7 @@ public class ConsoleReportPrinter {
         printGeneratedUiContractValidationSummary(snapshot);
         printGeneratedCodeValidationSummary(snapshot);
         printGeneratedCodeReviewSummary(snapshot);
+        printBuildWeekDemoSummary(snapshot);
     }
 
     private void printAudit(WorkflowPipelineSnapshot snapshot) {
@@ -274,5 +275,106 @@ public class ConsoleReportPrinter {
                         + " | " + finding.filePath()
                         + " | " + finding.message())
         );
+    }
+
+    private void printBuildWeekDemoSummary(WorkflowPipelineSnapshot snapshot) {
+        var artifacts = snapshot.runEnvelope().artifactRefs().asMap();
+        String status = artifacts.getOrDefault("build.week.demo.status", "");
+        if (status.isBlank()) {
+            return;
+        }
+        String scenarios = artifacts.getOrDefault("build.week.demo.scenarios", "0");
+        String pages = artifacts.getOrDefault("build.week.demo.catalog.pages", "0");
+        String poms = artifacts.getOrDefault("build.week.demo.pom.count", "0");
+        String tests = artifacts.getOrDefault("build.week.demo.test.count", "0");
+        String executed = artifacts.getOrDefault("build.week.demo.tests.executed", "0");
+        String passed = artifacts.getOrDefault("build.week.demo.tests.passed", "0");
+        String model = artifacts.getOrDefault("build.week.demo.model", "unknown");
+        String enrichmentCalls = artifacts.getOrDefault("build.week.demo.page.enrichment.calls", "0");
+        String enrichmentHits = artifacts.getOrDefault("build.week.demo.page.enrichment.cache.hits", "0");
+        String pomCalls = artifacts.getOrDefault("build.week.demo.pom.llm.calls", "0");
+        String pomReused = artifacts.getOrDefault("build.week.demo.pom.reused", "0");
+        String aiStatus = artifacts.getOrDefault("build.week.demo.ai.status", "NOT_USED");
+        String runMode = artifacts.getOrDefault("build.week.demo.run.mode", "AI-DISABLED");
+
+        System.out.println("\n=== AQAI Build Week Demo ===");
+        section("RUN");
+        metric("Mode", runMode);
+        metric("Project", artifacts.getOrDefault("build.week.demo.project.name", "unknown"));
+        section("INPUT");
+        metric("Requirements", scenarios);
+        section("PLANNING");
+        metric("Canonical Test Cases", scenarios);
+        section("UI EVIDENCE");
+        metric("Confirmed UI Catalog", pages + " pages");
+        metric("Locator Evidence", artifacts.getOrDefault("build.week.demo.locator.evidence.status", "MISSING"));
+
+        section(aiStatus.contains("REUSE") ? "AI / KNOWLEDGE REUSE" : "AI REASONING");
+        metric("Model", model);
+        metric("Status", aiStatus);
+        metric("Page Enrichment Calls", enrichmentCalls);
+        metric("Page Enrichment Cache Hits", enrichmentHits);
+        metric("POM Planning Calls", pomCalls);
+        metric("Stable POM Contracts Reused", pomReused);
+        metric("Neo4j", hit(artifacts.getOrDefault("build.week.demo.neo4j.hit", "false")));
+        metric("Qdrant", hit(artifacts.getOrDefault("build.week.demo.qdrant.hit", "false")));
+        metric("Stable Evidence", Boolean.parseBoolean(artifacts.getOrDefault(
+                "build.week.demo.stable.evidence.reused", "false")) ? "REUSED" : "CURRENT_RUN");
+        int avoided = integer(artifacts.getOrDefault("build.week.demo.llm.calls.avoided", "0"));
+        if (avoided > 0) metric("Unnecessary LLM Calls Avoided", String.valueOf(avoided));
+
+        section("GENERATION");
+        metric("Generated Page Objects", poms);
+        metric("Generated TestNG Tests", tests);
+        section("VALIDATION");
+        metric("Generated Code Review", artifacts.getOrDefault("build.week.demo.review.findings", "0") + " findings");
+        metric("Compile", artifacts.getOrDefault("build.week.demo.compile.status", "MISSING"));
+        metric("Live Smoke", artifacts.getOrDefault("build.week.demo.live.smoke.status", "MISSING"));
+        section("EXECUTION");
+        metric("Tests Run", executed);
+        metric("Passed", passed);
+        metric("Failed", artifacts.getOrDefault("build.week.demo.tests.failed", "0"));
+        section("QUALITY");
+        metric("Run Quality Score", artifacts.getOrDefault("build.week.demo.quality.score", "0") + " / 100");
+        metric("Coverage Gaps", artifacts.getOrDefault("build.week.demo.coverage.gaps", "0"));
+        metric("Blocking Issues", artifacts.getOrDefault("build.week.demo.blocking.issues", "0"));
+
+        System.out.println("\nFINAL RESULT\n");
+        System.out.println("AQAI DEMO " + status);
+        System.out.println(pipeline(runMode));
+        System.out.println(passed + " / " + executed + " GENERATED TESTS PASSED");
+        System.out.println("Summary: " + artifacts.getOrDefault("build.week.demo.summary.file", ""));
+    }
+
+    private void section(String title) {
+        System.out.println("\n" + title);
+    }
+
+    private void metric(String label, String value) {
+        System.out.printf("%-42s %s%n", label, value);
+    }
+
+    private String hit(String value) {
+        return Boolean.parseBoolean(value) ? "HIT" : "MISS";
+    }
+
+    private int integer(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException exception) {
+            return 0;
+        }
+    }
+
+    private String pipeline(String runMode) {
+        return switch (runMode) {
+            case "COLD-DISCOVERY" -> "Requirements -> Evidence -> AI Reasoning -> Verified Knowledge"
+                    + " -> Deterministic Generation -> Execution";
+            case "KNOWLEDGE-REUSE" -> "Requirements -> Verified Knowledge Reuse"
+                    + " -> Deterministic Generation -> Execution";
+            case "HYBRID-REUSE" -> "Requirements -> Evidence + Knowledge Reuse -> AI Reasoning"
+                    + " -> Verified Knowledge -> Deterministic Generation -> Execution";
+            default -> "Requirements -> Verified Evidence -> Deterministic Generation -> Execution";
+        };
     }
 }

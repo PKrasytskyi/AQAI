@@ -24,9 +24,9 @@ import ua.demo.agentlab.ui.discovery.spa.model.RequirementStateTransition;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBinding;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaStateGraph;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBinding;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBindingBundle;
@@ -62,7 +62,7 @@ public class CrossProductRequirementTargetedDiscoveryAcceptanceTest {
             String accessIntent
     ) {
         List<StructuredBehaviorContract> requirements = requirements(requirementFile);
-        SpaInventoryBundle inventory = inventory(loginPageId, loginPageName, loginRoute,
+        UiInteractionInventory inventory = inventory(loginPageId, loginPageName, loginRoute,
                 authenticatedPageId, authenticatedPageName, authenticatedRoute, logoutComponentCapability);
         List<SourceStateBinding> sources = new ArrayList<>();
         List<RequirementStateTransition> transitions = new ArrayList<>();
@@ -132,7 +132,7 @@ public class CrossProductRequirementTargetedDiscoveryAcceptanceTest {
         return new StructuredBehaviorContractBuilder().build(normalized.requirements());
     }
 
-    private SpaInventoryBundle inventory(
+    private UiInteractionInventory inventory(
             String loginPageId,
             String loginPageName,
             String loginRoute,
@@ -144,13 +144,13 @@ public class CrossProductRequirementTargetedDiscoveryAcceptanceTest {
         SemanticComponentInventory form = component("login-form", ComponentType.FORM);
         ComponentType logoutType = logoutComponentCapability.equals("USER_MENU")
                 ? ComponentType.USER_MENU : ComponentType.NAVIGATION;
-        SpaPageInventory login = new SpaPageInventory(loginPageId, loginPageName, loginRoute,
+        UiInteractionPage login = new UiInteractionPage(loginPageId, loginPageName, loginRoute,
                 "AUTHENTICATION", "state-login", null, List.of(form), List.of("bw04:fixture"));
-        SpaPageInventory authenticated = new SpaPageInventory(authenticatedPageId, authenticatedPageName,
+        UiInteractionPage authenticated = new UiInteractionPage(authenticatedPageId, authenticatedPageName,
                 authenticatedRoute, "AUTHENTICATED_AREA|LOGOUT", "state-authenticated", null,
                 List.of(component("authenticated-content", ComponentType.CONTENT),
                         component("logout-access", logoutType)), List.of("bw04:fixture"));
-        return new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+        return new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
                 List.of(login, authenticated), List.of("bw04:production-contract-fixture"));
     }
 

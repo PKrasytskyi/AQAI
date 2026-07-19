@@ -95,12 +95,16 @@ public class ArtifactLifecyclePromotionService {
         boolean liveSmokeEnabled = Boolean.parseBoolean(value(input.artifacts(), "generated.ui.live.smoke.enabled"));
         boolean liveSmokePassedOrDisabled = !liveSmokeEnabled
                 || GeneratedUiSmokeStatus.PASSED.name().equals(liveSmokeStatus);
-        boolean stable = writerPassed && compilePassed && reviewPassed && smokePassed && liveSmokePassedOrDisabled;
-        double qualityScore = qualityScore(writerPassed, compilePassed, reviewPassed, smokePassed, liveSmokePassedOrDisabled,
-                input.reviewReport());
+        String generatedTestExecutionStatus = value(input.artifacts(), "generated.tests.execution.status");
+        boolean generatedTestsPassedOrSkipped = "PASSED".equals(generatedTestExecutionStatus)
+                || "SKIPPED".equals(generatedTestExecutionStatus);
+        boolean stable = writerPassed && compilePassed && reviewPassed && smokePassed
+                && liveSmokePassedOrDisabled && generatedTestsPassedOrSkipped;
+        double qualityScore = qualityScore(writerPassed, compilePassed, reviewPassed, smokePassed,
+                liveSmokePassedOrDisabled, generatedTestsPassedOrSkipped, input.reviewReport());
         ArtifactStatus status = stable ? ArtifactStatus.STABLE : ArtifactStatus.NEEDS_REVIEW;
         String reason = lifecycleReason(writerPassed, compilePassed, reviewPassed, smokePassed, liveSmokePassedOrDisabled,
-                liveSmokeStatus, liveSmokeEnabled);
+                liveSmokeStatus, liveSmokeEnabled, generatedTestsPassedOrSkipped, generatedTestExecutionStatus);
         String artifactId = "pom-contract:" + targetId(contract) + ":" + fingerprint;
 
         if (fingerprint.isBlank() || stablePath.isBlank()) {
@@ -108,13 +112,14 @@ public class ArtifactLifecyclePromotionService {
                     qualityScore, reason + "; artifact identity or stable path is missing", false, false);
         }
 
-        if ("REUSE_STABLE".equals(decision)) {
+        if ("REUSE_STABLE".equals(decision) && stable) {
             ArtifactRegistryWriteResult registryResult = registry.register(new ArtifactRegistryWriteRequest(
                     artifactRecord(contract, fingerprint, stablePath, ArtifactStatus.STABLE, qualityScore, true, true),
                     ArtifactTarget.page(targetId(contract), pageName, contract.page().route(), contract.page().capability()),
                     input.runRecord(),
                     ArtifactRunRelation.REUSED,
-                    qualityGates(artifactId, true, true, reviewPassed, smokePassed, liveSmokeStatus, liveSmokeEnabled)
+                    qualityGates(artifactId, true, true, reviewPassed, smokePassed, liveSmokeStatus, liveSmokeEnabled,
+                            generatedTestExecutionStatus, generatedTestsPassedOrSkipped)
             ));
             String reuseReason = "reused stable artifact passed current-run validation";
             if (!registryResult.success()) {
@@ -130,7 +135,7 @@ public class ArtifactLifecyclePromotionService {
                 input.runRecord(),
                 ArtifactRunRelation.PRODUCED,
                 qualityGates(artifactId, writerPassed, compilePassed, reviewPassed, smokePassed, liveSmokeStatus,
-                        liveSmokeEnabled)
+                        liveSmokeEnabled, generatedTestExecutionStatus, generatedTestsPassedOrSkipped)
         ));
         String markerNote = "";
         if (stable) {
@@ -183,7 +188,9 @@ public class ArtifactLifecyclePromotionService {
             boolean reviewPassed,
             boolean smokePassed,
             String liveSmokeStatus,
-            boolean liveSmokeEnabled
+            boolean liveSmokeEnabled,
+            String generatedTestExecutionStatus,
+            boolean generatedTestsPassedOrSkipped
     ) {
         String now = Instant.now().toString();
         return List.of(
@@ -194,7 +201,11 @@ public class ArtifactLifecyclePromotionService {
                 gate(artifactId, "SMOKE", smokePassed, "generated POM smoke validation", now),
                 new QualityGateRecord(artifactId + "-live-smoke", "LIVE_SMOKE",
                         liveSmokeEnabled ? (liveSmokeStatus.isBlank() ? "FAILED" : liveSmokeStatus) : "SKIPPED",
-                        liveSmokeEnabled ? "live browser smoke status" : "live browser smoke disabled", 0, now)
+                        liveSmokeEnabled ? "live browser smoke status" : "live browser smoke disabled", 0, now),
+                new QualityGateRecord(artifactId + "-generated-test-execution", "GENERATED_TEST_EXECUTION",
+                        generatedTestExecutionStatus.isBlank() ? "MISSING" : generatedTestExecutionStatus,
+                        "manifest-owned generated TestNG execution",
+                        generatedTestsPassedOrSkipped ? 0 : 1, now)
         );
     }
 
@@ -218,6 +229,7 @@ public class ArtifactLifecyclePromotionService {
             boolean reviewPassed,
             boolean smokePassed,
             boolean liveSmokePassedOrDisabled,
+            boolean generatedTestsPassedOrSkipped,
             GeneratedCodeReviewReport reviewReport
     ) {
         double score = 0.0d;
@@ -232,6 +244,9 @@ public class ArtifactLifecyclePromotionService {
                     .count();
             score -= Math.min(10.0d, warnings * 2.0d);
         }
+        if (!generatedTestsPassedOrSkipped) {
+            score = Math.min(score, 85.0d);
+        }
         return Math.max(0.0d, score);
     }
 
@@ -242,7 +257,9 @@ public class ArtifactLifecyclePromotionService {
             boolean smokePassed,
             boolean liveSmokePassedOrDisabled,
             String liveSmokeStatus,
-            boolean liveSmokeEnabled
+            boolean liveSmokeEnabled,
+            boolean generatedTestsPassedOrSkipped,
+            String generatedTestExecutionStatus
     ) {
         List<String> failures = new ArrayList<>();
         if (!writerPassed) {
@@ -260,7 +277,13 @@ public class ArtifactLifecyclePromotionService {
         if (!liveSmokePassedOrDisabled) {
             failures.add("live smoke is enabled and status is " + (liveSmokeStatus.isBlank() ? "missing" : liveSmokeStatus));
         }
-        return failures.isEmpty() ? "writer, compile, review, and smoke gates passed" : String.join("; ", failures);
+        if (!generatedTestsPassedOrSkipped) {
+            failures.add("generated TestNG execution status is "
+                    + (generatedTestExecutionStatus.isBlank() ? "missing" : generatedTestExecutionStatus));
+        }
+        return failures.isEmpty()
+                ? "writer, compile, review, smoke, and generated test execution gates passed"
+                : String.join("; ", failures);
     }
 
     private String targetId(PomContractSpec contract) {

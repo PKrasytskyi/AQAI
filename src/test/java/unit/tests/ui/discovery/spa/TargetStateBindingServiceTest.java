@@ -16,9 +16,9 @@ import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBinding;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaEvidenceStatus;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedActionVerification;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedLocatorVerification;
 
@@ -37,8 +37,8 @@ public class TargetStateBindingServiceTest {
         SemanticComponentInventory navigation = new SemanticComponentInventory("navigation", "Navigation",
                 ComponentType.NAVIGATION, "css", "nav", "", List.of(), 0.90d, List.of(locator), List.of(action),
                 List.of(), List.of());
-        SpaInventoryBundle inventory = new SpaInventoryBundle(SpaInventoryBundle.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
-                List.of(new SpaPageInventory("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA", "fp",
+        UiInteractionInventory inventory = new UiInteractionInventory(UiInteractionInventory.SCHEMA_VERSION, SpaDiscoveryMode.TARGETED,
+                List.of(new UiInteractionPage("dashboard", "DashboardPage", "/dashboard", "AUTHENTICATED_AREA", "fp",
                         null, List.of(navigation), List.of())), List.of());
         StructuredBehaviorContract contract = new StructuredBehaviorContract("REQ-1", "MODULE_NAVIGATION",
                 List.of("Open the Recruitment module from navigation."),

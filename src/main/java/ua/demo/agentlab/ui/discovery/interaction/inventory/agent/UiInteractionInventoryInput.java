@@ -1,4 +1,4 @@
-package ua.demo.agentlab.ui.discovery.spa.agent;
+package ua.demo.agentlab.ui.discovery.interaction.inventory.agent;
 
 import ua.demo.agentlab.ui.discovery.mapping.model.MappedUiKnowledge;
 import ua.demo.agentlab.ui.discovery.pagemodel.model.PageModelBundle;
@@ -8,14 +8,14 @@ import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContract;
 
 import java.util.List;
 
-public record SpaInventoryInput(
+public record UiInteractionInventoryInput(
         PageModelBundle pageModels,
         MappedUiKnowledge mappedKnowledge,
         KnowledgeRunMetadata metadata,
         CanonicalTestCaseBundle canonicalTestCases,
         List<StructuredBehaviorContract> structuredContracts
 ) {
-    public SpaInventoryInput(
+    public UiInteractionInventoryInput(
             PageModelBundle pageModels,
             MappedUiKnowledge mappedKnowledge,
             KnowledgeRunMetadata metadata,

@@ -13,7 +13,7 @@ import ua.demo.agentlab.ui.discovery.spa.binding.PostconditionBindingService;
 import ua.demo.agentlab.ui.discovery.spa.binding.ScenarioDataBindingService;
 import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorAssertion;
 import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorStep;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 
 import java.util.List;
 import java.util.Map;
@@ -61,9 +61,9 @@ public class BehaviorBindingStageTest {
         StructuredBehaviorContract contract = new StructuredBehaviorContract("REQ-2", "AUTHENTICATED_AREA",
                 List.of(), List.of(), Map.of(), "targetRoute: /dashboard/index; pageCapability: AUTHENTICATED_AREA",
                 true, List.of());
-        SpaPageInventory login = new SpaPageInventory("login", "LoginPage", "/auth/login", "AUTHENTICATION",
+        UiInteractionPage login = new UiInteractionPage("login", "LoginPage", "/auth/login", "AUTHENTICATION",
                 "login-fp", null, List.of(), List.of());
-        SpaPageInventory dashboard = new SpaPageInventory("dashboard", "DashboardPage", "/dashboard/index",
+        UiInteractionPage dashboard = new UiInteractionPage("dashboard", "DashboardPage", "/dashboard/index",
                 "AUTHENTICATED_AREA", "dashboard-fp", null, List.of(), List.of());
         var resolved = new BehaviorTargetStateResolver(new BehaviorSourceStateResolver())
                 .resolve(contract, List.of(login, dashboard), null);

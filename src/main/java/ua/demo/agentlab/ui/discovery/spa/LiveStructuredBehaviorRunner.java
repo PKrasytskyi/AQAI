@@ -14,7 +14,7 @@ import ua.demo.agentlab.ui.discovery.selenium.readiness.PageReadinessWaiter;
 import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorContract;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaBehaviorExecutionBundle;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaBehaviorExecutionResult;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -44,7 +44,7 @@ public final class LiveStructuredBehaviorRunner {
         this.executor = executor;
     }
 
-    public SpaBehaviorExecutionBundle verify(ProjectProfile profile, SpaInventoryBundle inventory,
+    public SpaBehaviorExecutionBundle verify(ProjectProfile profile, UiInteractionInventory inventory,
                                               List<BoundSpaBehaviorContract> bindings, SpaInventoryConfig config) {
         if (bindings == null || bindings.isEmpty()) {
             return new SpaBehaviorExecutionBundle(SpaBehaviorExecutionBundle.SCHEMA_VERSION, metadata(inventory), List.of(),
@@ -58,7 +58,7 @@ public final class LiveStructuredBehaviorRunner {
                 List.of("spa-structured-behavior:isolated-browser-sessions", "bindings=" + bindings.size()));
     }
 
-    private SpaBehaviorExecutionResult verifyOne(ProjectProfile profile, SpaInventoryBundle inventory,
+    private SpaBehaviorExecutionResult verifyOne(ProjectProfile profile, UiInteractionInventory inventory,
                                                   BoundSpaBehaviorContract binding, SpaInventoryConfig config) {
         if (!binding.executable()) {
             return result(binding, "NEEDS_REVIEW", binding.reviewReasons(), List.of("spa-structured-behavior:binding-incomplete"));
@@ -99,7 +99,7 @@ public final class LiveStructuredBehaviorRunner {
                 binding.steps().stream().map(step -> step.actionId()).distinct().toList(), reasons, trace);
     }
 
-    private ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata metadata(SpaInventoryBundle inventory) {
+    private ua.demo.agentlab.ui.discovery.persistence.knowledge.KnowledgeRunMetadata metadata(UiInteractionInventory inventory) {
         return inventory == null || inventory.pages().isEmpty() ? null : inventory.pages().get(0).runMetadata();
     }
 

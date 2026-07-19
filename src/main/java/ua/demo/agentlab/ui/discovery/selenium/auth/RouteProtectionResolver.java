@@ -2,7 +2,7 @@ package ua.demo.agentlab.ui.discovery.selenium.auth;
 
 import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.ui.discovery.identity.RouteCanonicalizer;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedActionVerification;
 
 import java.util.List;
@@ -13,7 +13,7 @@ public final class RouteProtectionResolver {
 
     public boolean isDeclaredProtected(
             ProjectProfile profile,
-            SpaPageInventory page,
+            UiInteractionPage page,
             List<TargetedActionVerification> actions
     ) {
         if (profile == null || page == null) {

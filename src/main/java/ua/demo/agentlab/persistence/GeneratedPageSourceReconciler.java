@@ -15,7 +15,11 @@ import java.util.Set;
 public class GeneratedPageSourceReconciler {
 
     public List<String> removeStalePageSources(List<GeneratedSourceFile> pageFiles) {
-        Map<Path, Set<Path>> expectedByDirectory = expectedByDirectory(pageFiles);
+        return removeStaleGeneratedSources(pageFiles);
+    }
+
+    public List<String> removeStaleGeneratedSources(List<GeneratedSourceFile> generatedFiles) {
+        Map<Path, Set<Path>> expectedByDirectory = expectedByDirectory(generatedFiles);
         List<String> removed = new java.util.ArrayList<>();
         for (Map.Entry<Path, Set<Path>> entry : expectedByDirectory.entrySet()) {
             Path directory = entry.getKey();
@@ -37,10 +41,11 @@ public class GeneratedPageSourceReconciler {
         return List.copyOf(removed);
     }
 
-    private Map<Path, Set<Path>> expectedByDirectory(List<GeneratedSourceFile> pageFiles) {
+    private Map<Path, Set<Path>> expectedByDirectory(List<GeneratedSourceFile> generatedFiles) {
         Map<Path, Set<Path>> expected = new LinkedHashMap<>();
-        for (GeneratedSourceFile pageFile : pageFiles == null ? List.<GeneratedSourceFile>of() : pageFiles) {
-            Path file = Path.of(pageFile.relativePath()).toAbsolutePath().normalize();
+        for (GeneratedSourceFile generatedFile
+                : generatedFiles == null ? List.<GeneratedSourceFile>of() : generatedFiles) {
+            Path file = Path.of(generatedFile.relativePath()).toAbsolutePath().normalize();
             Path directory = file.getParent();
             if (directory == null || !isFrameworkGeneratedDirectory(directory)) {
                 continue;

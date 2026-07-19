@@ -14,15 +14,18 @@ public record DemoManifest(
         List<String> expectedPageCapabilities,
         List<String> expectedScenarioIds,
         List<String> expectedPomNames,
+        List<String> expectedGeneratedTests,
+        List<String> expectedPipelineStages,
         LogoutAccessMode expectedLogoutAccessMode,
         List<String> expectedLifecycle,
         String expectedFinalRoute,
         String expectedFinalState,
         DemoDatabaseMode databaseMode,
         String aiMode,
+        boolean generatedTestExecutionRequired,
         Map<String, String> schemaVersions
 ) {
-    public static final String SCHEMA_VERSION = "demo-manifest.v2";
+    public static final String SCHEMA_VERSION = "demo-manifest.v3";
 
     public DemoManifest {
         schemaVersion = safe(schemaVersion);
@@ -33,6 +36,8 @@ public record DemoManifest(
         expectedPageCapabilities = copy(expectedPageCapabilities);
         expectedScenarioIds = copy(expectedScenarioIds);
         expectedPomNames = copy(expectedPomNames);
+        expectedGeneratedTests = copy(expectedGeneratedTests);
+        expectedPipelineStages = copy(expectedPipelineStages);
         expectedLogoutAccessMode = expectedLogoutAccessMode == null ? LogoutAccessMode.UNKNOWN : expectedLogoutAccessMode;
         expectedLifecycle = copy(expectedLifecycle);
         expectedFinalRoute = safe(expectedFinalRoute);

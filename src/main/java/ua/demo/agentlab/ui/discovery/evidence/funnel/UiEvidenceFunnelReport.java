@@ -15,7 +15,7 @@ public record UiEvidenceFunnelReport(
         List<String> findings,
         EvidenceProjectionTrace projectionTrace
 ) {
-    public static final String SCHEMA_VERSION = "ui-evidence-funnel.v3";
+    public static final String SCHEMA_VERSION = "ui-evidence-funnel.v4";
 
     public UiEvidenceFunnelReport {
         schemaVersion = schemaVersion == null || schemaVersion.isBlank()

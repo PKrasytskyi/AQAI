@@ -33,7 +33,7 @@ public final class UiSpaSourceStateBindingAgent implements WorkflowAgent,
     @Override public String name() { return "ui-spa-source-state-binding-agent"; }
     @Override public Set<WorkflowArtifact> requires() {
         return Set.of(WorkflowArtifact.PROJECT_PROFILE, WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS,
-                WorkflowArtifact.SPA_PAGE_INVENTORY);
+                WorkflowArtifact.UI_INTERACTION_INVENTORY);
     }
     @Override public Set<WorkflowArtifact> produces() { return Set.of(WorkflowArtifact.SPA_SOURCE_STATE_BINDINGS); }
     @Override public WorkflowArtifact input() { return WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS; }
@@ -42,7 +42,7 @@ public final class UiSpaSourceStateBindingAgent implements WorkflowAgent,
     @Override public SpaSourceStateBindingInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
         return new SpaSourceStateBindingInput(store.require(WorkflowArtifact.PROJECT_PROFILE),
                 store.require(WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS),
-                store.require(WorkflowArtifact.SPA_PAGE_INVENTORY));
+                store.require(WorkflowArtifact.UI_INTERACTION_INVENTORY));
     }
 
     @Override public boolean supports(SpaSourceStateBindingInput input, WorkflowRunEnvelope run) {

@@ -58,7 +58,9 @@ flowchart TD
     GC --> CV[GeneratedCodeCompileAgent]
     CV --> RV[GeneratedCodeReviewAgent]
     RV --> SM[GeneratedUiSmokeAgent]
-    SM --> FB[RuntimeFeedbackDbUpdateAgent]
+    SM --> TE[GeneratedTestExecutionAgent]
+    TE --> FB[RuntimeFeedbackDbUpdateAgent]
+    FB --> BW[BuildWeekDemoCompletionAgent in demo mode]
 
     I -. OpenAI, optional .-> AI1[Expected-result selection]
     L -. OpenAI only for cache misses .-> AI2[PageModel metadata]
@@ -256,7 +258,7 @@ The second runtime/BiDi phase promotes runtime evidence into the knowledge layer
 | 9 | Semantic graph summaries are added as Qdrant vector documents for page, component, action, intent, network, and transition retrieval. |
 | 10 | Runtime feedback is written to discovery artifacts and `target/ai-run/need-review`, giving human reviewers a structured place to approve, reject, or follow up on weak runtime evidence. |
 
-### SPA discovery inventory and component model
+### Generic interaction inventory and SPA state extensions
 
 SPA support is implemented as a universal discovery layer, not as a separate workflow. Classical multi-page sites still pass through the same layer; they usually produce simple components such as a login form or content block. SPA-like pages produce richer component evidence for navigation, search, tables, widgets, and protected content.
 
@@ -269,7 +271,7 @@ flowchart TD
     E --> F[global uniqueness]
     E --> G[component-scoped uniqueness]
     D --> H[SemanticActionModel]
-    H --> I[SpaPageInventory (CANDIDATE only)]
+    H --> I[UiInteractionInventory (CANDIDATE only)]
     I --> J[Neo4j candidate inventory]
     I --> J2[Component interaction graph]
     J2 --> L[Live targeted browser verification]
@@ -279,6 +281,13 @@ flowchart TD
 ```
 
 The inventory layer is universal: it runs for classical pages too, but SPA-heavy pages usually expose more components. Its broad discovery output is intentionally **not** prompt evidence. Every inventory locator and action starts as `CANDIDATE`; targeted verification promotes evidence only after requirement-scoped browser-count validation and the configured lifecycle threshold is reached.
+
+`UiInteractionInventory` is now the single candidate contract for both site types. `spa.inventory.enabled`
+controls only optional state-aware SPA extensions; disabling it does not disable generic page/component/action/
+locator inventory. The runtime chooses `DOCUMENT_NAVIGATION` or `UI_STATE_TRANSITION` verification from the
+semantic action and observed route/state change, then returns to the same scoring, promotion, catalog, and POM path.
+The previous top-level `SpaPageInventory`, `SpaInventoryBundle`, and `SPA_*_INVENTORY` workflow artifacts were
+removed, so there is no second inventory source of truth.
 
 | Discovery mode | Current boundary |
 |---|---|
@@ -297,11 +306,11 @@ The P0-P3 contracts and artifacts are:
 | `ui.discovery.component.model.ScopedLocatorCandidate` | Stores locator strategy/value plus uniqueness, stability, readability, semantic, and final scores. |
 | `ui.discovery.component.ComponentModelArtifactWriter` | Writes `target/discovery/component-model.json`. |
 | `ui.discovery.selenium.collector.RuntimeLocatorCountCollector` | Verifies candidate locators in the browser with `driver.findElements(...)` and stores global and nearest-component counts on raw elements. |
-| `ui.discovery.spa.model.SpaPageInventory` | Typed inventory page: page identity, route, fingerprint, run metadata, and component inventory. |
+| `ui.discovery.interaction.inventory.UiInteractionPage` | Product-neutral inventory page: page identity, route, capability, fingerprint, run metadata, and component inventory. |
 | `ui.discovery.spa.model.SemanticComponentInventory` | Candidate component boundary with root locator, element ownership, candidate locators, and candidate actions. |
 | `ui.discovery.spa.model.CandidateLocatorEvidence` | Candidate locator quality, browser global/component counts, stability, observed evidence type, and risks. |
 | `ui.discovery.spa.model.CandidateActionEvidence` | Candidate action intent, owning component, required locator IDs, preconditions, postconditions, and trace. |
-| `ui.discovery.spa.agent.UiSpaInventoryAgent` | Runs after mapper output and writes `target/discovery/spa-inventory.json`; inventory remains candidate/debug input and does not persist promotable locator facts. |
+| `ui.discovery.interaction.inventory.agent.UiInteractionInventoryAgent` | Runs after mapper output for both traditional and SPA sites and writes `target/discovery/ui-interaction-inventory.json`; inventory remains candidate input and cannot promote locator facts. |
 | `ui.discovery.spa.agent.UiSpaTargetedVerificationAgent` | Runs after canonical test-case planning; selects only requirement-owned inventory facts, validates them against browser-derived counts, and writes targeted verification artifacts. |
 | `ui.discovery.spa.ComponentInteractionGraphBuilder` | Builds deterministic prerequisite edges between component actions. Example: `OPEN_MENU -> LOGOUT`; a logout control is not treated as independently actionable. |
 | `ui.discovery.spa.TypedComponentFlowBuilder` | Produces candidate-only `MODULE_NAVIGATION`, `FILTER_RESULTS`, `TABLE_SORT`, `TABLE_PAGINATION`, and modal flow contracts from component-owned action evidence. |
@@ -592,6 +601,9 @@ Flow reuse adds a stricter runtime quality boundary. Every `FlowContract` has a 
 | `ui.testcontract.agent.UiTestContractValidationAgent` | Applies JSON-schema and semantic ownership/data/atomicity gates before Java generation. Unsupported evidence is written to `need-review`. |
 | `ui.testcontract.agent.DeterministicTestNgWriterAgent` | Renders validated contracts into TestNG sources and writes requirement/action/assertion-to-line source maps. |
 | `ui.testcontract.writer.DeterministicTestNgWriter` | Generates tests using `BaseTest`, generated Page Objects, `UiAssertions`, `UserCredentials`, and `ScenarioData`; it never emits raw Selenium. |
+| `validation.agent.GeneratedTestExecutionAgent` | Executes only manifest-owned generated TestNG sources after compile, review, source smoke, and live UI smoke; writes a typed execution result instead of inferring success from compilation. |
+| `validation.execution.GeneratedTestExecutionService` | Runs the namespaced generated test classes, parses Surefire XML, and projects per-scenario status with requirement/action/assertion source traceability. |
+| `demo.BuildWeekDemoCompletionAgent` | Applies the terminal demo gate against the versioned manifest and writes one JSON/Markdown summary after runtime feedback persistence. |
 
 ## 4. Agent Order in AI Mode
 
@@ -1073,6 +1085,8 @@ DashboardPage is now part of the same slice when authenticated discovery succeed
 
 The generated-source smoke artifact validates persisted generated POM files together with compile/review readiness. The live browser smoke path is now profile/capability-driven: it resolves the generated authentication source page and authenticated target page from generated source evidence plus `ProjectProfile` routes, then executes reusable phases: open source page, satisfy authentication preconditions, validate target route, execute optional user-menu action, and validate logout/post-action route. The current live scenario proves the authentication/logout vertical slice; broader smoke phases remain future work. The smoke and contract gates support both dropdown-mediated logout flows such as OrangeHRM and direct logout-link flows such as `the-internet.herokuapp.com`.
 
+Generated UI source ownership is run- and project-scoped. `GenerationNamespace` derives default page/test packages from `profileId + baseUrlHash`; `GeneratedSourceManifest` records the current run id, namespace, packages, source kind, path, class, and content hash. Persistence reconciles stale files only inside the active namespace. Compile, review, and generated-source smoke consume the manifest instead of scanning compatibility lists from `WorkflowState`. Maven test compilation receives the active namespace as its test source root, preventing sources from another project namespace from participating in the validation run.
+
 The test suite also includes a non-OrangeHRM onboarding acceptance fixture that runs the deterministic chain from project profile and requirement fixture through synthetic discovery, canonical UI planning, `PomContractSpec`, deterministic Java generation, compile-status artifact, and generated-source smoke validation.
 
 ## 10. Artifacts to Review After Each AI Run
@@ -1084,10 +1098,11 @@ The test suite also includes a non-OrangeHRM onboarding acceptance fixture that 
 | `target/ai-run/expectations/assertion-contracts.json` | Typed assertion contracts consumed by POM and test prompts. |
 | `target/ai-run/enrichment/page-model-enrichments.json` | Page intent, safe locator facts, risks, traceability, and requirement provenance. |
 | `target/ai-run/enrichment/page-model-enrichment-report.json` | Number of OpenAI records and page-level fallback failures. |
+| `target/ai-run/validation/generated-source-manifest.json` | Exact current-run page/test sources admitted to persistence, compile, review, and smoke. |
 | `target/ai-run/run-summary.md` | Compact review entry point for the current run. |
 | `target/ai-run/debug/flow-scoped-knowledge/flow-scoped-knowledge-package.json` | Requirement-scoped mapper/retrieval context when `ai.debug.artifacts=true`. |
 | `target/discovery/component-model.json` | Component boundaries and global/component-scoped locator validation for SPA-heavy pages. |
-| `target/discovery/spa-inventory.json` | Full candidate-only SPA inventory consumed by targeted verification; it is not POM-ready evidence by itself. |
+| `target/discovery/ui-interaction-inventory.json` | Product-neutral candidate interaction inventory consumed by requirement filtering and targeted verification; it is not POM-ready evidence by itself. |
 | `target/discovery/spa-targeted-verification.json` | Requirement-scoped locator/action verification with a concrete reason for every accepted or rejected candidate. |
 | `target/discovery/component-interaction-graph.json` | Deterministic component action prerequisites such as `openUserMenu -> logout`. |
 | `target/discovery/spa-live-targeted-verification.json` | Fresh-browser verification of the exact protected route and scoped candidate evidence. |
@@ -1105,6 +1120,9 @@ The test suite also includes a non-OrangeHRM onboarding acceptance fixture that 
 | `target/ai-run/validation/ui-test-contract-quality-report.json` | POM ownership, expected-value, scenario-data, atomicity, and forbidden-internals gate. |
 | `target/ai-run/test-spec/generated/<Test>.java` | Review copy of deterministic TestNG output before/alongside source persistence. |
 | `target/ai-run/validation/ui-test-source-map.json` | Requirement/scenario/action/assertion mapping to generated TestNG lines. |
+| `target/ai-run/validation/generated-tests-execution-result.json` | Typed execution result for manifest-owned generated TestNG classes, including per-scenario status and report paths. |
+| `target/ai-run/quality/build-week-demo-summary.json` | Machine-readable terminal Build Week acceptance summary. |
+| `target/ai-run/quality/build-week-demo-summary.md` | Compact human-readable Build Week acceptance report. |
 
 ## 11. Configuration and Secrets
 
@@ -1159,7 +1177,7 @@ Minimum AI-run acceptance checks:
 - AI expectation selection is bounded to provided candidates, but some functional requirements legitimately remain `needs-review` until stronger requirement-to-assertion matching is implemented.
 - Mapper locator quality remains decisive. Prompt-side filtering reduces risk, but incorrect DOM evidence or stale canonical locator hints still need mapper-level correction.
 - Historical Neo4j/Qdrant records are now isolated by current-run namespace, but long-term retention/cleanup policies are still needed.
-- AI mode generates Page Object Java through validated `pom-contract-v1` and UI test Java through validated `ui-test-contract-bundle.v1`. The next closure step is live execution and lifecycle reporting for the generated atomic TestNG tests.
+- AI mode generates Page Object Java through validated `pom-contract-v1` and UI test Java through validated `ui-test-contract-bundle.v1`. Build Week demo mode now executes only manifest-owned generated TestNG classes and persists their outcome before lifecycle promotion and the terminal demo gate. The remaining closure proof is a green live OrangeHRM run in both DB modes and archived CI evidence.
 
 ### Remaining work around `WorkflowState`
 

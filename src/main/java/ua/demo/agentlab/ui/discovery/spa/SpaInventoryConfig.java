@@ -1,7 +1,7 @@
 package ua.demo.agentlab.ui.discovery.spa;
 
 public record SpaInventoryConfig(
-        boolean inventoryEnabled,
+        boolean spaExtensionsEnabled,
         SpaDiscoveryMode mode,
         int maxComponents,
         boolean targetedVerificationEnabled,
@@ -20,7 +20,7 @@ public record SpaInventoryConfig(
 ) {
     /** Compatibility constructor for existing callers; live verification and retention use safe defaults. */
     public SpaInventoryConfig(
-            boolean inventoryEnabled,
+            boolean spaExtensionsEnabled,
             SpaDiscoveryMode mode,
             int maxComponents,
             boolean targetedVerificationEnabled,
@@ -28,18 +28,18 @@ public record SpaInventoryConfig(
             int promoteAfterSuccesses,
             int demoteAfterFailures
     ) {
-        this(inventoryEnabled, mode, maxComponents, targetedVerificationEnabled, minConfirmedScore, 0.65d,
+        this(spaExtensionsEnabled, mode, maxComponents, targetedVerificationEnabled, minConfirmedScore, 0.65d,
                 promoteAfterSuccesses, demoteAfterFailures, true, false, true, false, true, 14, 30, false);
     }
 
     /** Compatibility constructor for the original live-verification/retention configuration. */
-    public SpaInventoryConfig(boolean inventoryEnabled, SpaDiscoveryMode mode, int maxComponents,
+    public SpaInventoryConfig(boolean spaExtensionsEnabled, SpaDiscoveryMode mode, int maxComponents,
                               boolean targetedVerificationEnabled, double minConfirmedScore,
                               int promoteAfterSuccesses, int demoteAfterFailures,
                               boolean liveVerificationEnabled, boolean executeSessionEndingActions,
                               boolean retentionEnabled, int degradedRetentionDays,
                               int orphanRetentionDays, boolean retentionHardDelete) {
-        this(inventoryEnabled, mode, maxComponents, targetedVerificationEnabled, minConfirmedScore, 0.65d,
+        this(spaExtensionsEnabled, mode, maxComponents, targetedVerificationEnabled, minConfirmedScore, 0.65d,
                 promoteAfterSuccesses, demoteAfterFailures, liveVerificationEnabled,
                 executeSessionEndingActions, true, false, retentionEnabled,
                 degradedRetentionDays, orphanRetentionDays, retentionHardDelete);

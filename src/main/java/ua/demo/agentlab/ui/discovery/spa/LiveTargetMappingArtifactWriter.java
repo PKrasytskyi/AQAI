@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import ua.demo.agentlab.ui.discovery.spa.model.LiveTargetPageSnapshot;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +15,7 @@ import java.util.List;
 public final class LiveTargetMappingArtifactWriter {
     private final ObjectMapper mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
-    public List<String> write(List<LiveTargetPageSnapshot> snapshots, SpaInventoryBundle inventory,
+    public List<String> write(List<LiveTargetPageSnapshot> snapshots, UiInteractionInventory inventory,
                               SourceStateBindingBundle bindings) {
         try {
             Path directory = Path.of("target", "discovery");

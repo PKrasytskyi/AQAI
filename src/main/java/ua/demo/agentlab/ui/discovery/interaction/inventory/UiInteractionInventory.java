@@ -1,25 +1,26 @@
-package ua.demo.agentlab.ui.discovery.spa.model;
+package ua.demo.agentlab.ui.discovery.interaction.inventory;
 
 import ua.demo.agentlab.ui.discovery.spa.SpaDiscoveryMode;
 
 import java.util.List;
 
-public record SpaInventoryBundle(
+public record UiInteractionInventory(
         String schemaVersion,
         SpaDiscoveryMode mode,
-        List<SpaPageInventory> pages,
+        List<UiInteractionPage> pages,
         List<String> sourceTrace
 ) {
-    public static final String SCHEMA_VERSION = "spa-page-inventory.v1";
+    public static final String SCHEMA_VERSION = "ui-interaction-inventory.v1";
 
-    public SpaInventoryBundle {
+    public UiInteractionInventory {
         schemaVersion = schemaVersion == null || schemaVersion.isBlank() ? SCHEMA_VERSION : schemaVersion.trim();
         mode = mode == null ? SpaDiscoveryMode.INVENTORY : mode;
         pages = pages == null ? List.of() : List.copyOf(pages);
         sourceTrace = sourceTrace == null ? List.of() : List.copyOf(sourceTrace);
     }
 
-    public static SpaInventoryBundle empty(SpaDiscoveryMode mode, String reason) {
-        return new SpaInventoryBundle(SCHEMA_VERSION, mode, List.of(), List.of(reason == null ? "spa-inventory:empty" : reason));
+    public static UiInteractionInventory empty(SpaDiscoveryMode mode, String reason) {
+        return new UiInteractionInventory(SCHEMA_VERSION, mode, List.of(),
+                List.of(reason == null ? "interaction-inventory:empty" : reason));
     }
 }

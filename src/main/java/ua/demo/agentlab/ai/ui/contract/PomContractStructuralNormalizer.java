@@ -2,6 +2,7 @@ package ua.demo.agentlab.ai.ui.contract;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /** Removes schema-level duplication without relaxing semantic scope validation. */
 public final class PomContractStructuralNormalizer {
@@ -17,6 +18,7 @@ public final class PomContractStructuralNormalizer {
                 .map(this::normalizeAction)
                 .filter(action -> !isRedundantPageOpen(action, openMethod, contract.page().route()))
                 .toList();
+        actions = normalizeDependentActionSequences(actions);
         List<PomComponentSpec> components = contract.components().stream()
                 .map(component -> normalize(component, openMethod, contract.page().route()))
                 .toList();
@@ -30,6 +32,7 @@ public final class PomContractStructuralNormalizer {
                 .map(this::normalizeAction)
                 .filter(action -> !isRedundantPageOpen(action, openMethod, route))
                 .toList();
+        actions = normalizeDependentActionSequences(actions);
         return new PomComponentSpec(component.name(), component.type(), component.rootLocatorId(),
                 component.locators(), actions, normalizeAssertions(component.assertions()), component.reusable());
     }
@@ -69,6 +72,75 @@ public final class PomContractStructuralNormalizer {
     private PomActionSpec normalizeAction(PomActionSpec action) {
         return new PomActionSpec(normalizeMethodName(action.methodName()), action.kind(),
                 action.parameters(), action.steps());
+    }
+
+    /**
+     * Preserves a confirmed prerequisite when the model splits a composite UI action into public helper methods.
+     * The normalizer composes only steps already present in the contract; it never invents a locator or action.
+     */
+    private List<PomActionSpec> normalizeDependentActionSequences(List<PomActionSpec> actions) {
+        PomActionSpec menuAction = actions.stream()
+                .filter(this::isMenuOpenAction)
+                .filter(action -> !action.steps().isEmpty())
+                .filter(action -> action.steps().stream().allMatch(step -> step.action() == PomStepAction.CLICK))
+                .findFirst()
+                .orElse(null);
+        if (menuAction == null) {
+            return actions;
+        }
+        Set<String> menuLocators = menuAction.steps().stream()
+                .map(PomStepSpec::locator)
+                .filter(locator -> locator != null && !locator.isBlank())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        if (menuLocators.isEmpty()) {
+            return actions;
+        }
+        return actions.stream()
+                .map(action -> prependMenuPrerequisite(action, menuAction.steps(), menuLocators))
+                .toList();
+    }
+
+    private PomActionSpec prependMenuPrerequisite(
+            PomActionSpec action,
+            List<PomStepSpec> menuSteps,
+            Set<String> menuLocators
+    ) {
+        if (!isLogoutAction(action) || action.steps().isEmpty()) {
+            return action;
+        }
+        boolean alreadyOpensMenu = action.steps().stream()
+                .filter(step -> step.action() == PomStepAction.CLICK)
+                .map(PomStepSpec::locator)
+                .anyMatch(menuLocators::contains);
+        boolean clicksLogout = action.steps().stream()
+                .filter(step -> step.action() == PomStepAction.CLICK)
+                .map(PomStepSpec::locator)
+                .map(this::normalized)
+                .anyMatch(locator -> locator.contains("logout") || locator.contains("signout"));
+        if (alreadyOpensMenu || !clicksLogout) {
+            return action;
+        }
+        java.util.ArrayList<PomStepSpec> steps = new java.util.ArrayList<>(menuSteps);
+        steps.addAll(action.steps());
+        return new PomActionSpec(action.methodName(), action.kind(), action.parameters(), steps);
+    }
+
+    private boolean isMenuOpenAction(PomActionSpec action) {
+        String method = normalized(action.methodName());
+        return method.contains("open")
+                && (method.contains("usermenu")
+                || method.contains("userdropdown")
+                || method.contains("profilemenu")
+                || method.contains("profiledropdown"));
+    }
+
+    private boolean isLogoutAction(PomActionSpec action) {
+        String method = normalized(action.methodName());
+        return method.contains("logout") || method.contains("signout");
+    }
+
+    private String normalized(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
     }
 
     private PomCheckSpec normalizeCheck(PomCheckSpec check) {

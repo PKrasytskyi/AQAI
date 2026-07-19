@@ -82,6 +82,19 @@ KNOWLEDGE_DB_STATUS
 
 ## 4. Run Modes
 
+### Build Week manifest demo
+
+```powershell
+$env:OPENAI_API_KEY="..."
+$env:TEST_VALID_USERNAME="..."
+$env:TEST_VALID_PASSWORD="..."
+$env:KNOWLEDGE_DB_STATUS="false"
+
+mvn --batch-mode "-Duser.home=." "-Dmaven.repo.local=.m2repo" exec:java "-Dexec.args=--demo orangehrm"
+```
+
+This is the only entry point that requires the complete requirements-to-generated-TestNG execution chain. Details and evidence paths are documented in [Build Week Demo](BUILD_WEEK_DEMO.md).
+
 ### Deterministic UI discovery
 
 Use a requirement file explicitly when checking a new fixture:
@@ -141,7 +154,7 @@ Start with the compact reports, in this order:
 For SPA investigation, use:
 
 ```text
-target/discovery/spa-inventory.json
+target/discovery/ui-interaction-inventory.json
 target/discovery/component-interaction-graph.json
 target/discovery/spa-targeted-verification.json
 target/discovery/spa-live-targeted-verification.json

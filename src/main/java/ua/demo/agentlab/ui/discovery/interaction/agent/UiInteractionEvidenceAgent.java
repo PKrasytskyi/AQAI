@@ -32,7 +32,7 @@ public final class UiInteractionEvidenceAgent implements WorkflowAgent,
     @Override public String name() { return "ui-interaction-evidence-agent"; }
 
     @Override public Set<WorkflowArtifact> requires() {
-        return Set.of(WorkflowArtifact.SPA_EFFECTIVE_PAGE_INVENTORY,
+        return Set.of(WorkflowArtifact.UI_EFFECTIVE_INTERACTION_INVENTORY,
                 WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION,
                 WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS,
                 WorkflowArtifact.ASSERTION_CONTRACTS);
@@ -53,7 +53,7 @@ public final class UiInteractionEvidenceAgent implements WorkflowAgent,
     public UiInteractionEvidenceInput inputFrom(PipelineArtifactStore store, WorkflowState state) {
         List<StructuredBehaviorContract> requirements = store.require(WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS);
         List<AssertionContract> assertions = store.require(WorkflowArtifact.ASSERTION_CONTRACTS);
-        return new UiInteractionEvidenceInput(store.require(WorkflowArtifact.SPA_EFFECTIVE_PAGE_INVENTORY),
+        return new UiInteractionEvidenceInput(store.require(WorkflowArtifact.UI_EFFECTIVE_INTERACTION_INVENTORY),
                 store.require(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION), requirements, assertions);
     }
 

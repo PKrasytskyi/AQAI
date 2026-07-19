@@ -6,7 +6,7 @@ import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContract;
 import ua.demo.agentlab.ui.discovery.spa.model.BoundSpaBehaviorContract;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedLocatorVerification;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBinding;
 import ua.demo.agentlab.ui.capability.UiCapabilityContract;
@@ -48,7 +48,7 @@ public final class RequirementFunnelProjection {
                 .findFirst()
                 .orElse(null);
         UiEvidenceRequirementTrace trace = traceResolver.resolve(input, requirement, binding);
-        SpaPageInventory page = resolvePage(input, requirement, binding);
+        UiInteractionPage page = resolvePage(input, requirement, binding);
         int rawCount = page == null ? 0 : pageLocators(page).size();
         int liveCount = liveLocatorCount(input, requirement.requirementId(), binding);
         int promptCount = promptLocatorCount(input, requirement.requirementId(), binding);
@@ -192,7 +192,7 @@ public final class RequirementFunnelProjection {
             UiEvidenceFunnelInput input,
             StructuredBehaviorContract requirement,
             Optional<UiCapabilityContract> capability,
-            SpaPageInventory page,
+            UiInteractionPage page,
             BoundSpaBehaviorContract binding,
             boolean promptOwned,
             int promptCount,
@@ -262,7 +262,7 @@ public final class RequirementFunnelProjection {
                 "Inspect the funnel report and page eligibility artifact before invoking the LLM.");
     }
 
-    private SpaPageInventory resolvePage(
+    private UiInteractionPage resolvePage(
             UiEvidenceFunnelInput input,
             StructuredBehaviorContract requirement,
             BoundSpaBehaviorContract binding
@@ -271,7 +271,7 @@ public final class RequirementFunnelProjection {
             return null;
         }
         if (binding != null && !binding.pageId().isBlank()) {
-            Optional<SpaPageInventory> exact = input.inventory().pages().stream()
+            Optional<UiInteractionPage> exact = input.inventory().pages().stream()
                     .filter(page -> page.pageId().equalsIgnoreCase(binding.pageId()))
                     .findFirst();
             if (exact.isPresent()) {
@@ -294,7 +294,7 @@ public final class RequirementFunnelProjection {
         return locators;
     }
 
-    private Set<String> pageLocators(SpaPageInventory page) {
+    private Set<String> pageLocators(UiInteractionPage page) {
         Set<String> locators = new LinkedHashSet<>();
         if (page == null) {
             return locators;

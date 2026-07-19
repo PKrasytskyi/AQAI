@@ -79,9 +79,9 @@ public class PipelineArtifactStore {
             putIfPresent(WorkflowArtifact.MAPPED_UI_KNOWLEDGE, output.curatedKnowledge().knowledge());
             return;
         }
-        if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaInventoryOutput output) {
-            putIfPresent(WorkflowArtifact.SPA_PAGE_INVENTORY, output.inventory());
-            putIfPresent(WorkflowArtifact.SPA_INVENTORY_PERSISTENCE, output.persistence());
+        if (value instanceof ua.demo.agentlab.ui.discovery.interaction.inventory.agent.UiInteractionInventoryOutput output) {
+            putIfPresent(WorkflowArtifact.UI_INTERACTION_INVENTORY, output.inventory());
+            putIfPresent(WorkflowArtifact.UI_INTERACTION_INVENTORY_PERSISTENCE, output.persistence());
             return;
         }
         if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaTargetedVerificationOutput output) {
@@ -103,7 +103,7 @@ public class PipelineArtifactStore {
         if (value instanceof ua.demo.agentlab.ui.discovery.spa.agent.SpaTargetStateBindingOutput output) {
             putIfPresent(WorkflowArtifact.SPA_TARGET_STATE_BINDINGS, output.bindings());
             putIfPresent(WorkflowArtifact.SPA_STRUCTURED_BEHAVIOR_BINDINGS, output.bindings().behaviorBindings());
-            putIfPresent(WorkflowArtifact.SPA_EFFECTIVE_PAGE_INVENTORY, output.effectiveInventory());
+            putIfPresent(WorkflowArtifact.UI_EFFECTIVE_INTERACTION_INVENTORY, output.effectiveInventory());
             putIfPresent(WorkflowArtifact.SPA_REBOUND_SOURCE_STATE_BINDINGS, output.reboundSources());
             return;
         }
@@ -159,6 +159,12 @@ public class PipelineArtifactStore {
             putIfPresent(WorkflowArtifact.GENERATED_UI_TEST_SOURCES, result.files());
             putIfPresent(WorkflowArtifact.UI_TEST_FILES, result.files());
             putIfPresent(WorkflowArtifact.UI_TEST_SOURCE_MAP, result.sourceMap());
+            return;
+        }
+        if (value instanceof ua.demo.agentlab.persistence.GeneratedSourceManifest manifest) {
+            putIfPresent(WorkflowArtifact.GENERATED_SOURCE_MANIFEST, manifest);
+            putIfPresent(WorkflowArtifact.PERSISTED_GENERATED_SOURCES, manifest.persistedPaths());
+            putIfPresent(WorkflowArtifact.WRITTEN_FILES, manifest.persistedPaths());
             return;
         }
         if (value instanceof java.util.List list) {

@@ -8,11 +8,11 @@ import ua.demo.agentlab.ui.discovery.component.model.ComponentType;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateActionEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaTargetedVerificationResult;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedActionVerification;
 import ua.demo.agentlab.ui.discovery.spa.model.TargetedLocatorVerification;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBinding;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
 
@@ -30,7 +30,7 @@ import java.util.Set;
 public class SpaTargetedVerificationPlanner {
 
     public SpaTargetedVerificationResult verify(
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             CanonicalTestCaseBundle testCases,
             SpaInventoryConfig config
     ) {
@@ -38,7 +38,7 @@ public class SpaTargetedVerificationPlanner {
     }
 
     public SpaTargetedVerificationResult verify(
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             CanonicalTestCaseBundle testCases,
             List<StructuredBehaviorContract> structuredContracts,
             SpaInventoryConfig config
@@ -47,7 +47,7 @@ public class SpaTargetedVerificationPlanner {
     }
 
     public SpaTargetedVerificationResult verify(
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             CanonicalTestCaseBundle testCases,
             List<StructuredBehaviorContract> structuredContracts,
             SourceStateBindingBundle sourceBindings,
@@ -74,7 +74,7 @@ public class SpaTargetedVerificationPlanner {
         List<TargetedLocatorVerification> locators = new ArrayList<>();
         List<TargetedActionVerification> actions = new ArrayList<>();
         List<String> excluded = new ArrayList<>();
-        for (SpaPageInventory page : inventory.pages()) {
+        for (UiInteractionPage page : inventory.pages()) {
             Set<String> requirementIds = requirementIdsByPage.getOrDefault(page.pageId(), Set.of());
             if (requirementIds.isEmpty()) {
                 continue;
@@ -123,21 +123,21 @@ public class SpaTargetedVerificationPlanner {
     }
 
     private SpaTargetedVerificationResult verifySourceBindings(
-            SpaInventoryBundle inventory,
+            UiInteractionInventory inventory,
             SourceStateBindingBundle sourceBindings,
             SpaInventoryConfig config
     ) {
         List<TargetedLocatorVerification> locators = new ArrayList<>();
         List<TargetedActionVerification> actions = new ArrayList<>();
         List<String> excluded = new ArrayList<>();
-        Map<String, SpaPageInventory> pages = inventory.pages().stream().collect(java.util.stream.Collectors.toMap(
-                SpaPageInventory::pageId, page -> page, (left, right) -> left, LinkedHashMap::new));
+        Map<String, UiInteractionPage> pages = inventory.pages().stream().collect(java.util.stream.Collectors.toMap(
+                UiInteractionPage::pageId, page -> page, (left, right) -> left, LinkedHashMap::new));
         for (SourceStateBinding binding : sourceBindings.bindings()) {
             if (!binding.liveVerificationEligible()) {
                 excluded.add("requirement=" + binding.requirementId() + " reason=" + String.join("; ", binding.reviewReasons()));
                 continue;
             }
-            SpaPageInventory page = pages.get(binding.sourcePageId());
+            UiInteractionPage page = pages.get(binding.sourcePageId());
             if (page == null) {
                 excluded.add("requirement=" + binding.requirementId() + " reason=source page is absent from inventory");
                 continue;
@@ -179,7 +179,7 @@ public class SpaTargetedVerificationPlanner {
                         "promotion-threshold=" + config.minConfirmedScore()));
     }
 
-    private TargetedLocatorVerification admitForLive(SpaPageInventory page, SemanticComponentInventory component,
+    private TargetedLocatorVerification admitForLive(UiInteractionPage page, SemanticComponentInventory component,
                                                       CandidateLocatorEvidence locator, String requirementId,
                                                       SpaInventoryConfig config) {
         boolean unique = locator.globalMatchCount() == 1 || locator.componentMatchCount() == 1;
@@ -195,12 +195,12 @@ public class SpaTargetedVerificationPlanner {
     }
 
     private Map<String, Set<String>> requirementsByPage(
-            List<SpaPageInventory> pages,
+            List<UiInteractionPage> pages,
             List<CanonicalTestCase> testCases,
             List<StructuredBehaviorContract> contracts
     ) {
         Map<String, Set<String>> result = new LinkedHashMap<>();
-        for (SpaPageInventory page : pages) {
+        for (UiInteractionPage page : pages) {
             for (CanonicalTestCase testCase : testCases) {
                 if (belongsToPage(page, testCase)) {
                     result.computeIfAbsent(page.pageId(), ignored -> new LinkedHashSet<>()).addAll(testCase.requirementRefs());
@@ -216,7 +216,7 @@ public class SpaTargetedVerificationPlanner {
     }
 
     private Set<UiOperationKind> operationsFor(
-            SpaPageInventory page,
+            UiInteractionPage page,
             List<CanonicalTestCase> testCases,
             List<StructuredBehaviorContract> contracts
     ) {
@@ -248,7 +248,7 @@ public class SpaTargetedVerificationPlanner {
         };
     }
 
-    private boolean intentBelongsToPage(ua.demo.agentlab.ui.contract.UiOperationIntent intent, SpaPageInventory page) {
+    private boolean intentBelongsToPage(ua.demo.agentlab.ui.contract.UiOperationIntent intent, UiInteractionPage page) {
         if (intent == null || page == null) {
             return false;
         }
@@ -258,7 +258,7 @@ public class SpaTargetedVerificationPlanner {
         return matchesPageName(page.pageName(), intent.target()) || matches(page.route(), intent.target());
     }
 
-    private boolean belongsToPage(SpaPageInventory page, CanonicalTestCase testCase) {
+    private boolean belongsToPage(UiInteractionPage page, CanonicalTestCase testCase) {
         if (page == null || testCase == null) {
             return false;
         }
@@ -270,7 +270,7 @@ public class SpaTargetedVerificationPlanner {
                 || testCase.targetPages().stream().anyMatch(name -> matchesPageName(page.pageName(), name));
     }
 
-    private boolean belongsToPage(SpaPageInventory page, StructuredBehaviorContract contract) {
+    private boolean belongsToPage(UiInteractionPage page, StructuredBehaviorContract contract) {
         if (page == null || contract == null) return false;
         boolean moduleNavigation = "module_navigation".equals(normalize(contract.capability()).replace('-', '_'));
         if (moduleNavigation) {
@@ -359,7 +359,7 @@ public class SpaTargetedVerificationPlanner {
     }
 
     private TargetedLocatorVerification verifyLocator(
-            SpaPageInventory page,
+            UiInteractionPage page,
             SemanticComponentInventory component,
             CandidateLocatorEvidence locator,
             Set<String> requirementIds,
@@ -381,7 +381,7 @@ public class SpaTargetedVerificationPlanner {
     }
 
     private TargetedActionVerification verifyAction(
-            SpaPageInventory page,
+            UiInteractionPage page,
             SemanticComponentInventory component,
             CandidateActionEvidence action,
             Map<String, TargetedLocatorVerification> verifications,

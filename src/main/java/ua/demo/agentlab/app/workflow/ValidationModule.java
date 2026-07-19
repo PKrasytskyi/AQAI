@@ -9,6 +9,7 @@ public record ValidationModule(
         WorkflowAgent generatedCodeCompileAgent,
         WorkflowAgent generatedCodeReviewAgent,
         WorkflowAgent generatedUiSmokeAgent,
+        WorkflowAgent generatedTestExecutionAgent,
         WorkflowAgent uiSpaSmokeEvidenceFeedbackAgent,
         WorkflowAgent artifactLifecyclePromotionAgent,
         WorkflowAgent artifactReuseMetricsAgent,

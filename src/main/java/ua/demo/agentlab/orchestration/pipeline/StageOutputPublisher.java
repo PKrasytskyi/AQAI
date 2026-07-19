@@ -38,7 +38,7 @@ import ua.demo.agentlab.ui.discovery.runtime.model.RuntimeEvidenceBundle;
 import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackAnalyzer;
 import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackArtifactWriter;
 import ua.demo.agentlab.ui.discovery.runtime.feedback.RuntimeFeedbackSummary;
-import ua.demo.agentlab.ui.discovery.spa.agent.SpaInventoryOutput;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.agent.UiInteractionInventoryOutput;
 import ua.demo.agentlab.ui.discovery.spa.agent.SpaTargetedVerificationOutput;
 import ua.demo.agentlab.ui.discovery.semantic.SemanticActionModelArtifactWriter;
 import ua.demo.agentlab.ui.discovery.semantic.SemanticActionModelBuilder;
@@ -356,7 +356,7 @@ public class StageOutputPublisher {
         addFinding(state, "Page mapper prepared " + mappedUiKnowledge.pages().size() + " mapped UI page(s)");
     }
 
-    public void publishSpaInventory(SpaInventoryOutput output, WorkflowState state) {
+    public void publishUiInteractionInventory(UiInteractionInventoryOutput output, WorkflowState state) {
         if (state == null || output == null || output.inventory() == null) {
             return;
         }
@@ -371,15 +371,15 @@ public class StageOutputPublisher {
                 .flatMap(page -> page.components().stream())
                 .mapToInt(component -> component.actions().size())
                 .sum();
-        putArtifact(state, "spa.inventory.mode", output.inventory().mode().name());
-        putArtifact(state, "spa.inventory.page.count", String.valueOf(output.inventory().pages().size()));
-        putArtifact(state, "spa.inventory.component.count", String.valueOf(componentCount));
-        putArtifact(state, "spa.inventory.candidate.locator.count", String.valueOf(locatorCount));
-        putArtifact(state, "spa.inventory.candidate.action.count", String.valueOf(actionCount));
-        putArtifact(state, "spa.inventory.artifact.files", String.join(",", output.writtenFiles()));
-        putArtifact(state, "spa.inventory.neo4j.persisted", String.valueOf(output.persistence().executed()));
-        putArtifact(state, "spa.inventory.persistence.details", output.persistence().details());
-        addFinding(state, "SPA inventory prepared " + output.inventory().pages().size()
+        putArtifact(state, "ui.interaction.inventory.mode", output.inventory().mode().name());
+        putArtifact(state, "ui.interaction.inventory.page.count", String.valueOf(output.inventory().pages().size()));
+        putArtifact(state, "ui.interaction.inventory.component.count", String.valueOf(componentCount));
+        putArtifact(state, "ui.interaction.inventory.candidate.locator.count", String.valueOf(locatorCount));
+        putArtifact(state, "ui.interaction.inventory.candidate.action.count", String.valueOf(actionCount));
+        putArtifact(state, "ui.interaction.inventory.artifact.files", String.join(",", output.writtenFiles()));
+        putArtifact(state, "ui.interaction.inventory.neo4j.persisted", String.valueOf(output.persistence().executed()));
+        putArtifact(state, "ui.interaction.inventory.persistence.details", output.persistence().details());
+        addFinding(state, "UI interaction inventory prepared " + output.inventory().pages().size()
                 + " page(s), " + componentCount + " component(s), " + locatorCount
                 + " candidate locator(s); POM promotion remains disabled for inventory evidence");
     }

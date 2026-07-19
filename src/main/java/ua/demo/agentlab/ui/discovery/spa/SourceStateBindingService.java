@@ -10,8 +10,8 @@ import ua.demo.agentlab.ui.discovery.spa.model.RequirementStateTransition;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBinding;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,7 +32,7 @@ public final class SourceStateBindingService {
     );
 
     public SourceStateBindingBundle bind(ProjectProfile profile, List<StructuredBehaviorContract> contracts,
-                                         SpaInventoryBundle inventory, SpaInventoryConfig config) {
+                                         UiInteractionInventory inventory, SpaInventoryConfig config) {
         if (profile == null || inventory == null || config == null) {
             return new SourceStateBindingBundle(SourceStateBindingBundle.SCHEMA_VERSION, null, List.of(),
                     List.of("source-state-binding:missing-input"));
@@ -48,7 +48,7 @@ public final class SourceStateBindingService {
     public SourceStateBindingBundle rebindConfirmedTransitions(
             SourceStateBindingBundle current,
             LiveTransitionDiscovery discovery,
-            SpaInventoryBundle inventory
+            UiInteractionInventory inventory
     ) {
         if (current == null || discovery == null || inventory == null) {
             return current;
@@ -64,7 +64,7 @@ public final class SourceStateBindingService {
     private SourceStateBinding confirmedTransition(
             SourceStateBinding binding,
             LiveTransitionDiscovery discovery,
-            SpaInventoryBundle inventory
+            UiInteractionInventory inventory
     ) {
         RequirementStateTransition transition = discovery.transitions().stream()
                 .filter(candidate -> candidate.confirmed()
@@ -76,7 +76,7 @@ public final class SourceStateBindingService {
         if (transition == null) {
             return binding;
         }
-        SpaPageInventory source = inventory.pages().stream()
+        UiInteractionPage source = inventory.pages().stream()
                 .filter(page -> page.pageId().equalsIgnoreCase(transition.sourcePageId())
                         || routeMatches(page.route(), transition.sourceRoute()))
                 .findFirst()
@@ -103,9 +103,9 @@ public final class SourceStateBindingService {
     }
 
     private SourceStateBinding bindOne(ProjectProfile profile, StructuredBehaviorContract contract,
-                                       List<SpaPageInventory> pages, SpaInventoryConfig config) {
+                                       List<UiInteractionPage> pages, SpaInventoryConfig config) {
         List<String> review = new ArrayList<>(contract.reviewReasons());
-        SpaPageInventory source = resolveSourcePage(profile, contract, pages);
+        UiInteractionPage source = resolveSourcePage(profile, contract, pages);
         String targetHint = targetHint(contract);
         if (source == null) {
             review.add("No current-run source state matches the confirmed profile/discovery context.");
@@ -160,8 +160,8 @@ public final class SourceStateBindingService {
                 actionIds, eligible, distinct(review));
     }
 
-    private SpaPageInventory resolveSourcePage(ProjectProfile profile, StructuredBehaviorContract contract,
-                                               List<SpaPageInventory> pages) {
+    private UiInteractionPage resolveSourcePage(ProjectProfile profile, StructuredBehaviorContract contract,
+                                               List<UiInteractionPage> pages) {
         String sourceRoute = contextValue(contract.targetContext(), "sourceRoute");
         String resolvedRoute = resolveProfileRoute(profile, sourceRoute);
         if (!resolvedRoute.isBlank()) {
@@ -169,7 +169,7 @@ public final class SourceStateBindingService {
         }
         Set<String> sourceTokens = meaningfulTokens(sourceRoute + " " + contextValue(contract.targetContext(), "sourcePage"));
         if (!sourceTokens.isEmpty()) {
-            List<SpaPageInventory> matches = pages.stream().filter(page -> tokensMatch(page, sourceTokens)).toList();
+            List<UiInteractionPage> matches = pages.stream().filter(page -> tokensMatch(page, sourceTokens)).toList();
             if (matches.size() == 1) return matches.get(0);
         }
         String targetRoute = resolveProfileRoute(profile, contextValue(contract.targetContext(), "targetRoute"));
@@ -182,7 +182,7 @@ public final class SourceStateBindingService {
             return pages.stream().filter(page -> routeMatches(page.route(), profile.authenticatedRoute())).findFirst().orElse(null);
         }
         Set<String> targetTokens = meaningfulTokens(contextValue(contract.targetContext(), "targetPage"));
-        List<SpaPageInventory> matches = pages.stream().filter(page -> tokensMatch(page, targetTokens)).toList();
+        List<UiInteractionPage> matches = pages.stream().filter(page -> tokensMatch(page, targetTokens)).toList();
         return matches.size() == 1 ? matches.get(0) : null;
     }
 
@@ -276,7 +276,7 @@ public final class SourceStateBindingService {
         return route.startsWith("/") ? route : "";
     }
 
-    private boolean tokensMatch(SpaPageInventory page, Set<String> tokens) {
+    private boolean tokensMatch(UiInteractionPage page, Set<String> tokens) {
         if (tokens.isEmpty()) return false;
         String evidence = page.pageId() + " " + page.pageName() + " " + page.route() + " " + page.capability();
         return evidenceMatchesTokens(evidence, tokens, true);

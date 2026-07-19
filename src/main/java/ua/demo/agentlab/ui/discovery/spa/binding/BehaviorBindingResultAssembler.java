@@ -1,6 +1,7 @@
 package ua.demo.agentlab.ui.discovery.spa.binding;
 
 import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContract;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionPage;
 import ua.demo.agentlab.ui.discovery.spa.model.*;
 
 import java.util.List;
@@ -8,7 +9,7 @@ import java.util.Map;
 
 /** Materializes a binding result without making matching decisions. */
 public final class BehaviorBindingResultAssembler {
-    public BoundSpaBehaviorContract assemble(StructuredBehaviorContract source, SpaPageInventory page, String flowId,
+    public BoundSpaBehaviorContract assemble(StructuredBehaviorContract source, UiInteractionPage page, String flowId,
                                              List<SemanticComponentInventory> components,
                                              List<BoundSpaBehaviorStep> steps,
                                              List<BoundSpaBehaviorAssertion> assertions,

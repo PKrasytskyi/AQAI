@@ -5,6 +5,7 @@ import ua.demo.agentlab.orchestration.WorkflowState;
 import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaSourceStateBindingAgent;
 import ua.demo.agentlab.ui.discovery.spa.agent.UiSpaTargetStateBindingAgent;
 import ua.demo.agentlab.ui.discovery.interaction.agent.UiInteractionEvidenceAgent;
+import ua.demo.agentlab.demo.BuildWeekDemoCompletionAgent;
 
 import java.util.List;
 
@@ -37,7 +38,7 @@ public class AiPromptWorkflowFactory {
                 core.uiRuntimeEvidenceAgent(),
                 core.uiPageModelAgent(),
                 core.uiPageMappingAgent(),
-                core.uiSpaInventoryAgent(),
+                core.uiInteractionInventoryAgent(),
                 core.uiSpaComponentInteractionGraphAgent(),
                 core.uiPageKnowledgePersistenceAgent(),
                 core.uiDiscoveryArtifactPersistenceAgent(),
@@ -72,12 +73,14 @@ public class AiPromptWorkflowFactory {
                 core.generatedCodeCompileAgent(),
                 core.generatedCodeReviewAgent(),
                 core.generatedUiSmokeAgent(),
+                core.generatedTestExecutionAgent(),
                 core.uiSpaSmokeEvidenceFeedbackAgent(),
                 core.artifactLifecyclePromotionAgent(),
                 core.flowRuntimeFeedbackAgent(),
                 core.artifactReuseMetricsAgent(),
                 core.runtimeFeedbackDbUpdateAgent(),
-                core.runHistoryStatisticsAgent()
+                core.runHistoryStatisticsAgent(),
+                new BuildWeekDemoCompletionAgent()
         );
         return new WorkflowDefinition(initialState, agents);
     }

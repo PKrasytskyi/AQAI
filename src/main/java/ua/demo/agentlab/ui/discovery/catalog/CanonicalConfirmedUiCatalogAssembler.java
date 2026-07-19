@@ -9,8 +9,10 @@ import ua.demo.agentlab.ui.discovery.interaction.pipeline.CanonicalInteractionEv
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Projects canonical lifecycle decisions into a compact catalog without reclassifying evidence. */
 public final class CanonicalConfirmedUiCatalogAssembler {
@@ -34,13 +36,26 @@ public final class CanonicalConfirmedUiCatalogAssembler {
         long confirmedActions = canonical.promotionDecisions().stream()
                 .filter(item -> item.status() == InteractionEvidenceStatus.CONFIRMED)
                 .map(item -> item.interaction().scopedInteraction().candidate().actionKey().value()).distinct().count();
+        Set<String> requiredRequirements = canonical.requirementSelection().selected().stream()
+                .flatMap(item -> item.requirementIds().stream())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Set<String> confirmedRequirements = canonical.promotionDecisions().stream()
+                .filter(item -> item.status() == InteractionEvidenceStatus.CONFIRMED)
+                .flatMap(item -> item.interaction().scopedInteraction().requirementIds().stream())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Set<String> missingRequirements = new LinkedHashSet<>(requiredRequirements);
+        missingRequirements.removeAll(confirmedRequirements);
         boolean complete = canonical.invariants().passed()
                 && canonical.requirementSelection().unresolvedRequirements().isEmpty()
-                && requiredActions > 0 && confirmedActions == requiredActions;
+                && !requiredRequirements.isEmpty()
+                && missingRequirements.isEmpty();
         return new ConfirmedUiCatalog(ConfirmedUiCatalog.SCHEMA_VERSION, canonical.runId(), complete, pages,
                 List.of("projection-source=canonical-interaction-evidence",
-                        "required-actions=" + requiredActions,
+                        "selected-actions=" + requiredActions,
                         "confirmed-actions=" + confirmedActions,
+                        "required-requirements=" + requiredRequirements.size(),
+                        "confirmed-requirements=" + confirmedRequirements.size(),
+                        "missing-requirements=" + missingRequirements.size(),
                         "unresolved-requirements=" + canonical.requirementSelection().unresolvedRequirements().size()));
     }
 

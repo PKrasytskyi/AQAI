@@ -1,10 +1,8 @@
-package ua.demo.agentlab.ui.discovery.spa;
+package ua.demo.agentlab.ui.discovery.interaction.inventory;
 
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateActionEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.CandidateLocatorEvidence;
 import ua.demo.agentlab.ui.discovery.spa.model.SemanticComponentInventory;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaPageInventory;
-
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -13,16 +11,16 @@ import java.util.Map;
 import java.util.Set;
 
 /** Merges a live same-route state without discarding stronger multi-run discovery evidence. */
-public final class SpaPageInventoryMergeService {
+public final class UiInteractionPageMergeService {
 
-    public SpaPageInventory merge(SpaPageInventory discovered, SpaPageInventory liveTarget) {
+    public UiInteractionPage merge(UiInteractionPage discovered, UiInteractionPage liveTarget) {
         if (discovered == null) return liveTarget;
         if (liveTarget == null) return discovered;
         Map<String, SemanticComponentInventory> components = new LinkedHashMap<>();
         discovered.components().forEach(component -> components.put(component.componentId(), component));
         liveTarget.components().forEach(component -> components.merge(
                 component.componentId(), component, this::mergeComponent));
-        return new SpaPageInventory(
+        return new UiInteractionPage(
                 first(discovered.pageId(), liveTarget.pageId()),
                 first(discovered.pageName(), liveTarget.pageName()),
                 first(discovered.route(), liveTarget.route()),
@@ -30,7 +28,7 @@ public final class SpaPageInventoryMergeService {
                 first(discovered.pageFingerprintHash(), liveTarget.pageFingerprintHash()),
                 discovered.runMetadata() == null ? liveTarget.runMetadata() : discovered.runMetadata(),
                 List.copyOf(components.values()),
-                union(discovered.sourceTrace(), liveTarget.sourceTrace(), "spa-inventory:same-route-evidence-merge")
+                union(discovered.sourceTrace(), liveTarget.sourceTrace(), "interaction-inventory:same-route-evidence-merge")
         );
     }
 

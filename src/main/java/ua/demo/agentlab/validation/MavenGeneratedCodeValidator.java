@@ -6,6 +6,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,7 +21,15 @@ public class MavenGeneratedCodeValidator implements GeneratedCodeValidator {
     @Override
     public GeneratedCodeValidationResult validate(List<String> writtenFiles) {
         List<String> paths = writtenFiles == null ? List.of() : List.copyOf(writtenFiles);
-        ProcessBuilder processBuilder = new ProcessBuilder(buildCommand());
+        if (paths.isEmpty()) {
+            return new GeneratedCodeValidationResult(
+                    ValidationStatus.FAILED,
+                    "Generated code validation has no current-run manifest sources",
+                    "No manifest-owned source paths were supplied",
+                    List.of()
+            );
+        }
+        ProcessBuilder processBuilder = new ProcessBuilder(buildCommand(paths));
         processBuilder.directory(new java.io.File(workingDirectory));
         processBuilder.redirectErrorStream(true);
 
@@ -80,16 +89,54 @@ public class MavenGeneratedCodeValidator implements GeneratedCodeValidator {
         }
     }
 
-    private List<String> buildCommand() {
+    private List<String> buildCommand(List<String> manifestPaths) {
         String mvnExecutable = isWindows() ? "mvn.cmd" : "mvn";
+        Path sourceRoot = commonSourceRoot(manifestPaths);
 
         return List.of(
                 mvnExecutable,
                 "--batch-mode",
                 "-Duser.home=.",
                 "-Dmaven.repo.local=.m2repo",
+                "-Dagentlab.testSourceDirectory=" + sourceRoot,
                 "test-compile"
         );
+    }
+
+    public Path commonSourceRoot(List<String> manifestPaths) {
+        List<Path> parents = manifestPaths == null ? List.of() : manifestPaths.stream()
+                .map(Path::of)
+                .map(Path::toAbsolutePath)
+                .map(Path::normalize)
+                .map(Path::getParent)
+                .toList();
+        if (parents.isEmpty() || parents.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new IllegalArgumentException("Manifest source paths must have parent directories");
+        }
+        Path common = parents.get(0);
+        for (int index = 1; index < parents.size(); index++) {
+            common = commonAncestor(common, parents.get(index));
+        }
+        Path testSourceRoot = Path.of(workingDirectory, "src", "test", "java")
+                .toAbsolutePath()
+                .normalize();
+        if (!common.startsWith(testSourceRoot) || common.equals(testSourceRoot)) {
+            throw new IllegalArgumentException(
+                    "Manifest sources must share a project-specific namespace below " + testSourceRoot
+            );
+        }
+        return common;
+    }
+
+    private Path commonAncestor(Path left, Path right) {
+        Path current = left;
+        while (current != null && !right.startsWith(current)) {
+            current = current.getParent();
+        }
+        if (current == null) {
+            throw new IllegalArgumentException("Manifest source paths do not share a common directory");
+        }
+        return current;
     }
 
     private boolean isWindows() {

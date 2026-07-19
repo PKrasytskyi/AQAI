@@ -4,13 +4,13 @@ import ua.demo.agentlab.config.ProjectProfile;
 import ua.demo.agentlab.requirements.behavior.StructuredBehaviorContract;
 import ua.demo.agentlab.ui.discovery.spa.model.LiveTransitionDiscovery;
 import ua.demo.agentlab.ui.discovery.spa.model.SourceStateBindingBundle;
-import ua.demo.agentlab.ui.discovery.spa.model.SpaInventoryBundle;
+import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
 
 import java.util.List;
 
 public record SpaTargetStateBindingInput(ProjectProfile profile, List<StructuredBehaviorContract> contracts,
-                                         SpaInventoryBundle inventory, SourceStateBindingBundle sources,
+                                         UiInteractionInventory inventory, SourceStateBindingBundle sources,
                                          LiveTransitionDiscovery transitionDiscovery,
                                          SpaLiveTargetedVerificationResult liveVerification) {
     public SpaTargetStateBindingInput {
