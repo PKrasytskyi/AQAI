@@ -6,7 +6,7 @@ AQAI is an AI-assisted Java platform that turns capability-first requirements in
 
 [Build Week Demo](docs/BUILD_WEEK_DEMO.md) | [Captured Demo Evidence](docs/build-week/README.md) | [Architecture](docs/CURRENT_AI_UI_ARCHITECTURE.md) | [Developer Onboarding](docs/DEVELOPER_ONBOARDING.md)
 
-**Demo video:** 
+**Demo video:** https://youtu.be/rYHalJSPRjc
 
 ## Problem
 
