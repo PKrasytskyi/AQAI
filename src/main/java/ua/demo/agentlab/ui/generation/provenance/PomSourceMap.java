@@ -1,4 +1,4 @@
-package ua.demo.agentlab.ai.ui.contract;
+package ua.demo.agentlab.ui.generation.provenance;
 
 import java.util.List;
 

@@ -1,6 +1,6 @@
 package unit.tests.ai.ui.contract;
 
-import ua.demo.agentlab.ai.ui.contract.PomSourceMap;
+import ua.demo.agentlab.ui.generation.provenance.PomSourceMap;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
