@@ -83,7 +83,21 @@ public final class RequirementEvidenceSelector {
         if (normalized.contains(normalize(candidate.pageId())) || normalized.contains(normalize(candidate.componentId()))) {
             return 1.0d;
         }
+        String capability = contextValue(context, "pageCapability");
+        if (!capability.isBlank() && candidate.provenance().stream()
+                .filter(value -> value.startsWith("page-capability:"))
+                .map(value -> normalize(value.substring("page-capability:".length())))
+                .anyMatch(value -> value.contains(normalize(capability)))) {
+            return 0.95d;
+        }
         return routeMatch(context, candidate.route()) >= 1.0d ? 0.90d : 0.35d;
+    }
+
+    private String contextValue(String context, String key) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(
+                        "(?i)" + java.util.regex.Pattern.quote(key) + "\\s*:\\s*([^\\r\\n]+)")
+                .matcher(context == null ? "" : context);
+        return matcher.find() ? matcher.group(1).trim() : "";
     }
 
     private double semanticRelevance(StructuredBehaviorContract requirement, InteractionCandidate candidate) {

@@ -90,4 +90,5 @@ neo4j_data/
 neo4j_logs/
 qdrant_storage/
 /data/
+build-week-artifacts/
 /docs/UI_PLATFORM_ARCHITECTURE_SYSTEM_PROMPT.md

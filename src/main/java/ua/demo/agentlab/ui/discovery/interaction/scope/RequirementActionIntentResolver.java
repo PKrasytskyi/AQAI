@@ -14,8 +14,17 @@ public final class RequirementActionIntentResolver {
         if (contract == null) return result;
         String capability = normalize(contract.capability());
         for (String action : contract.actions()) addFromText(result, normalize(action));
+        contract.assertions().forEach(assertion -> addAssertionIntent(result, assertion == null ? "" : assertion.type()));
         addFromText(result, capability);
         return Set.copyOf(result);
+    }
+
+    private void addAssertionIntent(Set<SemanticAction> target, String assertionType) {
+        String type = normalize(assertionType);
+        if (containsAny(type, "element visible", "text visible", "text present", "content visible",
+                "authenticated area visible", "count greater", "list texts")) {
+            target.add(SemanticAction.READ);
+        }
     }
 
     private void addFromText(Set<SemanticAction> target, String value) {

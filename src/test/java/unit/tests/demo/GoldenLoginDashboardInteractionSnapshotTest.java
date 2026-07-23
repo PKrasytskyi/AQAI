@@ -28,7 +28,7 @@ public class GoldenLoginDashboardInteractionSnapshotTest {
     @Test
     public void canonicalInteractionTopologyMatchesGoldenLoginDashboardSnapshot() throws Exception {
         CanonicalInteractionEvidenceBundle bundle = new CanonicalInteractionEvidenceAssembler()
-                .assemble(inventory(), live(), requirements());
+                .assemble(inventory(), live(), null, requirements());
         List<Map<String, String>> interactions = bundle.promotionDecisions().stream()
                 .filter(item -> item.primary())
                 .map(item -> {

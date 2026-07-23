@@ -342,7 +342,8 @@ public final class BuildWeekDemoCompletionAgent implements WorkflowAgent,
                 | POM planning calls / stable reuse | %d / %d |
                 | Avoided LLM calls | %d |
                 | Neo4j / Qdrant | %s / %s |
-                | Quality score | %d / 100 |
+                | Evidence maturity score | %d / 100 |
+                | Score meaning | Evidence maturity, not test pass rate |
                 | Coverage gaps | %d |
                 | Blocking issues | %d |
                 | Canonical scenarios | %d |

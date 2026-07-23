@@ -13,7 +13,7 @@ public class EvidenceProjectionTraceAssemblerTest {
 
     @Test
     public void reportsCatalogAndPersistenceAsProjectionsOfCanonicalEvidence() {
-        var canonical = new CanonicalInteractionEvidenceAssembler().assemble(null, null, List.of());
+        var canonical = new CanonicalInteractionEvidenceAssembler().assemble(null, null, null, List.of());
         ConfirmedUiCatalog catalog = new ConfirmedUiCatalog(ConfirmedUiCatalog.SCHEMA_VERSION, "", false,
                 List.of(), List.of());
         var trace = new EvidenceProjectionTraceAssembler().assemble(canonical, catalog,

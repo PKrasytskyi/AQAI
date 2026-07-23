@@ -58,6 +58,18 @@ target/ai-run/quality/build-week-demo-summary.md
 
 The execution artifact contains one result per generated scenario with requirement IDs, generated source path, duration, failure summary, source-map action/assertion IDs, and Surefire evidence path. Only `UI_TEST` classes owned by the current-run `GeneratedSourceManifest` are selected.
 
+## Interpreting Quality Score
+
+The Build Week `qualityScore` measures evidence maturity, not the percentage of application functionality that works. It is deliberately affected by the amount of candidate evidence still awaiting promotion, locator-score distribution, prompt-ready coverage, runtime feedback risk, and terminal failures. Compile, review, smoke, and generated-test execution remain separate pass/fail signals.
+
+Accordingly, a successful run can report a conservative score such as `79/100` while still showing `0` blocking issues, `0` review findings, compile passed, live smoke passed, and `4/4` generated tests passed. Unsupported assertions are retained as explicit coverage gaps until the canonical pipeline proves an exact locator:
+
+```text
+candidate -> scoring -> live verification -> promotion -> ConfirmedUiCatalog
+```
+
+AQAI does not fabricate a locator or assertion merely to increase the score. The final Build Week summary displays both the score and the coverage-gap count so the distinction stays visible to reviewers.
+
 ## AI Boundary
 
 OpenAI is used only for semantic page enrichment and `PomContractSpec` planning. The checked-in default model identifier is `gpt-5.6-luna`, with `OPENAI_MODEL` as the runtime override. Requirements normalization, evidence filtering and promotion, Page Object Java, test contract assembly, TestNG Java, compile, review, smoke, and execution are deterministic.
@@ -77,4 +89,15 @@ TEST_VALID_PASSWORD
 KNOWLEDGE_GRAPH_NEO4J_PASSWORD   # with-db only
 ```
 
-The workflow uploads the complete `target/ai-run`, discovery evidence, Surefire reports, and namespaced generated sources even when a gate fails.
+`without-db` performs one cold baseline run. It uploads `without-db-summary.md` and `.json` beside the regular runtime evidence.
+
+`with-db` is intentionally a two-run workflow on the same clean GitHub runner:
+
+```text
+Neo4j + Qdrant start empty
+  -> Run 1: knowledge seed
+  -> persistence, promotion, and stable artifact write
+  -> Run 2: measured knowledge reuse
+```
+
+The services and `target/ai-run-history/stable` are preserved between those two runs. The measured reuse summary is therefore expected to show cache/registry hits and avoided LLM calls only when the seed evidence passed the normal promotion, compile, review, smoke, and runtime-feedback gates. The uploads include separate `with-db-seed-summary.md` and `with-db-reuse-summary.md` artifacts, plus the seed evidence snapshot, final reuse evidence, stable artifact store, discovery evidence, Surefire reports, and namespaced generated sources even when a gate fails.

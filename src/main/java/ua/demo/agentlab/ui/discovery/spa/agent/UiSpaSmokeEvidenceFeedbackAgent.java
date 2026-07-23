@@ -12,7 +12,7 @@ import ua.demo.agentlab.ui.discovery.spa.PropertiesSpaInventoryConfig;
 import ua.demo.agentlab.ui.discovery.interaction.persistence.CanonicalInteractionSmokeFeedbackWriter;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaSmokeEvidenceFeedbackResult;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
-import ua.demo.agentlab.ui.generated.PomSourceMap;
+import ua.demo.agentlab.ui.generation.provenance.PomSourceMap;
 import ua.demo.agentlab.validation.smoke.LiveUiSmokeResult;
 import ua.demo.agentlab.validation.feedback.GeneratedUiClosedLoopPolicy;
 

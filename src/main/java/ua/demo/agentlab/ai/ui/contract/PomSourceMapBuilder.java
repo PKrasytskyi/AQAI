@@ -1,7 +1,7 @@
 package ua.demo.agentlab.ai.ui.contract;
 
-import ua.demo.agentlab.ui.generated.PomSourceMap;
 
+import ua.demo.agentlab.ui.generation.provenance.PomSourceMap;
 import ua.demo.agentlab.ui.writer.GeneratedSourceFile;
 
 import java.util.ArrayList;

@@ -17,6 +17,7 @@
 
     <properties>
         <java.version>17</java.version>
+        <selenium.version>4.44.0</selenium.version>
         <cucumber.version>7.34.3</cucumber.version>
         <rest.assured.version>5.5.7</rest.assured.version>
         <exec.mainClass>ua.demo.agentlab.app.DemoRunner</exec.mainClass>
@@ -71,6 +72,20 @@
         </plugins>
     </build>
 
+    <dependencyManagement>
+        <dependencies>
+
+            <dependency>
+                <groupId>org.seleniumhq.selenium</groupId>
+                <artifactId>selenium-bom</artifactId>
+                <version>${selenium.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+        </dependencies>
+    </dependencyManagement>
+
 
 
     <dependencies>
@@ -79,12 +94,6 @@
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-java</artifactId>
-            <version>4.30.0</version>
-            <scope>test</scope>
-        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -113,17 +122,16 @@
             <artifactId>rest-assured</artifactId>
             <version>${rest.assured.version}</version>
         </dependency>
+        <!-- Selenium runtime used by AQAI discovery and generated tests -->
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-api</artifactId>
+            <artifactId>selenium-java</artifactId>
         </dependency>
+
+        <!-- Explicit CDP binding for pinned Chrome 148 -->
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-chrome-driver</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-support</artifactId>
+            <artifactId>selenium-devtools-v148</artifactId>
         </dependency>
         <dependency>
             <groupId>org.testng</groupId>

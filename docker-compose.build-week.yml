@@ -1,0 +1,45 @@
+name: aqai-build-week
+
+services:
+  neo4j:
+    image: neo4j:5.26
+    environment:
+      NEO4J_AUTH: neo4j/${KNOWLEDGE_GRAPH_NEO4J_PASSWORD:?Set KNOWLEDGE_GRAPH_NEO4J_PASSWORD in .env}
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 512m
+    volumes:
+      - aqai_neo4j_data:/data
+
+  qdrant:
+    image: qdrant/qdrant:v1.14.1
+    volumes:
+      - aqai_qdrant_storage:/qdrant/storage
+
+  aqai:
+    image: ${AQAI_IMAGE:-ghcr.io/pkrasytskyi/aqai-build-week}:${AQAI_IMAGE_TAG:-2026}
+    depends_on:
+      - neo4j
+      - qdrant
+    environment:
+      AQAI_DEMO: orangehrm
+      AQAI_RUN_SEQUENCE: seed-and-reuse
+      AQAI_ARTIFACTS_DIR: /artifacts
+      AQAI_KNOWLEDGE_WAIT_TIMEOUT_SECONDS: "120"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in .env}
+      RAG_OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in .env}
+      KNOWLEDGE_VECTOR_OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in .env}
+      TEST_VALID_USERNAME: ${TEST_VALID_USERNAME:?Set TEST_VALID_USERNAME in .env}
+      TEST_VALID_PASSWORD: ${TEST_VALID_PASSWORD:?Set TEST_VALID_PASSWORD in .env}
+      KNOWLEDGE_DB_STATUS: "true"
+      KNOWLEDGE_GRAPH_NEO4J_URL: http://neo4j:7474
+      KNOWLEDGE_GRAPH_NEO4J_PASSWORD: ${KNOWLEDGE_GRAPH_NEO4J_PASSWORD:?Set KNOWLEDGE_GRAPH_NEO4J_PASSWORD in .env}
+      KNOWLEDGE_VECTOR_QDRANT_URL: http://qdrant:6333
+      RAG_QDRANT_URL: http://qdrant:6333
+    shm_size: 2gb
+    volumes:
+      - ./build-week-artifacts/ai-run-history:/opt/aqai/target/ai-run-history
+      - ./build-week-artifacts:/artifacts
+
+volumes:
+  aqai_neo4j_data:
+  aqai_qdrant_storage:

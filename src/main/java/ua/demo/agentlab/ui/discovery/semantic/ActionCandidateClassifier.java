@@ -53,6 +53,7 @@ public class ActionCandidateClassifier {
             case "INPUT", "PASSWORD_INPUT", "TEXTAREA" -> {
                 add(candidates, "TYPE", element.elementId(), 0.90d, "semantic-element:" + semanticType);
                 add(candidates, "CLEAR", element.elementId(), 0.78d, "semantic-element:" + semanticType);
+                add(candidates, "READ", element.elementId(), 0.82d, "semantic-element:" + semanticType);
             }
             case "SELECT" -> add(candidates, "SELECT", element.elementId(), 0.90d, "semantic-element:SELECT");
             case "CHECKBOX" -> {
@@ -63,7 +64,8 @@ public class ActionCandidateClassifier {
             case "RANGE_SLIDER" -> add(candidates, "SET_SLIDER", element.elementId(), 0.90d,
                     "semantic-element:RANGE_SLIDER");
             case "IMAGE" -> add(candidates, "HOVER", element.elementId(), 0.78d, "semantic-element:IMAGE");
-            case "COLLECTION" -> add(candidates, "READ", element.elementId(), 0.78d, "semantic-element:COLLECTION");
+            case "COLLECTION", "HEADING" ->
+                    add(candidates, "READ", element.elementId(), 0.82d, "semantic-element:" + semanticType);
             default -> {
                 if (containsAny(evidence, "button", "click", "submit", "link")) {
                     add(candidates, "CLICK", element.elementId(), 0.72d, "semantic-evidence:clickable");

@@ -34,6 +34,7 @@ public final class UiInteractionEvidenceAgent implements WorkflowAgent,
     @Override public Set<WorkflowArtifact> requires() {
         return Set.of(WorkflowArtifact.UI_EFFECTIVE_INTERACTION_INVENTORY,
                 WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION,
+                WorkflowArtifact.SPA_TARGET_STATE_BINDINGS,
                 WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS,
                 WorkflowArtifact.ASSERTION_CONTRACTS);
     }
@@ -54,7 +55,8 @@ public final class UiInteractionEvidenceAgent implements WorkflowAgent,
         List<StructuredBehaviorContract> requirements = store.require(WorkflowArtifact.STRUCTURED_BEHAVIOR_CONTRACTS);
         List<AssertionContract> assertions = store.require(WorkflowArtifact.ASSERTION_CONTRACTS);
         return new UiInteractionEvidenceInput(store.require(WorkflowArtifact.UI_EFFECTIVE_INTERACTION_INVENTORY),
-                store.require(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION), requirements, assertions);
+                store.require(WorkflowArtifact.SPA_LIVE_TARGETED_VERIFICATION),
+                store.require(WorkflowArtifact.SPA_TARGET_STATE_BINDINGS), requirements, assertions);
     }
 
     @Override public boolean supports(UiInteractionEvidenceInput input, WorkflowRunEnvelope run) {
@@ -62,7 +64,8 @@ public final class UiInteractionEvidenceAgent implements WorkflowAgent,
     }
 
     @Override public UiInteractionEvidenceOutput execute(UiInteractionEvidenceInput input, WorkflowRunEnvelope run) {
-        var canonical = canonicalAssembler.assemble(input.inventory(), input.liveVerification(), input.requirements());
+        var canonical = canonicalAssembler.assemble(input.inventory(), input.liveVerification(),
+                input.targetStateBindings(), input.requirements());
         var coverage = coverageAssembler.assemble(canonical);
         var catalog = catalogAssembler.assemble(canonical, input.assertions());
         var graph = graphWriter.persist(canonical, input.inventory());

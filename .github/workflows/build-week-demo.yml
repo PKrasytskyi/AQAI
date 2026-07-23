@@ -26,6 +26,8 @@ jobs:
     timeout-minutes: 45
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      RAG_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      KNOWLEDGE_VECTOR_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: gpt-5.6-luna
       TEST_VALID_USERNAME: ${{ secrets.TEST_VALID_USERNAME }}
       TEST_VALID_PASSWORD: ${{ secrets.TEST_VALID_PASSWORD }}
@@ -80,8 +82,67 @@ jobs:
       - name: Run unit and invariant tests
         run: mvn --batch-mode --no-transfer-progress test
 
-      - name: Run manifest-driven OrangeHRM demo
+      - name: Run without-DB baseline demo
+        if: ${{ inputs.database_mode == 'without-db' }}
         run: mvn --batch-mode --no-transfer-progress exec:java "-Dexec.args=--demo orangehrm"
+
+      - name: Preserve without-DB summary
+        if: ${{ always() && inputs.database_mode == 'without-db' }}
+        shell: bash
+        run: |
+          mkdir -p target/build-week-evidence
+          cp target/ai-run/quality/build-week-demo-summary.md target/build-week-evidence/without-db-summary.md 2>/dev/null || true
+          cp target/ai-run/quality/build-week-demo-summary.json target/build-week-evidence/without-db-summary.json 2>/dev/null || true
+
+      - name: Run with-DB knowledge seed demo
+        if: ${{ inputs.database_mode == 'with-db' }}
+        run: mvn --batch-mode --no-transfer-progress exec:java "-Dexec.args=--demo orangehrm"
+
+      - name: Preserve with-DB seed summary and evidence
+        if: ${{ always() && inputs.database_mode == 'with-db' }}
+        shell: bash
+        run: |
+          mkdir -p target/build-week-evidence
+          cp target/ai-run/quality/build-week-demo-summary.md target/build-week-evidence/with-db-seed-summary.md 2>/dev/null || true
+          cp target/ai-run/quality/build-week-demo-summary.json target/build-week-evidence/with-db-seed-summary.json 2>/dev/null || true
+          cp -R target/ai-run target/build-week-evidence/with-db-seed-ai-run 2>/dev/null || true
+          cp -R target/discovery target/build-week-evidence/with-db-seed-discovery 2>/dev/null || true
+
+      - name: Run measured with-DB knowledge reuse demo
+        if: ${{ inputs.database_mode == 'with-db' && success() }}
+        run: mvn --batch-mode --no-transfer-progress exec:java "-Dexec.args=--demo orangehrm"
+
+      - name: Preserve with-DB reuse summary
+        if: ${{ always() && inputs.database_mode == 'with-db' }}
+        shell: bash
+        run: |
+          mkdir -p target/build-week-evidence
+          cp target/ai-run/quality/build-week-demo-summary.md target/build-week-evidence/with-db-reuse-summary.md 2>/dev/null || true
+          cp target/ai-run/quality/build-week-demo-summary.json target/build-week-evidence/with-db-reuse-summary.json 2>/dev/null || true
+
+      - name: Upload without-DB summary
+        if: ${{ always() && inputs.database_mode == 'without-db' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: orangehrm-without-db-summary
+          path: target/build-week-evidence/without-db-summary.*
+          if-no-files-found: warn
+
+      - name: Upload with-DB seed summary
+        if: ${{ always() && inputs.database_mode == 'with-db' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: orangehrm-with-db-seed-summary
+          path: target/build-week-evidence/with-db-seed-summary.*
+          if-no-files-found: warn
+
+      - name: Upload with-DB reuse summary
+        if: ${{ always() && inputs.database_mode == 'with-db' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: orangehrm-with-db-reuse-summary
+          path: target/build-week-evidence/with-db-reuse-summary.*
+          if-no-files-found: warn
 
       - name: Upload Build Week evidence
         if: always()
@@ -91,6 +152,9 @@ jobs:
           path: |
             target/ai-run/
             target/discovery/
+            target/ai-run-history/stable/
+            target/build-week-evidence/
             target/surefire-reports/
+            src/main/java/ua/demo/agentlab/ui/generated/
             src/test/java/ua/demo/agentlab/ui/generated/
           if-no-files-found: warn

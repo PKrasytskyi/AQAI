@@ -12,6 +12,7 @@ import ua.demo.agentlab.ui.discovery.interaction.selection.TopKInteractionSelect
 import ua.demo.agentlab.ui.discovery.interaction.verification.UiLiveVerificationFacade;
 import ua.demo.agentlab.ui.discovery.interaction.inventory.UiInteractionInventory;
 import ua.demo.agentlab.ui.discovery.spa.model.SpaLiveTargetedVerificationResult;
+import ua.demo.agentlab.ui.discovery.spa.model.TargetStateBindingBundle;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,6 +33,7 @@ public final class CanonicalInteractionEvidenceAssembler {
     public CanonicalInteractionEvidenceBundle assemble(
             UiInteractionInventory inventory,
             SpaLiveTargetedVerificationResult live,
+            TargetStateBindingBundle targetStateBindings,
             List<StructuredBehaviorContract> requirements
     ) {
         List<InteractionCandidate> candidates = semanticMapper.map(inventory);
@@ -39,7 +41,7 @@ public final class CanonicalInteractionEvidenceAssembler {
         TopKInteractionSelection topK = topKSelector.select(requirementSelection.selected());
         List<LiveVerifiedInteraction> liveResults = new ArrayList<>();
         for (RequirementScopedInteraction scoped : topK.selected()) {
-            InteractionVerification verification = liveVerificationFacade.verify(scoped, live);
+            InteractionVerification verification = liveVerificationFacade.verify(scoped, live, targetStateBindings);
             liveResults.add(scoringService.scoreLive(scoped, verification));
         }
         List<LocatorPromotionDecision> decisions = promotionPolicy.decide(liveResults, topK.rejected());
